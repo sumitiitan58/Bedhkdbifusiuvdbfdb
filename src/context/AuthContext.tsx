@@ -299,8 +299,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await signInWithPopup(auth, googleProvider);
       setOnboardingModalOpen(false);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Google Sign-In failed.';
-      setAuthError(msg);
+      const code =
+        typeof err === 'object' && err !== null && 'code' in err
+          ? String((err as { code?: unknown }).code ?? '')
+          : '';
+      const rawMsg = err instanceof Error ? err.message : 'Google Sign-In failed.';
+      if (code === 'auth/unauthorized-domain' || rawMsg.includes('unauthorized-domain')) {
+        const host = typeof window !== 'undefined' ? window.location.hostname : 'prepskm.in';
+        setAuthError(
+          `Domain "${host}" is not yet authorized in Firebase Auth. Open Firebase Console (project gen-lang-client-0309095308) → Authentication → Settings → Authorized domains, and add "prepskm.in" and "www.prepskm.in".`
+        );
+      } else if (code === 'auth/popup-closed-by-user') {
+        setAuthError('Google Sign-In popup was closed before completing sign-in.');
+      } else {
+        setAuthError(rawMsg);
+      }
     }
   }, []);
 
