@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   ALL_APP_ROUTES,
+  MOBILE_BOTTOM_TABS,
   PUBLIC_NAV_ROUTES,
   filterCohortsByStream,
   getCohortById,
@@ -9,18 +10,23 @@ import {
 } from './navigation.ts';
 import { STARTER_CLASS_GROUPS, STUDENT_COHORTS } from '../services/platformRegistry.ts';
 
-test('PUBLIC_NAV_ROUTES exposes all 7 required Navbar links and ALL_APP_ROUTES includes /profile', () => {
+test('PUBLIC_NAV_ROUTES removes /lectures and exposes 6 clean links; MOBILE_BOTTOM_TABS includes /profile', () => {
   const navPaths = PUBLIC_NAV_ROUTES.map((r) => r.path);
   assert.deepEqual(navPaths, [
     '/',
     '/materials',
-    '/lectures',
     '/cbt-mocks',
     '/dpp',
     '/analytics',
     '/admin',
   ]);
+  assert.equal(navPaths.includes('/lectures'), false);
+  assert.deepEqual(
+    MOBILE_BOTTOM_TABS.map((t) => t.path),
+    ['/', '/materials', '/cbt-mocks', '/analytics', '/profile']
+  );
   assert.ok(ALL_APP_ROUTES.some((r) => r.path === '/profile'));
+  assert.ok(ALL_APP_ROUTES.some((r) => r.path === '/about'));
 });
 
 test('isRouteActive matches exact root and nested module paths', () => {

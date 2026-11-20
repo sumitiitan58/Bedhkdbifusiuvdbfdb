@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { ExternalLink } from 'lucide-react';
 import { BrandLogo } from './BrandLogo';
 import { BRAND_CONFIG } from '../assets/brand';
 import { PUBLIC_NAV_ROUTES } from '../utils/navigation';
@@ -8,24 +9,40 @@ export function Footer() {
   const { allCohorts } = usePlatformData();
 
   return (
-    <footer className="bg-white dark:bg-[#0C1324] border-t border-slate-200 dark:border-slate-800 mt-16">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-start">
-          <div className="md:col-span-5 space-y-3">
+    <footer className="bg-white dark:bg-[#0C1324] border-t border-slate-200 dark:border-slate-800 mt-10 pb-20 lg:pb-0">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
+          <div className="md:col-span-5 space-y-2.5">
             <BrandLogo variant="footer" />
-            <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed max-w-md">
-              Multi-class educational ecosystem for Class 9–10 Foundation, Class 11–12 Boards,
-              JEE Main &amp; Advanced, NEET UG, and Droppers — uniting weekly study schedules,
-              chapter-organized PDFs &amp; videos, NTA-style CBT mocks, DPPs, and deep performance graphs.
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed max-w-md">
+              Official JEE Main, JEE Advanced, NEET UG &amp; Class 9–12 Board platform by{' '}
+              <span className="font-semibold text-[#0B1B3B] dark:text-white">
+                {BRAND_CONFIG.creatorHandle}
+              </span>{' '}
+              — uniting weekly schedules, chapter PDFs &amp; concept videos, NTA CBT mocks, DPPs, and Gemini AI IQ analytics.
             </p>
+            <div className="flex flex-wrap gap-2 pt-1">
+              {BRAND_CONFIG.socials.map((s) => (
+                <a
+                  key={s.id}
+                  href={s.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-[11px] font-semibold text-slate-700 dark:text-slate-300 hover:border-[#2563EB] hover:text-[#2563EB] dark:hover:text-sky-400 transition-colors"
+                >
+                  <span>{s.label}</span>
+                  <ExternalLink className="w-3 h-3 opacity-70" />
+                </a>
+              ))}
+            </div>
           </div>
 
           <div className="md:col-span-3">
-            <h3 className="font-display text-sm font-bold text-[#0B1B3B] dark:text-white">
-              Platform Navigation
+            <h3 className="font-display text-xs font-bold uppercase tracking-wider text-[#0B1B3B] dark:text-white">
+              Quick Sitelinks
             </h3>
-            <ul className="mt-3 grid grid-cols-2 md:grid-cols-1 gap-y-2 gap-x-4 text-sm text-slate-600 dark:text-slate-400">
-              {PUBLIC_NAV_ROUTES.map((route) => (
+            <ul className="mt-2.5 grid grid-cols-2 md:grid-cols-1 gap-y-1.5 gap-x-4 text-xs sm:text-sm text-slate-600 dark:text-slate-400">
+              {PUBLIC_NAV_ROUTES.filter((r) => r.path !== '/admin').map((route) => (
                 <li key={route.path}>
                   <Link
                     to={route.path}
@@ -48,31 +65,33 @@ export function Footer() {
                   to="/about"
                   className="hover:text-[#2563EB] dark:hover:text-sky-400 transition-colors"
                 >
-                  About &amp; FAQs
+                  About {BRAND_CONFIG.creatorHandle}
                 </Link>
               </li>
             </ul>
           </div>
 
-          <div className="md:col-span-4">
-            <h3 className="font-display text-sm font-bold text-[#0B1B3B] dark:text-white">
-              Active Classes &amp; Sub-Classes
+          <div className="md:col-span-4 space-y-2">
+            <h3 className="font-display text-xs font-bold uppercase tracking-wider text-[#0B1B3B] dark:text-white">
+              Classes &amp; Streams
             </h3>
-            <p className="mt-3 text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
               {allCohorts.map((c) => c.shortLabel).join(' · ')}
             </p>
-            <p className="mt-4 text-xs text-slate-500 dark:text-slate-400">
-              Official Portal: <span className="font-mono">{BRAND_CONFIG.websiteUrl}</span>
-            </p>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              Academic Support: {BRAND_CONFIG.supportEmail}
+            <p className="text-xs text-slate-500 dark:text-slate-400 pt-1">
+              Portal: <span className="font-mono">{BRAND_CONFIG.websiteUrl}</span> · Official Handle:{' '}
+              <span className="font-mono font-semibold text-[#F97316]">
+                {BRAND_CONFIG.creatorHandle}
+              </span>
             </p>
           </div>
         </div>
 
-        <div className="mt-10 pt-6 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
-          <p>© {new Date().getFullYear()} {BRAND_CONFIG.name}. All rights reserved.</p>
-          <p>Engineered for focused preparation across JEE, NEET &amp; Boards.</p>
+        <div className="mt-7 pt-5 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
+          <p>
+            © {new Date().getFullYear()} {BRAND_CONFIG.name} · Built by {BRAND_CONFIG.creatorHandle}.
+          </p>
+          <p>JEE Main · JEE Advanced · NEET UG · Class 9–12 Boards</p>
         </div>
       </div>
     </footer>

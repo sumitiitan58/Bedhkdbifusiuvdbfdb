@@ -98,6 +98,7 @@
         "cohorts": { "type": "array" },
         "fileUrl": { "type": "string", "minLength": 1, "maxLength": 750000 },
         "thumbnailUrl": { "type": "string", "maxLength": 300000 },
+        "attachments": { "type": "array" },
         "storagePath": { "type": "string", "maxLength": 500 },
         "fileName": { "type": "string", "maxLength": 255 },
         "fileSizeBytes": { "type": "number" },

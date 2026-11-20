@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   ClipboardCheck,
   Clock,
+  Eye,
   FileCheck2,
   Play,
   ShieldAlert,
@@ -16,6 +17,7 @@ import { ReusableCard } from '../components/ReusableCard';
 import { ReusableButton } from '../components/ReusableButton';
 import { SeoHead } from '../components/SeoHead';
 import { CbtExamRunner } from '../components/exam/CbtExamRunner';
+import { AttemptReviewModal } from '../components/analytics/AttemptReviewModal';
 import { useAuth } from '../context/AuthContext';
 import { usePlatformData } from '../context/PlatformDataContext';
 import {
@@ -23,7 +25,7 @@ import {
   getEffectiveTestSyllabus,
 } from '../utils/examPresets';
 import { playClick } from '../utils/soundEffects';
-import type { MockTestRecord, StudentCohortId } from '../types';
+import type { MockTestRecord, StudentCohortId, TestAttemptRecord } from '../types';
 
 export default function CbtMocksPage() {
   const { cohortId } = useAuth();
@@ -32,6 +34,7 @@ export default function CbtMocksPage() {
   const [filterCohort, setFilterCohort] = useState<StudentCohortId | 'all'>('all');
   const [activeTest, setActiveTest] = useState<MockTestRecord | null>(null);
   const [syllabusTest, setSyllabusTest] = useState<MockTestRecord | null>(null);
+  const [reviewAttempt, setReviewAttempt] = useState<TestAttemptRecord | null>(null);
 
   const publishedCbts = useMemo(
     () =>
@@ -141,7 +144,7 @@ export default function CbtMocksPage() {
             </ReusableButton>
           </ReusableCard>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4">
             {publishedCbts.map((t) => {
               const linkedCount = questions.filter((q) => q.testId === t.id).length;
               const testAttempts = cbtAttempts.filter((a) => a.testId === t.id);
@@ -156,7 +159,8 @@ export default function CbtMocksPage() {
                 <ReusableCard
                   key={t.id}
                   interactive
-                  className="flex flex-col justify-between gap-5"
+                  padding="sm"
+                  className="flex flex-col justify-between gap-4"
                 >
                   <div className="space-y-3">
                     <div className="flex items-center justify-between gap-2 text-xs font-semibold">
@@ -190,12 +194,22 @@ export default function CbtMocksPage() {
                     </div>
 
                     {bestAttempt && (
-                      <div className="flex items-center justify-between text-xs pt-1 text-emerald-700 dark:text-emerald-400 font-semibold">
+                      <div className="flex items-center justify-between gap-2 text-xs pt-1 text-emerald-700 dark:text-emerald-400 font-semibold">
                         <span className="inline-flex items-center gap-1">
                           <Trophy className="w-3.5 h-3.5" />
                           Best: {bestAttempt.score} / {bestAttempt.maxScore}
                         </span>
-                        <span className="tabular-nums">{testAttempts.length} attempt(s)</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            playClick();
+                            setReviewAttempt(testAttempts[testAttempts.length - 1]);
+                          }}
+                          className="inline-flex items-center gap-1 text-[#2563EB] dark:text-sky-400 hover:underline"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          Solutions
+                        </button>
                       </div>
                     )}
                   </div>
@@ -211,7 +225,7 @@ export default function CbtMocksPage() {
                       className="shrink-0"
                     >
                       <BookOpen className="w-4 h-4 text-[#2563EB]" />
-                      View Syllabus
+                      Syllabus
                     </ReusableButton>
 
                     <ReusableButton
@@ -254,11 +268,12 @@ export default function CbtMocksPage() {
                     <th className="py-2 px-3">Accuracy</th>
                     <th className="py-2 px-3">IQ Score</th>
                     <th className="py-2 px-3">Room Warnings</th>
-                    <th className="py-2 pl-3">Date</th>
+                    <th className="py-2 px-3">Date</th>
+                    <th className="py-2 pl-3 text-right">Review</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/70 tabular-nums">
-                  {[...cbtAttempts].reverse().slice(0, 6).map((att) => (
+                  {[...cbtAttempts].reverse().slice(0, 8).map((att) => (
                     <tr key={att.id}>
                       <td className="py-2.5 pr-4 font-semibold text-slate-900 dark:text-white">
                         {att.testTitle}
@@ -284,11 +299,24 @@ export default function CbtMocksPage() {
                           <span className="text-emerald-600 dark:text-emerald-400">0 (Clean)</span>
                         )}
                       </td>
-                      <td className="py-2.5 pl-3 text-xs text-slate-500 dark:text-slate-400">
+                      <td className="py-2.5 px-3 text-xs text-slate-500 dark:text-slate-400">
                         <span className="inline-flex items-center gap-1">
                           <Clock className="w-3.5 h-3.5" />
                           {new Date(att.submittedAtIso).toLocaleDateString()}
                         </span>
+                      </td>
+                      <td className="py-2.5 pl-3 text-right">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            playClick();
+                            setReviewAttempt(att);
+                          }}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-[#2563EB] hover:bg-[#1D4ED8] text-white transition-colors"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          Analysis &amp; Solutions
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -390,6 +418,13 @@ export default function CbtMocksPage() {
             </div>
           </ReusableCard>
         </div>
+      )}
+      {reviewAttempt && (
+        <AttemptReviewModal
+          attempt={reviewAttempt}
+          questions={questions}
+          onClose={() => setReviewAttempt(null)}
+        />
       )}
     </PageLayout>
   );

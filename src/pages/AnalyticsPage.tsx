@@ -1,9 +1,10 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Activity,
   Award,
   BarChart3,
   Clock,
+  Eye,
   Info,
   ShieldCheck,
   Target,
@@ -36,11 +37,22 @@ import { ResponsiveContainer } from '../components/ResponsiveContainer';
 import { ReusableCard } from '../components/ReusableCard';
 import { ReusableButton } from '../components/ReusableButton';
 import { SeoHead } from '../components/SeoHead';
+import { GeminiMentorPanel } from '../components/ai/GeminiMentorPanel';
+import { AttemptReviewModal } from '../components/analytics/AttemptReviewModal';
+import { useAuth } from '../context/AuthContext';
 import { usePlatformData } from '../context/PlatformDataContext';
 import { computeCumulativeAnalytics } from '../utils/scoringEngine';
+import {
+  computeWeeklyScheduleStats,
+  createDefaultWeeklySchedule,
+} from '../utils/weeklySchedule';
+import { playClick } from '../utils/soundEffects';
+import type { TestAttemptRecord } from '../types';
 
 export default function AnalyticsPage() {
-  const { attempts, iqConfig } = usePlatformData();
+  const { profile, cohortId } = useAuth();
+  const { allCohorts, attempts, questions, iqConfig, progress } = usePlatformData();
+  const [reviewAttempt, setReviewAttempt] = useState<TestAttemptRecord | null>(null);
 
   const orderedAttempts = useMemo(
     () =>
@@ -162,6 +174,19 @@ export default function AnalyticsPage() {
     );
   }, [orderedAttempts]);
 
+  const activeCohortLabel = useMemo(
+    () => allCohorts.find((c) => c.id === cohortId)?.label ?? 'JEE / NEET Aspirant',
+    [allCohorts, cohortId]
+  );
+
+  const weeklyCompletion = useMemo(() => {
+    const items =
+      progress.weeklySchedule && progress.weeklySchedule.length > 0
+        ? progress.weeklySchedule
+        : createDefaultWeeklySchedule();
+    return computeWeeklyScheduleStats(items);
+  }, [progress.weeklySchedule]);
+
   return (
     <PageLayout>
       <SeoHead
@@ -171,20 +196,20 @@ export default function AnalyticsPage() {
         noIndex
       />
 
-      <ResponsiveContainer className="py-8 sm:py-10 space-y-8">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+      <ResponsiveContainer className="py-5 sm:py-8 space-y-5 sm:space-y-6">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-3">
           <div>
             <p className="text-xs font-bold uppercase tracking-wider text-[#F97316]">
-              100% Real Attempt Diagnostics
+              100% Real Attempt Diagnostics + Gemini AI Coach
             </p>
-            <h1 className="font-display text-3xl font-extrabold text-[#0B1B3B] dark:text-white mt-0.5">
+            <h1 className="font-display text-2xl sm:text-3xl font-extrabold text-[#0B1B3B] dark:text-white mt-0.5">
               Student Performance Analytics
             </h1>
-            <p className="mt-1.5 text-sm sm:text-base text-slate-600 dark:text-slate-400">
-              Every graph, radar chart, and chapter diagnostic updates live from your actual CBT Mock Tests and DPP submissions.
+            <p className="mt-1 text-xs sm:text-sm text-slate-600 dark:text-slate-400">
+              Every graph, radar chart, and past test solution updates live from your CBT Mock Tests and DPP submissions.
             </p>
           </div>
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
             <ReusableButton variant="primary" size="sm" to="/cbt-mocks">
               Take CBT Mock
             </ReusableButton>
@@ -193,6 +218,28 @@ export default function AnalyticsPage() {
             </ReusableButton>
           </div>
         </div>
+
+        {/* Gemini AI Study & IQ Strategist */}
+        <GeminiMentorPanel
+          studentName={profile?.displayName || 'Student'}
+          cohortLabel={activeCohortLabel}
+          attemptsCount={orderedAttempts.length}
+          averageAccuracy={summary.overallAccuracy}
+          averageIqScore={summary.averageIqScore}
+          latestIqScore={summary.latestIqScore}
+          paceSummary={paceTotals}
+          subjectPerformance={subjectAggregate.map((s) => ({
+            subject: s.subject,
+            accuracy: s.accuracy,
+            scorePct: s.scorePct,
+          }))}
+          weakChapters={chapterAggregate.slice(0, 6).map((c) => ({
+            chapterName: c.chapterName,
+            subjectName: c.subjectName,
+            accuracy: c.accuracy,
+          }))}
+          weeklyCompletionPercent={weeklyCompletion.completionPercent}
+        />
 
         {orderedAttempts.length === 0 ? (
           <ReusableCard className="py-14 text-center max-w-2xl mx-auto space-y-4">
@@ -215,7 +262,7 @@ export default function AnalyticsPage() {
         ) : (
           <>
             {/* Cumulative KPI Strip */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-4">
               <ReusableCard padding="sm">
                 <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
                   <Target className="w-3.5 h-3.5 text-[#2563EB] dark:text-sky-400" />
@@ -595,8 +642,9 @@ export default function AnalyticsPage() {
                       <th className="py-2 px-3">Accuracy</th>
                       <th className="py-2 px-3">Avg Pace</th>
                       <th className="py-2 px-3">IQ Score</th>
-                      <th className="py-2 px-3">Room Warnings</th>
-                      <th className="py-2 pl-3">Submitted</th>
+                      <th className="py-2 px-3">Warnings</th>
+                      <th className="py-2 px-3">Submitted</th>
+                      <th className="py-2 pl-3 text-right">Solutions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800/70 tabular-nums">
@@ -627,8 +675,21 @@ export default function AnalyticsPage() {
                             <span className="text-emerald-600 dark:text-emerald-400">0</span>
                           )}
                         </td>
-                        <td className="py-2.5 pl-3 text-xs text-slate-500 dark:text-slate-400">
-                          {new Date(att.submittedAtIso).toLocaleString()}
+                        <td className="py-2.5 px-3 text-xs text-slate-500 dark:text-slate-400">
+                          {new Date(att.submittedAtIso).toLocaleDateString()}
+                        </td>
+                        <td className="py-2.5 pl-3 text-right">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              playClick();
+                              setReviewAttempt(att);
+                            }}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-[#2563EB] hover:bg-[#1D4ED8] text-white transition-colors"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            Analysis &amp; Solutions
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -639,6 +700,14 @@ export default function AnalyticsPage() {
           </>
         )}
       </ResponsiveContainer>
+
+      {reviewAttempt && (
+        <AttemptReviewModal
+          attempt={reviewAttempt}
+          questions={questions}
+          onClose={() => setReviewAttempt(null)}
+        />
+      )}
     </PageLayout>
   );
 }

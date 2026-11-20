@@ -15,12 +15,6 @@ export const PUBLIC_NAV_ROUTES: NavRouteItem[] = [
     showInPublicNav: true,
   },
   {
-    path: '/lectures',
-    label: 'Lectures',
-    shortDescription: 'Chapter video library & weekly tracker',
-    showInPublicNav: true,
-  },
-  {
     path: '/cbt-mocks',
     label: 'CBT Mocks',
     shortDescription: 'NTA-style JEE & NEET computer-based tests',
@@ -35,7 +29,7 @@ export const PUBLIC_NAV_ROUTES: NavRouteItem[] = [
   {
     path: '/analytics',
     label: 'Analytics',
-    shortDescription: 'Performance graphs, pacing & IQ diagnostics',
+    shortDescription: 'Performance graphs, past solutions & Gemini AI IQ',
     showInPublicNav: true,
   },
   {
@@ -44,6 +38,14 @@ export const PUBLIC_NAV_ROUTES: NavRouteItem[] = [
     shortDescription: 'Protected faculty & administrator content console',
     showInPublicNav: true,
   },
+];
+
+export const MOBILE_BOTTOM_TABS: { path: RoutePath; label: string }[] = [
+  { path: '/', label: 'Home' },
+  { path: '/materials', label: 'Materials' },
+  { path: '/cbt-mocks', label: 'CBT' },
+  { path: '/analytics', label: 'Analytics' },
+  { path: '/profile', label: 'Profile' },
 ];
 
 export const ALL_APP_ROUTES: NavRouteItem[] = [
@@ -57,7 +59,7 @@ export const ALL_APP_ROUTES: NavRouteItem[] = [
   {
     path: '/about',
     label: 'About',
-    shortDescription: 'About PREPSKM.IN, methodology, privacy & FAQs',
+    shortDescription: 'About PREPSKM.IN, @unfiltereddsumit, SEO & FAQs',
     showInPublicNav: false,
   },
 ];

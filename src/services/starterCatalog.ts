@@ -196,6 +196,22 @@ export const STARTER_MATERIALS: StudyMaterialRecord[] = [
     seoSlug: 'gauss-law-electric-flux-concept-video',
     seoKeywords: 'gauss law lecture, electrostatics video, jee main physics',
     description: 'Step-by-step derivation of spherical shell fields, solid spheres, and cavity flux shortcuts.',
+    attachments: [
+      {
+        id: 'att-gauss-notes',
+        title: 'Lecture Class Notes & Gauss Law PDF',
+        fileUrl: 'https://ncert.nic.in/textbook/pdf/leph101.pdf',
+        fileName: 'Gauss_Law_Lecture_Notes.pdf',
+        mimeType: 'application/pdf',
+      },
+      {
+        id: 'att-gauss-dpp',
+        title: 'Electrostatics Practice Sheet (15 PYQs)',
+        fileUrl: 'https://ncert.nic.in/textbook/pdf/leph102.pdf',
+        fileName: 'Electrostatics_Practice_Sheet.pdf',
+        mimeType: 'application/pdf',
+      },
+    ],
     createdAtIso: '2026-11-11T08:00:00.000Z',
   },
   {
@@ -247,6 +263,15 @@ export const STARTER_MATERIALS: StudyMaterialRecord[] = [
     seoSlug: 'vsepr-shapes-dipole-moment-video',
     seoKeywords: 'vsepr video, hybridization chemistry, jee neet chemistry',
     description: 'Quick trick to predict hybridization, lone pair distortions, and zero-dipole molecules.',
+    attachments: [
+      {
+        id: 'att-vsepr-sheet',
+        title: 'VSEPR Geometry & Hybridization Summary PDF',
+        fileUrl: 'https://ncert.nic.in/textbook/pdf/kech104.pdf',
+        fileName: 'VSEPR_Hybridization_Summary.pdf',
+        mimeType: 'application/pdf',
+      },
+    ],
     createdAtIso: '2026-11-15T08:00:00.000Z',
   },
   {

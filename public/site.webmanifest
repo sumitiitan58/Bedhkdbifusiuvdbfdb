@@ -1,0 +1,23 @@
+{
+  "name": "PREPSKM.IN — JEE, NEET & Class 9–12 Study Platform",
+  "short_name": "PREPSKM.IN",
+  "description": "Free JEE Main, JEE Advanced, NEET UG & Class 9–12 Board chapter notes, concept videos, NTA CBT mock tests, DPPs & Gemini AI IQ analytics by @unfiltereddsumit.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F8FAFC",
+  "theme_color": "#0B1B3B",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/prepskm-logo-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

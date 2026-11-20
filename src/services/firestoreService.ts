@@ -563,6 +563,18 @@ export async function saveMaterial(
     cohorts: mat.cohorts.slice(0, 30),
     fileUrl: mat.fileUrl.trim().slice(0, 740000),
     ...(mat.thumbnailUrl ? { thumbnailUrl: mat.thumbnailUrl.trim().slice(0, 290000) } : {}),
+    ...(mat.attachments && mat.attachments.length > 0
+      ? {
+          attachments: mat.attachments.slice(0, 10).map((att) => ({
+            id: att.id,
+            title: att.title.trim().slice(0, 140),
+            fileUrl: att.fileUrl.trim().slice(0, 250000),
+            ...(att.fileName ? { fileName: att.fileName.slice(0, 180) } : {}),
+            ...(att.fileSizeBytes !== undefined ? { fileSizeBytes: att.fileSizeBytes } : {}),
+            ...(att.mimeType ? { mimeType: att.mimeType.slice(0, 100) } : {}),
+          })),
+        }
+      : {}),
     ...(mat.storagePath ? { storagePath: mat.storagePath.slice(0, 500) } : {}),
     ...(mat.fileName ? { fileName: mat.fileName.slice(0, 255) } : {}),
     ...(mat.fileSizeBytes !== undefined ? { fileSizeBytes: mat.fileSizeBytes } : {}),

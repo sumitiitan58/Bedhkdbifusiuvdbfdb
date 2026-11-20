@@ -9,6 +9,7 @@ import {
   Image as ImageIcon,
   Layers,
   Lock,
+  Paperclip,
   Pencil,
   Plus,
   Save,
@@ -50,6 +51,7 @@ import type {
   ChapterDifficulty,
   ClassGroupRecord,
   IQConfig,
+  MaterialAttachment,
   MaterialMediaType,
   SectionRecord,
   SectionScope,
@@ -147,10 +149,15 @@ export default function AdminPage() {
   const [matCohorts, setMatCohorts] = useState<StudentCohortId[]>(['class-12-jee', 'jee-dropper']);
   const [matFile, setMatFile] = useState<File | null>(null);
   const [matThumbFile, setMatThumbFile] = useState<File | null>(null);
+  const [matAttachments, setMatAttachments] = useState<MaterialAttachment[]>([]);
+  const [attTitle, setAttTitle] = useState('');
+  const [attUrl, setAttUrl] = useState('');
+  const [attUploading, setAttUploading] = useState(false);
   const [uploadPct, setUploadPct] = useState<number>(0);
   const [uploadingMat, setUploadingMat] = useState(false);
   const matFileInputRef = useRef<HTMLInputElement | null>(null);
   const matThumbInputRef = useRef<HTMLInputElement | null>(null);
+  const attFileInputRef = useRef<HTMLInputElement | null>(null);
 
   // =====================================
   // 3b. VIDEO LECTURES (WITH THUMBNAIL + EDIT/DELETE)
@@ -530,9 +537,77 @@ export default function AdminPage() {
     setMatDuration(20);
     setMatFile(null);
     setMatThumbFile(null);
+    setMatAttachments([]);
+    setAttTitle('');
+    setAttUrl('');
     setUploadPct(0);
     if (matFileInputRef.current) matFileInputRef.current.value = '';
     if (matThumbInputRef.current) matThumbInputRef.current.value = '';
+    if (attFileInputRef.current) attFileInputRef.current.value = '';
+  };
+
+  const handleAddAttachmentFile = async (file: File | null) => {
+    if (!file) return;
+    if (matAttachments.length >= 10) {
+      setFeedback({ type: 'err', text: 'Maximum 10 attachments can be tagged per video.' });
+      return;
+    }
+    setAttUploading(true);
+    setFeedback(null);
+    try {
+      const uploaded = await uploadPlatformFile({
+        folder: 'materials',
+        file,
+        kind: 'document',
+      });
+      const label = attTitle.trim() || extractTitleFromFilename(file.name);
+      setMatAttachments((prev) => [
+        ...prev,
+        {
+          id: makeSafeDocId('att'),
+          title: label,
+          fileUrl: uploaded.downloadUrl,
+          fileName: file.name,
+          fileSizeBytes: file.size,
+          mimeType: file.type || 'application/pdf',
+        },
+      ]);
+      setAttTitle('');
+      if (attFileInputRef.current) attFileInputRef.current.value = '';
+      playSuccess();
+    } catch (err) {
+      setFeedback({
+        type: 'err',
+        text: err instanceof Error ? err.message : 'Failed to attach file.',
+      });
+    } finally {
+      setAttUploading(false);
+    }
+  };
+
+  const handleAddAttachmentUrl = () => {
+    if (!attUrl.trim()) {
+      setFeedback({ type: 'err', text: 'Paste a PDF or file URL to attach.' });
+      return;
+    }
+    if (matAttachments.length >= 10) {
+      setFeedback({ type: 'err', text: 'Maximum 10 attachments can be tagged per video.' });
+      return;
+    }
+    const label = attTitle.trim() || 'Attached Study PDF';
+    setMatAttachments((prev) => [
+      ...prev,
+      {
+        id: makeSafeDocId('att'),
+        title: label,
+        fileUrl: attUrl.trim(),
+        fileName: `${createSeoSlug(label)}.pdf`,
+        mimeType: 'application/pdf',
+      },
+    ]);
+    setAttTitle('');
+    setAttUrl('');
+    playClick();
   };
 
   const handleLoadMaterialForEdit = (m: StudyMaterialRecord) => {
@@ -549,6 +624,7 @@ export default function AdminPage() {
     setMatSeoSlug(m.seoSlug ?? createSeoSlug(m.title));
     setMatSeoKeywords(m.seoKeywords ?? '');
     setMatCohorts(m.cohorts.length > 0 ? m.cohorts : allCohortIds);
+    setMatAttachments(m.attachments ?? []);
     setMatFile(null);
     setMatThumbFile(null);
     playClick();
@@ -630,6 +706,7 @@ export default function AdminPage() {
           fileSizeBytes,
           mimeType,
           durationMinutes: matMediaType === 'video' ? matDuration : undefined,
+          attachments: matAttachments.length > 0 ? matAttachments : undefined,
           seoSlug: cleanSlug,
           seoKeywords: matSeoKeywords.trim() || undefined,
           description: matDesc.trim() || undefined,
@@ -1607,6 +1684,84 @@ export default function AdminPage() {
                       })}
                     </div>
                   </div>
+
+                  {/* Attach / Tag Downloadable PDFs or Files to Video */}
+                  {(matMediaType === 'video' || matAttachments.length > 0) && (
+                    <div className="p-3.5 rounded-xl border border-blue-200/80 dark:border-blue-900/70 bg-blue-50/40 dark:bg-blue-950/20 space-y-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs font-bold text-[#0B1B3B] dark:text-white flex items-center gap-1.5">
+                          <Paperclip className="w-3.5 h-3.5 text-[#F97316]" />
+                          Tag / Attach PDFs or Files to This Video ({matAttachments.length}/10)
+                        </p>
+                        <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                          Videos stay stream-only; attached PDFs get Download buttons
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                        <input
+                          type="text"
+                          placeholder="Attachment label (e.g. Lecture Slides PDF)"
+                          value={attTitle}
+                          onChange={(e) => setAttTitle(e.target.value)}
+                          className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs"
+                        />
+                        <div className="flex gap-1.5">
+                          <input
+                            type="url"
+                            placeholder="Paste PDF / File URL"
+                            value={attUrl}
+                            onChange={(e) => setAttUrl(e.target.value)}
+                            className="flex-1 min-w-0 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs"
+                          />
+                          <ReusableButton
+                            variant="secondary"
+                            size="sm"
+                            onClick={handleAddAttachmentUrl}
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            Tag
+                          </ReusableButton>
+                        </div>
+                        <input
+                          ref={attFileInputRef}
+                          type="file"
+                          accept=".pdf,image/*,.doc,.docx,.ppt,.pptx"
+                          disabled={attUploading}
+                          onChange={(e) => void handleAddAttachmentFile(e.target.files?.[0] ?? null)}
+                          className="text-xs text-slate-600 dark:text-slate-300 file:mr-2 file:py-1.5 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#2563EB] file:text-white"
+                        />
+                      </div>
+
+                      {matAttachments.length > 0 && (
+                        <div className="space-y-1.5">
+                          {matAttachments.map((att) => (
+                            <div
+                              key={att.id}
+                              className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs"
+                            >
+                              <span className="font-semibold text-[#0B1B3B] dark:text-slate-200 truncate">
+                                {att.title}{' '}
+                                <span className="font-normal text-slate-400">
+                                  ({att.fileName || 'PDF'})
+                                </span>
+                              </span>
+                              <button
+                                type="button"
+                                aria-label={`Remove attachment ${att.title}`}
+                                onClick={() =>
+                                  setMatAttachments((prev) => prev.filter((x) => x.id !== att.id))
+                                }
+                                className="p-1 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {uploadingMat && (
                     <div className="space-y-1">

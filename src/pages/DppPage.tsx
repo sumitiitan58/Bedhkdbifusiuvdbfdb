@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
   CheckCircle2,
+  Eye,
   FileSpreadsheet,
   Play,
   RotateCcw,
@@ -11,9 +12,11 @@ import { ReusableCard } from '../components/ReusableCard';
 import { ReusableButton } from '../components/ReusableButton';
 import { SeoHead } from '../components/SeoHead';
 import { CbtExamRunner } from '../components/exam/CbtExamRunner';
+import { AttemptReviewModal } from '../components/analytics/AttemptReviewModal';
 import { useAuth } from '../context/AuthContext';
 import { usePlatformData } from '../context/PlatformDataContext';
-import type { MockTestRecord, StudentCohortId } from '../types';
+import { playClick } from '../utils/soundEffects';
+import type { MockTestRecord, StudentCohortId, TestAttemptRecord } from '../types';
 
 export default function DppPage() {
   const { cohortId } = useAuth();
@@ -23,6 +26,7 @@ export default function DppPage() {
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>('all');
   const [selectedChapterId, setSelectedChapterId] = useState<string>('all');
   const [activeDpp, setActiveDpp] = useState<MockTestRecord | null>(null);
+  const [reviewAttempt, setReviewAttempt] = useState<TestAttemptRecord | null>(null);
 
   const subjectMap = useMemo(() => new Map(subjects.map((s) => [s.id, s.name])), [subjects]);
   const chapterMap = useMemo(() => new Map(chapters.map((c) => [c.id, c.name])), [chapters]);
@@ -186,7 +190,7 @@ export default function DppPage() {
             </ReusableButton>
           </ReusableCard>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4">
             {publishedDpps.map((dpp) => {
               const qCount = questions.filter((q) => q.testId === dpp.id).length;
               const prevAttempts = dppAttempts.filter((a) => a.testId === dpp.id);
@@ -198,53 +202,120 @@ export default function DppPage() {
                 <ReusableCard
                   key={dpp.id}
                   interactive
-                  className="flex flex-col justify-between gap-4"
+                  padding="sm"
+                  className="flex flex-col justify-between gap-3.5"
                 >
-                  <div className="space-y-2.5">
+                  <div className="space-y-2">
                     <div className="flex items-center justify-between text-xs font-semibold">
                       <span className="text-sky-700 dark:text-sky-400">{subName}</span>
-                      <span className="text-slate-500 dark:text-slate-400">{chName}</span>
+                      <span className="text-slate-500 dark:text-slate-400 truncate max-w-[60%] text-right">
+                        {chName}
+                      </span>
                     </div>
 
-                    <h2 className="font-display text-lg font-bold text-[#0F214D] dark:text-white leading-snug">
+                    <h2 className="font-display text-base sm:text-lg font-bold text-[#0F214D] dark:text-white leading-snug">
                       {dpp.title}
                     </h2>
 
-                    <div className="flex flex-wrap gap-3 text-xs text-slate-600 dark:text-slate-400 tabular-nums pt-1">
-                      <span>{qCount || dpp.totalQuestions} Questions</span>
+                    <div className="flex flex-wrap gap-2 text-xs text-slate-600 dark:text-slate-400 tabular-nums">
+                      <span>{qCount || dpp.totalQuestions} Qs</span>
                       <span>·</span>
-                      <span>{dpp.durationMinutes} min timer</span>
+                      <span>{dpp.durationMinutes}m</span>
                       <span>·</span>
                       <span>
                         {dpp.negativeMarkingEnabled
                           ? `+${dpp.positiveMarks} / -${dpp.negativeMarks}`
-                          : `+${dpp.positiveMarks} (No Negative)`}
+                          : `+${dpp.positiveMarks} (No Neg)`}
                       </span>
                     </div>
 
                     {latest && (
-                      <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 inline-flex items-center gap-1.5 pt-1 tabular-nums">
+                      <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 inline-flex items-center gap-1.5 pt-0.5 tabular-nums">
                         <CheckCircle2 className="w-3.5 h-3.5" />
-                        Latest: {latest.score}/{latest.maxScore} ({latest.accuracyPercent}% accuracy) ·{' '}
+                        Latest: {latest.score}/{latest.maxScore} ({latest.accuracyPercent}%) ·{' '}
                         {prevAttempts.length} attempt(s)
                       </p>
                     )}
                   </div>
 
-                  <ReusableButton
-                    variant={latest ? 'secondary' : 'primary'}
-                    className="w-full"
-                    onClick={() => setActiveDpp(dpp)}
-                  >
-                    {latest ? <RotateCcw className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                    {latest ? 'Reattempt DPP' : 'Solve DPP Now'}
-                  </ReusableButton>
+                  <div className="flex items-center gap-2">
+                    {latest && (
+                      <ReusableButton
+                        variant="secondary"
+                        size="sm"
+                        className="shrink-0"
+                        onClick={() => {
+                          playClick();
+                          setReviewAttempt(latest);
+                        }}
+                      >
+                        <Eye className="w-3.5 h-3.5 text-[#2563EB]" />
+                        Solutions
+                      </ReusableButton>
+                    )}
+                    <ReusableButton
+                      variant={latest ? 'accent' : 'primary'}
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => {
+                        playClick();
+                        setActiveDpp(dpp);
+                      }}
+                    >
+                      {latest ? <RotateCcw className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                      {latest ? 'Reattempt' : 'Solve DPP Now'}
+                    </ReusableButton>
+                  </div>
                 </ReusableCard>
               );
             })}
           </div>
         )}
+
+        {/* Recent DPP Attempts with Solutions Access */}
+        {dppAttempts.length > 0 && (
+          <ReusableCard padding="sm" className="space-y-2.5">
+            <h2 className="font-display text-base font-bold text-[#0F214D] dark:text-white">
+              Past DPP Attempts &amp; Solutions ({dppAttempts.length})
+            </h2>
+            <div className="divide-y divide-slate-100 dark:divide-slate-800">
+              {[...dppAttempts].reverse().slice(0, 6).map((att) => (
+                <div
+                  key={att.id}
+                  className="py-2 flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm"
+                >
+                  <div>
+                    <p className="font-semibold text-[#0B1B3B] dark:text-white">{att.testTitle}</p>
+                    <p className="text-xs text-slate-500 tabular-nums">
+                      Score: {att.score}/{att.maxScore} · Accuracy: {att.accuracyPercent}% ·{' '}
+                      {new Date(att.submittedAtIso).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      playClick();
+                      setReviewAttempt(att);
+                    }}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    Analysis &amp; Solutions
+                  </button>
+                </div>
+              ))}
+            </div>
+          </ReusableCard>
+        )}
       </ResponsiveContainer>
+
+      {reviewAttempt && (
+        <AttemptReviewModal
+          attempt={reviewAttempt}
+          questions={questions}
+          onClose={() => setReviewAttempt(null)}
+        />
+      )}
     </PageLayout>
   );
 }

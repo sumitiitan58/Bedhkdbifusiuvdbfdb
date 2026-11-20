@@ -126,7 +126,7 @@ service cloud.firestore {
 
     function isValidMaterial(data, materialId) {
       return data.keys().hasAll(['id', 'title', 'subjectId', 'chapterId', 'sectionName', 'resourceType', 'cohorts', 'fileUrl', 'createdAt', 'updatedAt']) &&
-        data.keys().hasOnly(['id', 'title', 'subjectId', 'chapterId', 'sectionName', 'resourceType', 'mediaType', 'cohorts', 'fileUrl', 'thumbnailUrl', 'storagePath', 'fileName', 'fileSizeBytes', 'mimeType', 'durationMinutes', 'seoSlug', 'seoKeywords', 'description', 'uploadedBy', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['id', 'title', 'subjectId', 'chapterId', 'sectionName', 'resourceType', 'mediaType', 'cohorts', 'fileUrl', 'thumbnailUrl', 'attachments', 'storagePath', 'fileName', 'fileSizeBytes', 'mimeType', 'durationMinutes', 'seoSlug', 'seoKeywords', 'description', 'uploadedBy', 'createdAt', 'updatedAt']) &&
         data.id == materialId &&
         data.title is string && data.title.size() >= 1 && data.title.size() <= 200 &&
         isValidId(data.subjectId) &&
@@ -137,6 +137,7 @@ service cloud.firestore {
         isValidCohortList(data.cohorts) &&
         data.fileUrl is string && data.fileUrl.size() >= 1 && data.fileUrl.size() <= 750000 &&
         (!('thumbnailUrl' in data) || (data.thumbnailUrl is string && data.thumbnailUrl.size() <= 300000)) &&
+        (!('attachments' in data) || (data.attachments is list && data.attachments.size() <= 10)) &&
         (!('storagePath' in data) || (data.storagePath is string && data.storagePath.size() <= 500)) &&
         (!('fileName' in data) || (data.fileName is string && data.fileName.size() <= 255)) &&
         (!('fileSizeBytes' in data) || (data.fileSizeBytes is number && data.fileSizeBytes >= 0)) &&

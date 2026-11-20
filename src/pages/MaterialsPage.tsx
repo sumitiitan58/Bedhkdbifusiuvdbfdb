@@ -12,6 +12,7 @@ import {
   Film,
   FolderOpen,
   Image as ImageIcon,
+  Paperclip,
   Play,
   Search,
   Sparkles,
@@ -184,6 +185,25 @@ export default function MaterialsPage() {
     setPreviewMaterial(mat);
   };
 
+  const handleDownloadDocument = async (
+    rawUrl: string,
+    suggestedName?: string,
+    materialId?: string
+  ) => {
+    playClick();
+    if (materialId) recordMaterialView(materialId);
+    const resolved = (await resolveAssetUrl(rawUrl)) || rawUrl;
+    if (!resolved) return;
+    const link = document.createElement('a');
+    link.href = resolved;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.download = suggestedName || 'PREPSKM-Study-Material.pdf';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const activeSubjectName = activeChapter
     ? subjectMap.get(activeChapter.subjectId)?.name ?? 'Subject'
     : '';
@@ -226,10 +246,10 @@ export default function MaterialsPage() {
         jsonLd={materialsJsonLd}
       />
 
-      <ResponsiveContainer className="py-8 sm:py-10 space-y-8">
+      <ResponsiveContainer className="py-5 sm:py-8 space-y-5 sm:space-y-6">
         {/* VIEW A: CHAPTER DETAIL WORKSPACE (Shows Admin Sections -> PDFs & Videos with Thumbnails) */}
         {activeChapter ? (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <button
                 type="button"
@@ -351,11 +371,12 @@ export default function MaterialsPage() {
                 )}
               </ReusableCard>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 items-start">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4 items-start">
                 {chapterMaterials.map((mat) => {
                   const isVid = isVideoMaterial(mat);
                   const isBookmarked = bookmarkSet.has(mat.id);
                   const isImg = mat.mediaType === 'image' || mat.mimeType?.startsWith('image/');
+                  const attachments = mat.attachments ?? [];
 
                   return (
                     <ReusableCard
@@ -380,16 +401,16 @@ export default function MaterialsPage() {
                               />
                             ) : (
                               <div className="w-full h-full bg-gradient-to-br from-[#0B1B3B] to-[#2563EB] flex items-center justify-center">
-                                <Film className="w-10 h-10 text-white/80" />
+                                <Film className="w-9 h-9 text-white/80" />
                               </div>
                             )}
                             <span className="absolute inset-0 bg-slate-950/30 group-hover:bg-slate-950/15 transition-colors flex items-center justify-center">
-                              <span className="h-12 w-12 rounded-full bg-[#F97316] text-white flex items-center justify-center shadow-lg">
+                              <span className="h-11 w-11 rounded-full bg-[#F97316] text-white flex items-center justify-center shadow-lg">
                                 <Play className="w-5 h-5 fill-current ml-0.5" />
                               </span>
                             </span>
                             {mat.durationMinutes && (
-                              <span className="absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded-md bg-slate-950/80 text-white font-mono text-[11px] font-semibold">
+                              <span className="absolute bottom-2 right-2 px-2 py-0.5 rounded-md bg-slate-950/80 text-white font-mono text-[11px] font-semibold">
                                 {mat.durationMinutes} min
                               </span>
                             )}
@@ -398,7 +419,7 @@ export default function MaterialsPage() {
                           <button
                             type="button"
                             onClick={() => handleOpenPreview(mat)}
-                            className="w-full h-36 bg-slate-100 dark:bg-slate-900 overflow-hidden block"
+                            className="w-full h-32 bg-slate-100 dark:bg-slate-900 overflow-hidden block"
                           >
                             <img
                               src={mat.thumbnailUrl}
@@ -408,9 +429,9 @@ export default function MaterialsPage() {
                           </button>
                         ) : null}
 
-                        <div className="p-4 space-y-2">
+                        <div className="p-3.5 space-y-1.5">
                           <div className="flex items-start justify-between gap-2">
-                            <div className="text-xs font-semibold text-[#2563EB] dark:text-sky-400 flex items-center gap-1.5">
+                            <div className="text-[11px] font-semibold text-[#2563EB] dark:text-sky-400 flex items-center gap-1.5">
                               {isVid ? (
                                 <Film className="w-3.5 h-3.5 text-[#F97316]" />
                               ) : isImg ? (
@@ -431,7 +452,7 @@ export default function MaterialsPage() {
                               }}
                               aria-pressed={isBookmarked}
                               aria-label={`${isBookmarked ? 'Remove bookmark for' : 'Bookmark'} ${mat.title}`}
-                              className="p-1.5 rounded-lg text-slate-500 hover:text-[#F97316] hover:bg-slate-100 dark:hover:bg-slate-800 shrink-0"
+                              className="p-1 rounded-lg text-slate-500 hover:text-[#F97316] hover:bg-slate-100 dark:hover:bg-slate-800 shrink-0"
                             >
                               {isBookmarked ? (
                                 <BookmarkCheck className="w-4 h-4 text-[#F97316]" />
@@ -441,25 +462,57 @@ export default function MaterialsPage() {
                             </button>
                           </div>
 
-                          <h3 className="font-display text-base font-bold text-[#0B1B3B] dark:text-white leading-snug">
+                          <h3 className="font-display text-sm sm:text-base font-bold text-[#0B1B3B] dark:text-white leading-snug">
                             {mat.title}
                           </h3>
 
                           {mat.description && (
-                            <p className="text-sm text-slate-600 dark:text-slate-300 line-clamp-2">
+                            <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-2">
                               {mat.description}
                             </p>
                           )}
 
                           <p className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
                             {isVid
-                              ? `${mat.durationMinutes ?? 30} min video`
+                              ? `${mat.durationMinutes ?? 30} min · Stream Only`
                               : formatBytes(mat.fileSizeBytes)}
                           </p>
+
+                          {/* Tagged PDF / Document Attachments on Videos */}
+                          {attachments.length > 0 && (
+                            <div className="pt-2 mt-1.5 border-t border-slate-100 dark:border-slate-800 space-y-1.5">
+                              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                                <Paperclip className="w-3 h-3 text-[#F97316]" />
+                                Attached PDFs ({attachments.length})
+                              </p>
+                              <div className="space-y-1">
+                                {attachments.map((att) => (
+                                  <button
+                                    key={att.id}
+                                    type="button"
+                                    onClick={() =>
+                                      void handleDownloadDocument(
+                                        att.fileUrl,
+                                        att.fileName || `${att.title}.pdf`,
+                                        mat.id
+                                      )
+                                    }
+                                    className="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-50 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-700 text-[#0B1B3B] dark:text-slate-200 hover:border-[#2563EB] hover:text-[#2563EB] dark:hover:text-sky-400 transition-colors text-left"
+                                  >
+                                    <span className="truncate">{att.title}</span>
+                                    <span className="inline-flex items-center gap-1 text-[11px] text-[#2563EB] dark:text-sky-400 shrink-0">
+                                      <Download className="w-3 h-3" />
+                                      PDF
+                                    </span>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
 
-                      <div className="px-4 pb-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2">
+                      <div className="px-3.5 pb-3.5 pt-2.5 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2">
                         <ReusableButton
                           variant="primary"
                           size="sm"
@@ -470,18 +523,23 @@ export default function MaterialsPage() {
                           {isVid ? 'Watch Video' : 'Open Preview'}
                         </ReusableButton>
 
-                        {!isVid && !mat.fileUrl.startsWith('prepskm-blob://') && (
-                          <a
-                            href={mat.fileUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            download={mat.fileName || undefined}
-                            onClick={() => recordMaterialView(mat.id)}
-                            className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
+                        {/* Download button ONLY for PDFs/Documents/Images — NEVER for Videos */}
+                        {!isVid && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void handleDownloadDocument(
+                                mat.fileUrl,
+                                mat.fileName || `${mat.title}.pdf`,
+                                mat.id
+                              )
+                            }
+                            aria-label={`Download PDF ${mat.title}`}
+                            className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border border-[#2563EB]/30 bg-blue-50/70 dark:bg-blue-950/40 text-[#2563EB] dark:text-sky-300 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors shrink-0"
                           >
                             <Download className="w-3.5 h-3.5" />
-                            Save
-                          </a>
+                            Download PDF
+                          </button>
                         )}
                       </div>
                     </ReusableCard>
@@ -625,7 +683,7 @@ export default function MaterialsPage() {
                 </ReusableButton>
               </ReusableCard>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-4">
                 {filteredChapters.map((ch) => {
                   const subj = subjectMap.get(ch.subjectId);
                   const chItems = materials.filter((m) => m.chapterId === ch.id);
@@ -642,37 +700,36 @@ export default function MaterialsPage() {
                         setActiveChapterId(ch.id);
                         setActiveSectionFilter('all');
                       }}
-                      className="group text-left rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-[#111A2E] p-5 hover:border-[#2563EB] dark:hover:border-sky-400 hover:shadow-md transition-all flex flex-col justify-between gap-4"
+                      className="group text-left rounded-xl sm:rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-[#111A2E] p-3 sm:p-4 hover:border-[#2563EB] dark:hover:border-sky-400 hover:shadow-md transition-all flex flex-col justify-between gap-2.5 sm:gap-3"
                     >
-                      <div className="space-y-2.5">
-                        <div className="flex items-center justify-between gap-2 text-xs font-semibold">
-                          <span className="text-[#2563EB] dark:text-sky-400">
+                      <div className="space-y-1.5">
+                        <div className="flex flex-wrap items-center justify-between gap-1 text-[11px] font-semibold">
+                          <span className="text-[#2563EB] dark:text-sky-400 truncate">
                             {subj?.name ?? 'Subject'}
                           </span>
                           <span className="font-mono text-[#F97316] tabular-nums">
-                            {ch.weightageMarks} Marks · {ch.difficulty}
+                            {ch.weightageMarks}M · {ch.difficulty}
                           </span>
                         </div>
 
-                        <h2 className="font-display text-lg font-bold text-[#0B1B3B] dark:text-white group-hover:text-[#2563EB] dark:group-hover:text-sky-400 transition-colors">
+                        <h2 className="font-display text-sm sm:text-base font-bold text-[#0B1B3B] dark:text-white group-hover:text-[#2563EB] dark:group-hover:text-sky-400 transition-colors leading-snug">
                           {ch.name}
                         </h2>
 
-                        <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                          Sections: {applicableSecs.slice(0, 3).map((s) => s.name).join(' · ')}
-                          {applicableSecs.length > 3 ? ` +${applicableSecs.length - 3} more` : ''}
+                        <p className="hidden sm:block text-xs text-slate-600 dark:text-slate-400 leading-relaxed line-clamp-1">
+                          {applicableSecs.slice(0, 3).map((s) => s.name).join(' · ')}
                         </p>
                       </div>
 
-                      <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800 text-xs font-semibold">
-                        <span className="text-slate-600 dark:text-slate-300 tabular-nums inline-flex items-center gap-2">
-                          <span>{pdfCount} PDFs</span>
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] font-semibold">
+                        <span className="text-slate-600 dark:text-slate-300 tabular-nums inline-flex items-center gap-1.5">
+                          <span>{pdfCount} PDF</span>
                           <span className="text-slate-300 dark:text-slate-700">·</span>
-                          <span>{videoCount} Videos</span>
+                          <span>{videoCount} Vid</span>
                         </span>
-                        <span className="inline-flex items-center gap-1 text-[#2563EB] dark:text-sky-400">
-                          Open Chapter
-                          <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+                        <span className="inline-flex items-center gap-0.5 text-[#2563EB] dark:text-sky-400">
+                          <span className="hidden sm:inline">Open</span>
+                          <ChevronRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
                         </span>
                       </div>
                     </button>
@@ -704,16 +761,34 @@ export default function MaterialsPage() {
                 </h2>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                {resolvedPreviewUrl && (
-                  <a
-                    href={resolvedPreviewUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#0B1B3B] text-white dark:bg-[#2563EB]"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    Open External
-                  </a>
+                {!isVideoMaterial(previewMaterial) && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        void handleDownloadDocument(
+                          previewMaterial.fileUrl,
+                          previewMaterial.fileName || `${previewMaterial.title}.pdf`,
+                          previewMaterial.id
+                        )
+                      }
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#2563EB] hover:bg-[#1D4ED8] text-white transition-colors"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      Download PDF
+                    </button>
+                    {resolvedPreviewUrl && !previewMaterial.fileUrl.startsWith('prepskm-blob://') && (
+                      <a
+                        href={resolvedPreviewUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#0B1B3B] text-white"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        Open Tab
+                      </a>
+                    )}
+                  </>
                 )}
                 <button
                   type="button"
@@ -726,7 +801,7 @@ export default function MaterialsPage() {
               </div>
             </div>
 
-            <div className="flex-1 bg-slate-100 dark:bg-slate-950 p-4 overflow-auto">
+            <div className="flex-1 bg-slate-100 dark:bg-slate-950 p-4 overflow-auto space-y-4">
               {isVideoMaterial(previewMaterial) ? (
                 <div className="aspect-video w-full rounded-xl overflow-hidden bg-black">
                   {activeYoutubeId ? (
@@ -742,6 +817,9 @@ export default function MaterialsPage() {
                       src={resolvedPreviewUrl || previewMaterial.fileUrl}
                       poster={previewMaterial.thumbnailUrl}
                       controls
+                      controlsList="nodownload"
+                      disablePictureInPicture
+                      onContextMenu={(e) => e.preventDefault()}
                       autoPlay
                       className="w-full h-full"
                     />
@@ -763,9 +841,50 @@ export default function MaterialsPage() {
               )}
 
               {previewMaterial.description && (
-                <p className="mt-3 text-sm text-slate-700 dark:text-slate-300">
+                <p className="text-sm text-slate-700 dark:text-slate-300">
                   {previewMaterial.description}
                 </p>
+              )}
+
+              {/* Attached PDFs / Study Notes for Video (Downloadable) */}
+              {previewMaterial.attachments && previewMaterial.attachments.length > 0 && (
+                <div className="p-3.5 rounded-xl bg-white dark:bg-[#111A2E] border border-slate-200 dark:border-slate-800 space-y-2.5">
+                  <p className="text-xs font-bold uppercase tracking-wider text-[#F97316] flex items-center gap-1.5">
+                    <Paperclip className="w-3.5 h-3.5" />
+                    Attached PDFs &amp; Class Notes ({previewMaterial.attachments.length})
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {previewMaterial.attachments.map((att) => (
+                      <div
+                        key={att.id}
+                        className="flex items-center justify-between gap-2 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-900/60"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-[#0B1B3B] dark:text-white truncate">
+                            {att.title}
+                          </p>
+                          <p className="text-[11px] text-slate-500 truncate">
+                            {att.fileName || 'PDF Document'}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void handleDownloadDocument(
+                              att.fileUrl,
+                              att.fileName || `${att.title}.pdf`,
+                              previewMaterial.id
+                            )
+                          }
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-[#2563EB] hover:bg-[#1D4ED8] text-white shrink-0"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          Download PDF
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
           </div>

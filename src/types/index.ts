@@ -120,6 +120,15 @@ export type MaterialResourceType =
 
 export type MaterialMediaType = 'pdf' | 'video' | 'image' | 'link';
 
+export interface MaterialAttachment {
+  id: string;
+  title: string;
+  fileUrl: string;
+  fileName?: string;
+  fileSizeBytes?: number;
+  mimeType?: string;
+}
+
 export interface StudyMaterialRecord {
   id: string;
   title: string;
@@ -131,6 +140,7 @@ export interface StudyMaterialRecord {
   cohorts: StudentCohortId[];
   fileUrl: string;
   thumbnailUrl?: string;
+  attachments?: MaterialAttachment[];
   storagePath?: string;
   fileName?: string;
   fileSizeBytes?: number;

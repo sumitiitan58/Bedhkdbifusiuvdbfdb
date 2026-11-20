@@ -7,12 +7,15 @@ import {
   CheckCircle2,
   Crop as CropIcon,
   FilePlus2,
+  FileUp,
   ImagePlus,
   Layers,
+  Loader2,
   Pencil,
   Plus,
   Save,
   Send,
+  Sparkles,
   Trash2,
   ZoomIn,
   ZoomOut,
@@ -34,25 +37,18 @@ import {
   saveMockTestWithQuestions,
   uploadPlatformFile,
 } from '../../services/firestoreService';
+import { requestGeminiPdfExtraction } from '../../services/geminiClient';
 import { getNextQuestionNumber, transitionQuestionType } from '../../utils/scoringEngine';
 import { EXAM_TYPES, getDefaultExamInstructions } from '../../utils/examPresets';
+import { playAiSparkle, playClick, playSuccess } from '../../utils/soundEffects';
 import { ReusableButton } from '../ReusableButton';
 import { ReusableCard } from '../ReusableCard';
 
-type CropSlot = 'question' | 'opt0' | 'opt1' | 'opt2' | 'opt3' | 'solution';
+type CropSlot = 'question' | 'solution';
 
-const MCQ_SLOTS: { id: CropSlot; label: string }[] = [
+const CROP_SLOTS: { id: CropSlot; label: string }[] = [
   { id: 'question', label: '1. Question' },
-  { id: 'opt0', label: '2. Option A' },
-  { id: 'opt1', label: '3. Option B' },
-  { id: 'opt2', label: '4. Option C' },
-  { id: 'opt3', label: '5. Option D' },
-  { id: 'solution', label: '6. Solution' },
-];
-
-const INTEGER_SLOTS: { id: CropSlot; label: string }[] = [
-  { id: 'question', label: '1. Question' },
-  { id: 'solution', label: '2. Solution' },
+  { id: 'solution', label: '2. Answer / Solution' },
 ];
 
 const OPTION_LETTERS = ['A', 'B', 'C', 'D'] as const;
@@ -180,6 +176,13 @@ export function QuestionPaperBuilder() {
   const [activeSlot, setActiveSlot] = useState<CropSlot>('question');
   const [croppingBusy, setCroppingBusy] = useState(false);
 
+  // Gemini AI PDF / Text Question Importer state
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [pdfRawText, setPdfRawText] = useState('');
+  const [pdfExtractBusy, setPdfExtractBusy] = useState(false);
+  const [pdfMaxQuestions, setPdfMaxQuestions] = useState(15);
+  const pdfInputRef = useRef<HTMLInputElement | null>(null);
+
   const imgRef = useRef<HTMLImageElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -204,7 +207,7 @@ export function QuestionPaperBuilder() {
     [chapters, selectedSubjectId]
   );
 
-  const activeSlots = draftQ.questionType === 'integer' ? INTEGER_SLOTS : MCQ_SLOTS;
+  const activeSlots = CROP_SLOTS;
 
   const handleLoadExistingTest = (t: MockTestRecord) => {
     const linked = allPlatformQuestions
@@ -304,6 +307,7 @@ export function QuestionPaperBuilder() {
   };
 
   const handleQuestionTypeChange = (nextType: QuestionType) => {
+    playClick();
     setDraftQ((prev) => {
       const transitioned = transitionQuestionType(prev, nextType);
       return {
@@ -312,8 +316,121 @@ export function QuestionPaperBuilder() {
         questionType: nextType,
       } as TestQuestionRecord;
     });
-    if (nextType === 'integer' && activeSlot.startsWith('opt')) {
-      setActiveSlot('solution');
+  };
+
+  const handleExtractFromPdf = async () => {
+    if (!pdfFile && !pdfRawText.trim()) {
+      setStatusMessage({
+        type: 'err',
+        text: 'Upload a PDF question paper or paste raw question text first.',
+      });
+      return;
+    }
+
+    setPdfExtractBusy(true);
+    setStatusMessage(null);
+    try {
+      let pdfBase64: string | undefined;
+      if (pdfFile) {
+        pdfBase64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const raw = typeof reader.result === 'string' ? reader.result : '';
+            const base64 = raw.includes(',') ? raw.split(',')[1] : raw;
+            if (!base64) reject(new Error('Could not read PDF file.'));
+            else resolve(base64);
+          };
+          reader.onerror = () => reject(new Error('Failed to read PDF file.'));
+          reader.readAsDataURL(pdfFile);
+        });
+      }
+
+      const extracted = await requestGeminiPdfExtraction({
+        fileBase64: pdfBase64,
+        mimeType: pdfFile?.type || (pdfBase64 ? 'application/pdf' : undefined),
+        rawTextInput: pdfRawText.trim() || undefined,
+        defaultSubject: draftQ.subjectName || defaultSubName,
+        examType,
+        maxQuestions: pdfMaxQuestions,
+      });
+
+      if (!extracted || extracted.length === 0) {
+        setStatusMessage({
+          type: 'err',
+          text: 'Gemini AI could not find structured questions in that PDF/text.',
+        });
+        return;
+      }
+
+      const startNum = getNextQuestionNumber(builtQuestions);
+      const mapped: TestQuestionRecord[] = extracted.map((item, i) => {
+        const qNum = startNum + i;
+        const subj =
+          item.subjectName?.trim() ||
+          (destination === 'cbt-mock'
+            ? resolveSubjectFromRanges(qNum, subjectRanges, defaultSubName)
+            : defaultSubName);
+        return {
+          id: makeSafeDocId('q'),
+          testId,
+          questionNumber: qNum,
+          subjectName: subj,
+          chapterName: item.chapterName?.trim() || '',
+          questionType: item.questionType,
+          questionText: item.questionText,
+          questionImageUrl: '',
+          optionTexts:
+            item.questionType === 'integer'
+              ? ['', '', '', '']
+              : [
+                  item.optionTexts?.[0] ?? '',
+                  item.optionTexts?.[1] ?? '',
+                  item.optionTexts?.[2] ?? '',
+                  item.optionTexts?.[3] ?? '',
+                ],
+          optionImageUrls: ['', '', '', ''],
+          correctOptionIndices:
+            item.questionType === 'integer'
+              ? []
+              : item.correctOptionIndices?.length
+                ? item.correctOptionIndices
+                : [0],
+          numericalAnswer: item.questionType === 'integer' ? item.numericalAnswer ?? '' : '',
+          solutionText: item.solutionText ?? '',
+          solutionImageUrl: '',
+          sourcePageNumber: currentPageNumber,
+          testStatus: 'draft',
+        };
+      });
+
+      const merged = [...builtQuestions, ...mapped];
+      setBuiltQuestions(merged);
+      const nextNum = getNextQuestionNumber(merged);
+      setDraftQ(
+        createEmptyDraft(
+          testId,
+          nextNum,
+          destination === 'cbt-mock'
+            ? resolveSubjectFromRanges(nextNum, subjectRanges, defaultSubName)
+            : defaultSubName,
+          currentPageNumber
+        )
+      );
+      setPdfFile(null);
+      setPdfRawText('');
+      if (pdfInputRef.current) pdfInputRef.current.value = '';
+      playAiSparkle();
+      setStatusMessage({
+        type: 'ok',
+        text: `Gemini AI extracted ${mapped.length} question(s) directly into the Question Queue! Review or click Publish Live.`,
+      });
+    } catch (err) {
+      setStatusMessage({
+        type: 'err',
+        text: err instanceof Error ? err.message : 'PDF extraction failed.',
+      });
+    } finally {
+      setPdfExtractBusy(false);
     }
   };
 
@@ -343,21 +460,17 @@ export function QuestionPaperBuilder() {
         // Keep compact JPEG dataUrl fallback
       }
 
-      setDraftQ((prev) => {
-        if (activeSlot === 'question') return { ...prev, questionImageUrl: finalUrl };
-        if (activeSlot === 'solution') return { ...prev, solutionImageUrl: finalUrl };
-        const optIdx = Number(activeSlot.replace('opt', ''));
-        const nextImgs = [...(prev.optionImageUrls ?? ['', '', '', ''])];
-        nextImgs[optIdx] = finalUrl;
-        return { ...prev, optionImageUrls: nextImgs };
-      });
+      setDraftQ((prev) =>
+        activeSlot === 'question'
+          ? { ...prev, questionImageUrl: finalUrl }
+          : { ...prev, solutionImageUrl: finalUrl }
+      );
 
-      // Automatically advance to the next crop step in the guided workflow
-      const slots = draftQ.questionType === 'integer' ? INTEGER_SLOTS : MCQ_SLOTS;
-      const curSlotIdx = slots.findIndex((s) => s.id === activeSlot);
-      if (curSlotIdx >= 0 && curSlotIdx < slots.length - 1) {
-        setActiveSlot(slots[curSlotIdx + 1].id);
+      // Toggle directly from 1. Question -> 2. Answer / Solution
+      if (activeSlot === 'question') {
+        setActiveSlot('solution');
       }
+      playSuccess();
       setCrop(undefined);
       setCompletedCrop(null);
     } catch (err) {
@@ -933,17 +1046,100 @@ export function QuestionPaperBuilder() {
         </div>
       </ReusableCard>
 
-      {/* Step 2: Multi-Page Visual Question Paper Cropper */}
+      {/* Step 2A: Fetch Questions Automatically from PDF / Text using Gemini AI */}
+      <ReusableCard className="border-[#2563EB]/30 dark:border-sky-500/30 bg-gradient-to-r from-blue-50/50 via-white to-orange-50/40 dark:from-[#111A2E] dark:via-[#111D38] dark:to-[#161B2E] space-y-3.5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-[#2563EB] dark:text-sky-400 flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-[#F97316]" />
+              Gemini AI PDF Question Fetcher
+            </p>
+            <h3 className="font-display text-base font-bold text-[#0F214D] dark:text-white">
+              Import Questions Directly from a PDF Question Paper
+            </h3>
+            <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
+              Upload any JEE / NEET / Board PDF (or paste paper text) — Gemini AI parses Single MCQ, Multi MCQ, Integer questions, options, answer keys, and solutions straight into your test queue.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <label htmlFor="pdf-max-q" className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+              Max Qs
+            </label>
+            <input
+              id="pdf-max-q"
+              type="number"
+              min={1}
+              max={30}
+              value={pdfMaxQuestions}
+              onChange={(e) => setPdfMaxQuestions(Math.min(30, Math.max(1, Number(e.target.value) || 15)))}
+              className="w-16 px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs font-bold"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <label htmlFor="gemini-pdf-upload" className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+              Upload Question Paper PDF (Up to 15 MB)
+            </label>
+            <input
+              id="gemini-pdf-upload"
+              ref={pdfInputRef}
+              type="file"
+              accept="application/pdf,.pdf"
+              onChange={(e) => setPdfFile(e.target.files?.[0] ?? null)}
+              className="block w-full text-xs text-slate-600 dark:text-slate-300 file:mr-3 file:py-2 file:px-3.5 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-[#2563EB] file:text-white hover:file:bg-[#1D4ED8]"
+            />
+            {pdfFile && (
+              <p className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
+                Selected PDF: {pdfFile.name} ({(pdfFile.size / 1024).toFixed(0)} KB)
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <label htmlFor="gemini-pdf-raw" className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+              Or Paste Question Paper Text Directly
+            </label>
+            <textarea
+              id="gemini-pdf-raw"
+              rows={2}
+              placeholder="Paste questions, options (A)-(D), and answers here..."
+              value={pdfRawText}
+              onChange={(e) => setPdfRawText(e.target.value)}
+              className="w-full px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs"
+            />
+          </div>
+        </div>
+
+        <div className="flex justify-end">
+          <ReusableButton
+            variant="accent"
+            size="sm"
+            disabled={pdfExtractBusy || (!pdfFile && !pdfRawText.trim())}
+            onClick={() => void handleExtractFromPdf()}
+          >
+            {pdfExtractBusy ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <FileUp className="w-4 h-4" />
+            )}
+            {pdfExtractBusy ? 'Fetching Questions via Gemini AI...' : 'Fetch Questions from PDF (Gemini AI)'}
+          </ReusableButton>
+        </div>
+      </ReusableCard>
+
+      {/* Step 2B: Fast 2-Crop Visual Question Paper Cropper (1. Question & 2. Answer/Solution) */}
       <ReusableCard className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 className="font-display text-base font-bold text-[#0F214D] dark:text-white flex items-center gap-2">
               <CropIcon className="w-5 h-5 text-[#E86F0C]" />
-              2. Multi-Page Visual Question Cropper — Page {currentPageNumber} · Q
+              2. Fast 2-Crop Question Builder — Page {currentPageNumber} · Q
               {draftQ.questionNumber}
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Upload a question paper page, crop Question/Options/Solution, or type text directly. Question numbering continues sequentially across pages.
+              Only 2 crops needed: <strong>1. Question</strong> and <strong>2. Answer / Solution</strong>. Then just click A/B/C/D (Single or Multiple) or type the Numerical Answer!
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -1006,9 +1202,9 @@ export function QuestionPaperBuilder() {
               onChange={(e) => handleQuestionTypeChange(e.target.value as QuestionType)}
               className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm"
             >
-              <option value="single-mcq">Single Choice MCQ (6 crops)</option>
-              <option value="multi-mcq">Multiple Choice MCQ (6 crops)</option>
-              <option value="integer">Integer / Numerical (2 crops)</option>
+              <option value="single-mcq">Single Choice MCQ (Click 1 Option)</option>
+              <option value="multi-mcq">Multiple Choice MCQ (Click Multi Options)</option>
+              <option value="integer">Integer / Numerical Box</option>
             </select>
           </div>
 
@@ -1040,22 +1236,23 @@ export function QuestionPaperBuilder() {
           </div>
         </div>
 
-        {/* Guided Crop Slot Selector */}
+        {/* Guided 2-Crop Selector: ONLY 1. Question & 2. Answer / Solution */}
         <div className="flex flex-wrap items-center gap-2">
           {activeSlots.map((slot) => {
             const hasImg =
               slot.id === 'question'
                 ? Boolean(draftQ.questionImageUrl)
-                : slot.id === 'solution'
-                  ? Boolean(draftQ.solutionImageUrl)
-                  : Boolean(draftQ.optionImageUrls?.[Number(slot.id.replace('opt', ''))]);
+                : Boolean(draftQ.solutionImageUrl);
             const isSelected = activeSlot === slot.id;
             return (
               <button
                 key={slot.id}
                 type="button"
-                onClick={() => setActiveSlot(slot.id)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors ${
+                onClick={() => {
+                  playClick();
+                  setActiveSlot(slot.id);
+                }}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition-colors ${
                   isSelected
                     ? 'bg-[#0F214D] text-white border-[#0F214D] dark:bg-sky-500 dark:text-slate-950'
                     : hasImg
@@ -1125,14 +1322,14 @@ export function QuestionPaperBuilder() {
             </div>
           </div>
         ) : (
-          <div className="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-2xl p-6 text-center">
-            <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
-              Upload a scanned question paper image (PNG/JPG) to visually crop Question, Options A–D, and Solution — or enter question text below.
+          <div className="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-2xl p-5 text-center">
+            <p className="text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300">
+              Upload a question paper page (PNG/JPG) to crop ONLY <strong>1. Question</strong> and <strong>2. Answer / Solution</strong> — or use Gemini PDF Fetch above / type text below.
             </p>
           </div>
         )}
 
-        {/* Text & Preview Fields */}
+        {/* Text, Crop Previews & Instant Click-to-Answer Column */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-2">
           <div className="space-y-3">
             <div>
@@ -1150,14 +1347,14 @@ export function QuestionPaperBuilder() {
 
             {draftQ.questionImageUrl && (
               <div className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white">
-                <p className="text-[11px] font-semibold text-slate-500 mb-1">Question Crop Preview</p>
+                <p className="text-[11px] font-semibold text-slate-500 mb-1">1. Question Crop Preview</p>
                 <img src={draftQ.questionImageUrl} alt="Question crop preview" className="max-h-32 object-contain" />
               </div>
             )}
 
             <div>
               <label htmlFor="draft-soltext" className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
-                Solution Explanation (Optional if cropped)
+                Answer / Solution Explanation (Optional if cropped)
               </label>
               <textarea
                 id="draft-soltext"
@@ -1170,73 +1367,91 @@ export function QuestionPaperBuilder() {
 
             {draftQ.solutionImageUrl && (
               <div className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white">
-                <p className="text-[11px] font-semibold text-slate-500 mb-1">Solution Crop Preview</p>
+                <p className="text-[11px] font-semibold text-slate-500 mb-1">2. Answer / Solution Crop Preview</p>
                 <img src={draftQ.solutionImageUrl} alt="Solution crop preview" className="max-h-28 object-contain" />
               </div>
             )}
           </div>
 
-          {/* Options / Numerical Answer Column */}
+          {/* One-Tap Answer Key / Numerical Box Column */}
           <div className="space-y-3">
             {draftQ.questionType === 'integer' ? (
-              <div>
-                <label htmlFor="draft-numans" className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
-                  Correct Numerical / Integer Answer
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 space-y-2">
+                <label htmlFor="draft-numans" className="block text-xs font-bold uppercase tracking-wide text-[#F97316]">
+                  Numerical / Integer Answer Box
                 </label>
                 <input
                   id="draft-numans"
                   type="text"
-                  placeholder="e.g. 24 or 9.8"
+                  placeholder="Type exact answer e.g. 24 or 9.8"
                   value={draftQ.numericalAnswer ?? ''}
                   onChange={(e) =>
                     setDraftQ((prev) => ({ ...prev, numericalAnswer: e.target.value }))
                   }
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-base font-bold"
+                  className="w-full px-4 py-3 rounded-xl border-2 border-[#2563EB]/40 focus:border-[#2563EB] bg-white dark:bg-slate-900 font-mono text-lg font-bold focus:outline-none"
                 />
-                <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
-                  Options A–D are automatically omitted for Integer questions.
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Students will type their numerical answer into a clean numeric box in the CBT exam.
                 </p>
               </div>
             ) : (
-              <div className="space-y-2.5">
-                <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">
-                  Options A–D & Correct Key ({draftQ.questionType === 'single-mcq' ? 'Select 1' : 'Select all correct'})
-                </p>
-                {OPTION_LETTERS.map((letter, idx) => {
-                  const isCorrect = (draftQ.correctOptionIndices ?? []).includes(idx);
-                  const optImg = draftQ.optionImageUrls?.[idx];
-                  return (
-                    <div
-                      key={letter}
-                      className="flex items-start gap-2.5 p-2 rounded-xl border border-slate-200 dark:border-slate-800"
-                    >
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setDraftQ((prev) => {
-                            const curr = prev.correctOptionIndices ?? [];
-                            if (prev.questionType === 'single-mcq') {
-                              return { ...prev, correctOptionIndices: [idx] };
-                            }
-                            const next = curr.includes(idx)
-                              ? curr.filter((i) => i !== idx)
-                              : [...curr, idx].sort((a, b) => a - b);
-                            return { ...prev, correctOptionIndices: next };
-                          })
-                        }
-                        aria-label={`Mark option ${letter} as correct`}
-                        className={`w-8 h-8 rounded-lg font-mono text-xs font-bold shrink-0 ${
-                          isCorrect
-                            ? 'bg-emerald-600 text-white'
-                            : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
-                        }`}
-                      >
-                        {letter}
-                      </button>
-                      <div className="flex-1 space-y-1.5">
+              <div className="space-y-3">
+                {/* Instant One-Tap Answer Key Selector */}
+                <div className="p-3.5 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/25 border border-emerald-200/80 dark:border-emerald-900/70 space-y-2">
+                  <p className="text-xs font-bold text-emerald-900 dark:text-emerald-300">
+                    {draftQ.questionType === 'single-mcq'
+                      ? 'Click 1 Option to Set Single Answer Key'
+                      : 'Click All Correct Options (Multi-Correct Key)'}
+                  </p>
+                  <div className="grid grid-cols-4 gap-2">
+                    {OPTION_LETTERS.map((letter, idx) => {
+                      const isCorrect = (draftQ.correctOptionIndices ?? []).includes(idx);
+                      return (
+                        <button
+                          key={letter}
+                          type="button"
+                          onClick={() => {
+                            playClick();
+                            setDraftQ((prev) => {
+                              const curr = prev.correctOptionIndices ?? [];
+                              if (prev.questionType === 'single-mcq') {
+                                return { ...prev, correctOptionIndices: [idx] };
+                              }
+                              const next = curr.includes(idx)
+                                ? curr.filter((i) => i !== idx)
+                                : [...curr, idx].sort((a, b) => a - b);
+                              return { ...prev, correctOptionIndices: next };
+                            });
+                          }}
+                          aria-pressed={isCorrect}
+                          aria-label={`Set option ${letter} as correct answer`}
+                          className={`py-2.5 rounded-xl font-mono text-sm font-extrabold border-2 transition-all ${
+                            isCorrect
+                              ? 'bg-[#10B981] text-white border-[#10B981] shadow-sm scale-[1.02]'
+                              : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:border-[#2563EB]'
+                          }`}
+                        >
+                          {letter} {isCorrect ? '✓' : ''}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Optional Text Labels for Options A–D (Skip if options are already inside the Question crop!) */}
+                <div className="space-y-1.5">
+                  <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                    Optional Option Text (leave blank if options A–D are already inside the Question crop image)
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {OPTION_LETTERS.map((letter, idx) => (
+                      <div key={letter} className="flex items-center gap-1.5">
+                        <span className="w-6 text-center font-mono text-xs font-bold text-slate-500">
+                          {letter}
+                        </span>
                         <input
                           type="text"
-                          placeholder={`Option ${letter} text (optional if cropped)`}
+                          placeholder={`Option ${letter} text (optional)`}
                           value={draftQ.optionTexts?.[idx] ?? ''}
                           onChange={(e) =>
                             setDraftQ((prev) => {
@@ -1245,15 +1460,12 @@ export function QuestionPaperBuilder() {
                               return { ...prev, optionTexts: next };
                             })
                           }
-                          className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs"
+                          className="flex-1 min-w-0 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs"
                         />
-                        {optImg && (
-                          <img src={optImg} alt={`Option ${letter} preview`} className="max-h-14 rounded bg-white" />
-                        )}
                       </div>
-                    </div>
-                  );
-                })}
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
           </div>
