@@ -1,0 +1,236 @@
+{
+  "entities": {
+    "ClassGroup": {
+      "title": "ClassGroup",
+      "description": "Admin-managed Class (e.g. Class 11) containing nested Sub-Classes (e.g. Board, JEE, NEET).",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "order": { "type": "number" },
+        "subClasses": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "order", "subClasses", "createdAt", "updatedAt"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated student or administrator profile with customizable avatar, bio, and active sub-class track.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "email": { "type": "string", "format": "email", "minLength": 3, "maxLength": 200 },
+        "photoURL": { "type": "string", "maxLength": 300000 },
+        "cohortId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "bio": { "type": "string", "maxLength": 300 },
+        "targetExam": { "type": "string", "maxLength": 80 },
+        "targetYear": { "type": "string", "maxLength": 16 },
+        "role": { "type": "string", "enum": ["student", "admin"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "displayName", "email", "cohortId", "role", "createdAt", "updatedAt"]
+    },
+    "Subject": {
+      "title": "Subject",
+      "description": "Dynamic subject configured by admins.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "code": { "type": "string", "minLength": 1, "maxLength": 24 },
+        "order": { "type": "number" },
+        "cohorts": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "code", "order", "cohorts", "createdAt", "updatedAt"]
+    },
+    "Section": {
+      "title": "Section",
+      "description": "Chapter resource section scoped to All Subjects, Multiple Subjects, or Specific Chapters.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "slug": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "order": { "type": "number" },
+        "description": { "type": "string", "maxLength": 300 },
+        "scope": { "type": "string", "enum": ["all", "subjects", "chapters"] },
+        "subjectIds": { "type": "array" },
+        "chapterIds": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "slug", "order", "createdAt", "updatedAt"]
+    },
+    "Chapter": {
+      "title": "Chapter",
+      "description": "Syllabus chapter belonging to a subject.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "subjectId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "name": { "type": "string", "minLength": 1, "maxLength": 140 },
+        "order": { "type": "number" },
+        "cohorts": { "type": "array" },
+        "weightageMarks": { "type": "number" },
+        "difficulty": { "type": "string", "enum": ["Easy", "Moderate", "Tough"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "subjectId", "name", "order", "cohorts", "weightageMarks", "difficulty", "createdAt", "updatedAt"]
+    },
+    "StudyMaterial": {
+      "title": "StudyMaterial",
+      "description": "Chapter section item supporting PDFs, Videos with thumbnails, Images, SEO slugs, and descriptions.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "subjectId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "chapterId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "sectionName": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "resourceType": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "mediaType": { "type": "string", "enum": ["pdf", "video", "image", "link"] },
+        "cohorts": { "type": "array" },
+        "fileUrl": { "type": "string", "minLength": 1, "maxLength": 750000 },
+        "thumbnailUrl": { "type": "string", "maxLength": 300000 },
+        "storagePath": { "type": "string", "maxLength": 500 },
+        "fileName": { "type": "string", "maxLength": 255 },
+        "fileSizeBytes": { "type": "number" },
+        "mimeType": { "type": "string", "maxLength": 120 },
+        "durationMinutes": { "type": "number" },
+        "seoSlug": { "type": "string", "maxLength": 140 },
+        "seoKeywords": { "type": "string", "maxLength": 300 },
+        "description": { "type": "string", "maxLength": 600 },
+        "uploadedBy": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "subjectId", "chapterId", "sectionName", "resourceType", "cohorts", "fileUrl", "createdAt", "updatedAt"]
+    },
+    "VideoLecture": {
+      "title": "VideoLecture",
+      "description": "Video lecture lesson with thumbnail, description, and SEO metadata.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "subjectId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "chapterId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "lectureNumber": { "type": "number" },
+        "cohorts": { "type": "array" },
+        "videoUrl": { "type": "string", "minLength": 1, "maxLength": 750000 },
+        "thumbnailUrl": { "type": "string", "maxLength": 300000 },
+        "description": { "type": "string", "maxLength": 600 },
+        "sectionName": { "type": "string", "maxLength": 80 },
+        "seoSlug": { "type": "string", "maxLength": 140 },
+        "storagePath": { "type": "string", "maxLength": 500 },
+        "durationMinutes": { "type": "number" },
+        "notesUrl": { "type": "string", "maxLength": 2000 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "subjectId", "chapterId", "lectureNumber", "cohorts", "videoUrl", "durationMinutes", "createdAt", "updatedAt"]
+    },
+    "MockTest": {
+      "title": "MockTest",
+      "description": "CBT Mock Test or Chapter DPP with exam-specific instructions and syllabus.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "destination": { "type": "string", "enum": ["cbt-mock", "dpp"] },
+        "cohortId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "examCategory": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "examType": { "type": "string", "enum": ["JEE Main", "JEE Advanced", "NEET UG", "Board Exam", "Custom"] },
+        "syllabus": { "type": "array" },
+        "instructions": { "type": "array" },
+        "subjectId": { "type": "string", "maxLength": 128 },
+        "chapterId": { "type": "string", "maxLength": 128 },
+        "subjectRanges": { "type": "array" },
+        "totalQuestions": { "type": "number" },
+        "totalMarks": { "type": "number" },
+        "durationMinutes": { "type": "number" },
+        "positiveMarks": { "type": "number" },
+        "negativeMarks": { "type": "number" },
+        "negativeMarkingEnabled": { "type": "boolean" },
+        "showSolutionsAfterSubmit": { "type": "boolean" },
+        "status": { "type": "string", "enum": ["draft", "published"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "destination", "cohortId", "examCategory", "totalQuestions", "totalMarks", "durationMinutes", "positiveMarks", "negativeMarks", "negativeMarkingEnabled", "showSolutionsAfterSubmit", "status", "createdAt", "updatedAt"]
+    },
+    "TestQuestion": {
+      "title": "TestQuestion",
+      "description": "Question belonging to a CBT Mock or DPP.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "testId": { "type": "string" },
+        "questionNumber": { "type": "number" },
+        "subjectName": { "type": "string" },
+        "questionType": { "type": "string", "enum": ["single-mcq", "multi-mcq", "integer"] },
+        "testStatus": { "type": "string", "enum": ["draft", "published"] }
+      },
+      "required": ["id", "testId", "questionNumber", "subjectName", "questionType", "testStatus"]
+    },
+    "TestAttempt": {
+      "title": "TestAttempt",
+      "description": "Immutable submitted student attempt record.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "testId": { "type": "string" },
+        "score": { "type": "number" },
+        "iqScore": { "type": "number" },
+        "roomExitWarnings": { "type": "number" }
+      },
+      "required": ["id", "userId", "testId", "score", "iqScore"]
+    },
+    "UserProgress": {
+      "title": "UserProgress",
+      "description": "Per-student weekly schedule, 60-day planner, watch-time, bookmarks, and focus minutes.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "plannerCompletedDays": { "type": "array" },
+        "weeklySchedule": { "type": "array" },
+        "lectureWatchState": { "type": "object" },
+        "bookmarkedMaterials": { "type": "array" },
+        "recentMaterials": { "type": "array" },
+        "focusSessionsMinutes": { "type": "number" }
+      },
+      "required": ["userId"]
+    },
+    "PlatformSettings": {
+      "title": "PlatformSettings",
+      "description": "Admin-configurable IQ Score pacing thresholds.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" }
+      },
+      "required": ["id"]
+    }
+  },
+  "firestore": {
+    "/classGroups/{groupId}": { "schema": { "$ref": "#/entities/ClassGroup" }, "description": "Admin-controlled classes and nested sub-classes" },
+    "/users/{userId}": { "schema": { "$ref": "#/entities/UserProfile" }, "description": "User profiles (owner + admin read)" },
+    "/admins/{userId}": { "schema": { "$ref": "#/entities/UserProfile" }, "description": "Verified administrator registry" },
+    "/subjects/{subjectId}": { "schema": { "$ref": "#/entities/Subject" }, "description": "Dynamic subjects" },
+    "/sections/{sectionId}": { "schema": { "$ref": "#/entities/Section" }, "description": "Dynamic resource sections" },
+    "/chapters/{chapterId}": { "schema": { "$ref": "#/entities/Chapter" }, "description": "Dynamic chapters" },
+    "/materials/{materialId}": { "schema": { "$ref": "#/entities/StudyMaterial" }, "description": "Chapter section PDFs, videos, thumbnails, and notes" },
+    "/lectures/{lectureId}": { "schema": { "$ref": "#/entities/VideoLecture" }, "description": "Video lectures" },
+    "/mockTests/{testId}": { "schema": { "$ref": "#/entities/MockTest" }, "description": "CBT Mocks & DPPs" },
+    "/questions/{questionId}": { "schema": { "$ref": "#/entities/TestQuestion" }, "description": "Test questions" },
+    "/testAttempts/{attemptId}": { "schema": { "$ref": "#/entities/TestAttempt" }, "description": "Immutable student attempts" },
+    "/userProgress/{userId}": { "schema": { "$ref": "#/entities/UserProgress" }, "description": "Student weekly schedule & study progress" },
+    "/platformSettings/{settingId}": { "schema": { "$ref": "#/entities/PlatformSettings" }, "description": "IQ Score parameters" }
+  }
+}

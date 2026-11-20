@@ -1,0 +1,6 @@
+{
+  "name": "prepskm.in — JEE & NEET Preparation",
+  "description": "Focused JEE Main, JEE Advanced, and NEET UG preparation platform with NTA-pattern CBT mock tests, previous year questions, NCERT syllabus tracker, and formula revision sheets.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

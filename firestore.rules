@@ -1,0 +1,433 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Pillar 1: Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Core Primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isAdminEmail() {
+      return isVerified() && (
+        request.auth.token.email == 'saurav586kumar@gmail.com' ||
+        request.auth.token.email == 'rahuldhi638@gmail.com'
+      );
+    }
+
+    function isAdmin() {
+      return isAdminEmail() || (
+        isVerified() &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidCohortId(c) {
+      return isValidId(c);
+    }
+
+    function isValidCohortList(arr) {
+      return arr is list && arr.size() >= 1 && arr.size() <= 30 && arr[0] is string;
+    }
+
+    // Validation Blueprints
+    function isValidClassGroup(data, groupId) {
+      return data.keys().hasAll(['id', 'name', 'order', 'subClasses', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['id', 'name', 'order', 'subClasses', 'createdAt', 'updatedAt']) &&
+        data.id == groupId &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 60 &&
+        data.order is number && data.order >= 0 && data.order <= 500 &&
+        data.subClasses is list && data.subClasses.size() >= 1 && data.subClasses.size() <= 15 &&
+        data.subClasses[0] is map &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidUserProfile(data, userId) {
+      return data.keys().hasAll(['uid', 'displayName', 'email', 'cohortId', 'role', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['uid', 'displayName', 'email', 'photoURL', 'cohortId', 'bio', 'targetExam', 'targetYear', 'role', 'createdAt', 'updatedAt']) &&
+        data.uid == userId &&
+        data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 120 &&
+        data.email is string && data.email.size() >= 3 && data.email.size() <= 200 &&
+        (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() <= 300000)) &&
+        (!('bio' in data) || (data.bio is string && data.bio.size() <= 300)) &&
+        (!('targetExam' in data) || (data.targetExam is string && data.targetExam.size() <= 80)) &&
+        (!('targetYear' in data) || (data.targetYear is string && data.targetYear.size() <= 16)) &&
+        isValidCohortId(data.cohortId) &&
+        data.role in ['student', 'admin'] &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidSubject(data, subjectId) {
+      return data.keys().hasAll(['id', 'name', 'code', 'order', 'cohorts', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['id', 'name', 'code', 'order', 'cohorts', 'createdAt', 'updatedAt']) &&
+        data.id == subjectId &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 80 &&
+        data.code is string && data.code.size() >= 1 && data.code.size() <= 24 &&
+        data.order is number && data.order >= 0 && data.order <= 1000 &&
+        isValidCohortList(data.cohorts) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidSection(data, sectionId) {
+      return data.keys().hasAll(['id', 'name', 'slug', 'order', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['id', 'name', 'slug', 'order', 'description', 'scope', 'subjectIds', 'chapterIds', 'createdAt', 'updatedAt']) &&
+        data.id == sectionId &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 80 &&
+        data.slug is string && data.slug.size() >= 1 && data.slug.size() <= 80 &&
+        data.order is number && data.order >= 0 && data.order <= 1000 &&
+        (!('description' in data) || (data.description is string && data.description.size() <= 300)) &&
+        (!('scope' in data) || data.scope in ['all', 'subjects', 'chapters']) &&
+        (!('subjectIds' in data) || (data.subjectIds is list && data.subjectIds.size() <= 30)) &&
+        (!('chapterIds' in data) || (data.chapterIds is list && data.chapterIds.size() <= 50)) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidChapter(data, chapterId) {
+      return data.keys().hasAll(['id', 'subjectId', 'name', 'order', 'cohorts', 'weightageMarks', 'difficulty', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['id', 'subjectId', 'name', 'order', 'cohorts', 'weightageMarks', 'difficulty', 'createdAt', 'updatedAt']) &&
+        data.id == chapterId &&
+        isValidId(data.subjectId) &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 140 &&
+        data.order is number && data.order >= 0 && data.order <= 1000 &&
+        isValidCohortList(data.cohorts) &&
+        data.weightageMarks is number && data.weightageMarks >= 0 && data.weightageMarks <= 100 &&
+        data.difficulty in ['Easy', 'Moderate', 'Tough'] &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidMaterial(data, materialId) {
+      return data.keys().hasAll(['id', 'title', 'subjectId', 'chapterId', 'sectionName', 'resourceType', 'cohorts', 'fileUrl', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['id', 'title', 'subjectId', 'chapterId', 'sectionName', 'resourceType', 'mediaType', 'cohorts', 'fileUrl', 'thumbnailUrl', 'storagePath', 'fileName', 'fileSizeBytes', 'mimeType', 'durationMinutes', 'seoSlug', 'seoKeywords', 'description', 'uploadedBy', 'createdAt', 'updatedAt']) &&
+        data.id == materialId &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 200 &&
+        isValidId(data.subjectId) &&
+        isValidId(data.chapterId) &&
+        data.sectionName is string && data.sectionName.size() >= 1 && data.sectionName.size() <= 80 &&
+        data.resourceType is string && data.resourceType.size() >= 1 && data.resourceType.size() <= 80 &&
+        (!('mediaType' in data) || data.mediaType in ['pdf', 'video', 'image', 'link']) &&
+        isValidCohortList(data.cohorts) &&
+        data.fileUrl is string && data.fileUrl.size() >= 1 && data.fileUrl.size() <= 750000 &&
+        (!('thumbnailUrl' in data) || (data.thumbnailUrl is string && data.thumbnailUrl.size() <= 300000)) &&
+        (!('storagePath' in data) || (data.storagePath is string && data.storagePath.size() <= 500)) &&
+        (!('fileName' in data) || (data.fileName is string && data.fileName.size() <= 255)) &&
+        (!('fileSizeBytes' in data) || (data.fileSizeBytes is number && data.fileSizeBytes >= 0)) &&
+        (!('mimeType' in data) || (data.mimeType is string && data.mimeType.size() <= 120)) &&
+        (!('durationMinutes' in data) || (data.durationMinutes is number && data.durationMinutes >= 0 && data.durationMinutes <= 600)) &&
+        (!('seoSlug' in data) || (data.seoSlug is string && data.seoSlug.size() <= 140)) &&
+        (!('seoKeywords' in data) || (data.seoKeywords is string && data.seoKeywords.size() <= 300)) &&
+        (!('description' in data) || (data.description is string && data.description.size() <= 600)) &&
+        (!('uploadedBy' in data) || (data.uploadedBy is string && data.uploadedBy.size() <= 128)) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidLecture(data, lectureId) {
+      return data.keys().hasAll(['id', 'title', 'subjectId', 'chapterId', 'lectureNumber', 'cohorts', 'videoUrl', 'durationMinutes', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['id', 'title', 'subjectId', 'chapterId', 'lectureNumber', 'cohorts', 'videoUrl', 'thumbnailUrl', 'description', 'sectionName', 'seoSlug', 'storagePath', 'durationMinutes', 'notesUrl', 'createdAt', 'updatedAt']) &&
+        data.id == lectureId &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 200 &&
+        isValidId(data.subjectId) &&
+        isValidId(data.chapterId) &&
+        data.lectureNumber is number && data.lectureNumber >= 1 && data.lectureNumber <= 500 &&
+        isValidCohortList(data.cohorts) &&
+        data.videoUrl is string && data.videoUrl.size() >= 1 && data.videoUrl.size() <= 750000 &&
+        (!('thumbnailUrl' in data) || (data.thumbnailUrl is string && data.thumbnailUrl.size() <= 300000)) &&
+        (!('description' in data) || (data.description is string && data.description.size() <= 600)) &&
+        (!('sectionName' in data) || (data.sectionName is string && data.sectionName.size() <= 80)) &&
+        (!('seoSlug' in data) || (data.seoSlug is string && data.seoSlug.size() <= 140)) &&
+        (!('storagePath' in data) || (data.storagePath is string && data.storagePath.size() <= 500)) &&
+        data.durationMinutes is number && data.durationMinutes >= 1 && data.durationMinutes <= 600 &&
+        (!('notesUrl' in data) || (data.notesUrl is string && data.notesUrl.size() <= 2000)) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidMockTest(data, testId) {
+      return data.keys().hasAll(['id', 'title', 'destination', 'cohortId', 'examCategory', 'totalQuestions', 'totalMarks', 'durationMinutes', 'positiveMarks', 'negativeMarks', 'negativeMarkingEnabled', 'showSolutionsAfterSubmit', 'status', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['id', 'title', 'destination', 'cohortId', 'examCategory', 'examType', 'syllabus', 'instructions', 'subjectId', 'chapterId', 'subjectRanges', 'totalQuestions', 'totalMarks', 'durationMinutes', 'positiveMarks', 'negativeMarks', 'negativeMarkingEnabled', 'showSolutionsAfterSubmit', 'status', 'createdAt', 'updatedAt']) &&
+        data.id == testId &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 200 &&
+        data.destination in ['cbt-mock', 'dpp'] &&
+        isValidCohortId(data.cohortId) &&
+        data.examCategory is string && data.examCategory.size() >= 1 && data.examCategory.size() <= 80 &&
+        (!('examType' in data) || data.examType in ['JEE Main', 'JEE Advanced', 'NEET UG', 'Board Exam', 'Custom']) &&
+        (!('syllabus' in data) || (data.syllabus is list && data.syllabus.size() <= 30)) &&
+        (!('instructions' in data) || (data.instructions is list && data.instructions.size() <= 25)) &&
+        (!('subjectId' in data) || (data.subjectId is string && data.subjectId.size() <= 128)) &&
+        (!('chapterId' in data) || (data.chapterId is string && data.chapterId.size() <= 128)) &&
+        (!('subjectRanges' in data) || (data.subjectRanges is list && data.subjectRanges.size() <= 10)) &&
+        data.totalQuestions is number && data.totalQuestions >= 0 && data.totalQuestions <= 300 &&
+        data.totalMarks is number && data.totalMarks >= 0 && data.totalMarks <= 1500 &&
+        data.durationMinutes is number && data.durationMinutes >= 1 && data.durationMinutes <= 360 &&
+        data.positiveMarks is number && data.positiveMarks >= 0 && data.positiveMarks <= 20 &&
+        data.negativeMarks is number && data.negativeMarks >= 0 && data.negativeMarks <= 20 &&
+        data.negativeMarkingEnabled is bool &&
+        data.showSolutionsAfterSubmit is bool &&
+        data.status in ['draft', 'published'] &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidQuestion(data, questionId) {
+      return data.keys().hasAll(['id', 'testId', 'questionNumber', 'subjectName', 'questionType', 'testStatus', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['id', 'testId', 'questionNumber', 'subjectName', 'chapterName', 'questionType', 'questionText', 'questionImageUrl', 'optionTexts', 'optionImageUrls', 'correctOptionIndices', 'numericalAnswer', 'solutionText', 'solutionImageUrl', 'sourcePageNumber', 'positiveMarks', 'negativeMarks', 'testStatus', 'createdAt', 'updatedAt']) &&
+        data.id == questionId &&
+        isValidId(data.testId) &&
+        data.questionNumber is number && data.questionNumber >= 1 && data.questionNumber <= 300 &&
+        data.subjectName is string && data.subjectName.size() >= 1 && data.subjectName.size() <= 80 &&
+        (!('chapterName' in data) || (data.chapterName is string && data.chapterName.size() <= 140)) &&
+        data.questionType in ['single-mcq', 'multi-mcq', 'integer'] &&
+        (!('questionText' in data) || (data.questionText is string && data.questionText.size() <= 3000)) &&
+        (!('questionImageUrl' in data) || (data.questionImageUrl is string && data.questionImageUrl.size() <= 300000)) &&
+        (!('optionTexts' in data) || (data.optionTexts is list && data.optionTexts.size() <= 4)) &&
+        (!('optionImageUrls' in data) || (data.optionImageUrls is list && data.optionImageUrls.size() <= 4)) &&
+        (!('correctOptionIndices' in data) || (data.correctOptionIndices is list && data.correctOptionIndices.size() <= 4)) &&
+        (!('numericalAnswer' in data) || (data.numericalAnswer is string && data.numericalAnswer.size() <= 40)) &&
+        (!('solutionText' in data) || (data.solutionText is string && data.solutionText.size() <= 3000)) &&
+        (!('solutionImageUrl' in data) || (data.solutionImageUrl is string && data.solutionImageUrl.size() <= 300000)) &&
+        (!('sourcePageNumber' in data) || (data.sourcePageNumber is number && data.sourcePageNumber >= 1 && data.sourcePageNumber <= 200)) &&
+        (!('positiveMarks' in data) || (data.positiveMarks is number && data.positiveMarks >= 0 && data.positiveMarks <= 20)) &&
+        (!('negativeMarks' in data) || (data.negativeMarks is number && data.negativeMarks >= 0 && data.negativeMarks <= 20)) &&
+        data.testStatus in ['draft', 'published'] &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidTestAttempt(data, attemptId) {
+      return data.keys().hasAll(['id', 'userId', 'testId', 'testTitle', 'destination', 'cohortId', 'score', 'maxScore', 'correctCount', 'incorrectCount', 'unattemptedCount', 'accuracyPercent', 'totalTimeSeconds', 'iqScore', 'submittedAt']) &&
+        data.keys().hasOnly(['id', 'userId', 'testId', 'testTitle', 'destination', 'cohortId', 'score', 'maxScore', 'correctCount', 'incorrectCount', 'unattemptedCount', 'accuracyPercent', 'totalTimeSeconds', 'avgTimePerQuestion', 'iqScore', 'roomExitWarnings', 'paceSummary', 'subjectScores', 'chapterScores', 'questionTimings', 'answers', 'submittedAt']) &&
+        data.id == attemptId &&
+        data.userId == request.auth.uid &&
+        isValidId(data.testId) &&
+        data.testTitle is string && data.testTitle.size() >= 1 && data.testTitle.size() <= 200 &&
+        data.destination in ['cbt-mock', 'dpp'] &&
+        isValidCohortId(data.cohortId) &&
+        data.score is number &&
+        data.maxScore is number && data.maxScore >= 0 &&
+        data.correctCount is number && data.correctCount >= 0 &&
+        data.incorrectCount is number && data.incorrectCount >= 0 &&
+        data.unattemptedCount is number && data.unattemptedCount >= 0 &&
+        data.accuracyPercent is number && data.accuracyPercent >= 0 && data.accuracyPercent <= 100 &&
+        data.totalTimeSeconds is number && data.totalTimeSeconds >= 0 &&
+        data.iqScore is number && data.iqScore >= 0 && data.iqScore <= 200 &&
+        (!('roomExitWarnings' in data) || (data.roomExitWarnings is number && data.roomExitWarnings >= 0 && data.roomExitWarnings <= 100)) &&
+        (!('avgTimePerQuestion' in data) || (data.avgTimePerQuestion is number && data.avgTimePerQuestion >= 0)) &&
+        (!('paceSummary' in data) || data.paceSummary is map) &&
+        (!('answers' in data) || data.answers is map) &&
+        (!('subjectScores' in data) || (data.subjectScores is list && data.subjectScores.size() <= 15)) &&
+        (!('chapterScores' in data) || (data.chapterScores is list && data.chapterScores.size() <= 100)) &&
+        (!('questionTimings' in data) || (data.questionTimings is list && data.questionTimings.size() <= 300)) &&
+        data.submittedAt == request.time;
+    }
+
+    function isValidUserProgress(data, userId) {
+      return data.keys().hasAll(['userId', 'updatedAt']) &&
+        data.keys().hasOnly(['userId', 'plannerCompletedDays', 'weeklySchedule', 'manzilProgress', 'lectureWatchState', 'bookmarkedMaterials', 'recentMaterials', 'focusSessionsMinutes', 'updatedAt']) &&
+        data.userId == userId &&
+        (!('plannerCompletedDays' in data) || (data.plannerCompletedDays is list && data.plannerCompletedDays.size() <= 120)) &&
+        (!('weeklySchedule' in data) || (data.weeklySchedule is list && data.weeklySchedule.size() <= 80)) &&
+        (!('manzilProgress' in data) || data.manzilProgress is map) &&
+        (!('lectureWatchState' in data) || data.lectureWatchState is map) &&
+        (!('bookmarkedMaterials' in data) || (data.bookmarkedMaterials is list && data.bookmarkedMaterials.size() <= 200)) &&
+        (!('recentMaterials' in data) || (data.recentMaterials is list && data.recentMaterials.size() <= 50)) &&
+        (!('focusSessionsMinutes' in data) || (data.focusSessionsMinutes is number && data.focusSessionsMinutes >= 0 && data.focusSessionsMinutes <= 1000000)) &&
+        data.updatedAt == request.time;
+    }
+
+    function isValidPlatformSettings(data, settingId) {
+      return data.keys().hasAll(['id', 'tooFastThresholdSec', 'optimalMinSec', 'optimalMaxSec', 'tooSlowThresholdSec', 'rushingPenaltyWeight', 'slowPenaltyWeight', 'optimalBonusWeight', 'updatedAt']) &&
+        data.keys().hasOnly(['id', 'tooFastThresholdSec', 'optimalMinSec', 'optimalMaxSec', 'tooSlowThresholdSec', 'rushingPenaltyWeight', 'slowPenaltyWeight', 'optimalBonusWeight', 'updatedAt']) &&
+        data.id == settingId &&
+        data.tooFastThresholdSec is number && data.tooFastThresholdSec >= 1 && data.tooFastThresholdSec <= 120 &&
+        data.optimalMinSec is number && data.optimalMinSec >= 5 && data.optimalMinSec <= 300 &&
+        data.optimalMaxSec is number && data.optimalMaxSec >= 30 && data.optimalMaxSec <= 600 &&
+        data.tooSlowThresholdSec is number && data.tooSlowThresholdSec >= 60 && data.tooSlowThresholdSec <= 900 &&
+        data.rushingPenaltyWeight is number && data.rushingPenaltyWeight >= 0 && data.rushingPenaltyWeight <= 20 &&
+        data.slowPenaltyWeight is number && data.slowPenaltyWeight >= 0 && data.slowPenaltyWeight <= 20 &&
+        data.optimalBonusWeight is number && data.optimalBonusWeight >= 0 && data.optimalBonusWeight <= 20 &&
+        data.updatedAt is timestamp;
+    }
+
+    // 0. Dynamic Class Groups & Sub-Classes
+    match /classGroups/{groupId} {
+      allow get: if isValidId(groupId);
+      allow list: if true;
+      allow create: if isValidId(groupId) && isAdmin() && isValidClassGroup(incoming(), groupId) &&
+        incoming().createdAt == request.time && incoming().updatedAt == request.time;
+      allow update: if isValidId(groupId) && isAdmin() && isValidClassGroup(incoming(), groupId) &&
+        incoming().createdAt == existing().createdAt && incoming().updatedAt == request.time;
+      allow delete: if isValidId(groupId) && isAdmin();
+    }
+
+    // 1. Users (PII isolated)
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isAdminEmail();
+      allow create: if isVerified() && isValidId(userId) && isOwner(userId) &&
+        isValidUserProfile(incoming(), userId) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        (incoming().role == 'student' || isAdmin());
+      allow update: if isVerified() && isValidId(userId) &&
+        isValidUserProfile(incoming(), userId) &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          isAdmin() ||
+          (isOwner(userId) &&
+            incoming().role == existing().role &&
+            incoming().uid == existing().uid &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'cohortId', 'bio', 'targetExam', 'targetYear', 'updatedAt']))
+        );
+      allow delete: if isValidId(userId) && isAdmin();
+    }
+
+    // 2. Admins registry
+    match /admins/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isAdminEmail();
+      allow create, update, delete: if isValidId(userId) && isAdmin();
+    }
+
+    // 3. Subjects
+    match /subjects/{subjectId} {
+      allow get: if isValidId(subjectId);
+      allow list: if true;
+      allow create: if isValidId(subjectId) && isAdmin() && isValidSubject(incoming(), subjectId) &&
+        incoming().createdAt == request.time && incoming().updatedAt == request.time;
+      allow update: if isValidId(subjectId) && isAdmin() && isValidSubject(incoming(), subjectId) &&
+        incoming().createdAt == existing().createdAt && incoming().updatedAt == request.time;
+      allow delete: if isValidId(subjectId) && isAdmin();
+    }
+
+    // 4. Resource Sections (All Subjects, Multiple Subjects, or Specific Chapters)
+    match /sections/{sectionId} {
+      allow get: if isValidId(sectionId);
+      allow list: if true;
+      allow create: if isValidId(sectionId) && isAdmin() && isValidSection(incoming(), sectionId) &&
+        incoming().createdAt == request.time && incoming().updatedAt == request.time;
+      allow update: if isValidId(sectionId) && isAdmin() && isValidSection(incoming(), sectionId) &&
+        incoming().createdAt == existing().createdAt && incoming().updatedAt == request.time;
+      allow delete: if isValidId(sectionId) && isAdmin();
+    }
+
+    // 5. Chapters
+    match /chapters/{chapterId} {
+      allow get: if isValidId(chapterId);
+      allow list: if true;
+      allow create: if isValidId(chapterId) && isAdmin() && isValidChapter(incoming(), chapterId) &&
+        incoming().createdAt == request.time && incoming().updatedAt == request.time;
+      allow update: if isValidId(chapterId) && isAdmin() && isValidChapter(incoming(), chapterId) &&
+        incoming().createdAt == existing().createdAt && incoming().updatedAt == request.time;
+      allow delete: if isValidId(chapterId) && isAdmin();
+    }
+
+    // 6. Study Materials (PDFs, Videos, Thumbnails, Images)
+    match /materials/{materialId} {
+      allow get: if isValidId(materialId);
+      allow list: if true;
+      allow create: if isValidId(materialId) && isAdmin() && isValidMaterial(incoming(), materialId) &&
+        incoming().createdAt == request.time && incoming().updatedAt == request.time;
+      allow update: if isValidId(materialId) && isAdmin() && isValidMaterial(incoming(), materialId) &&
+        incoming().createdAt == existing().createdAt && incoming().updatedAt == request.time;
+      allow delete: if isValidId(materialId) && isAdmin();
+    }
+
+    // 7. Video Lectures
+    match /lectures/{lectureId} {
+      allow get: if isValidId(lectureId);
+      allow list: if true;
+      allow create: if isValidId(lectureId) && isAdmin() && isValidLecture(incoming(), lectureId) &&
+        incoming().createdAt == request.time && incoming().updatedAt == request.time;
+      allow update: if isValidId(lectureId) && isAdmin() && isValidLecture(incoming(), lectureId) &&
+        incoming().createdAt == existing().createdAt && incoming().updatedAt == request.time;
+      allow delete: if isValidId(lectureId) && isAdmin();
+    }
+
+    // 8. Mock Tests & DPPs
+    match /mockTests/{testId} {
+      allow get: if isValidId(testId) && (existing().status == 'published' || isAdmin());
+      allow list: if resource.data.status == 'published' || isAdminEmail();
+      allow create: if isValidId(testId) && isAdmin() && isValidMockTest(incoming(), testId) &&
+        incoming().createdAt == request.time && incoming().updatedAt == request.time;
+      allow update: if isValidId(testId) && isAdmin() && isValidMockTest(incoming(), testId) &&
+        incoming().createdAt == existing().createdAt && incoming().updatedAt == request.time;
+      allow delete: if isValidId(testId) && isAdmin();
+    }
+
+    // 9. Questions
+    match /questions/{questionId} {
+      allow get: if isValidId(questionId) && (existing().testStatus == 'published' || isAdmin());
+      allow list: if resource.data.testStatus == 'published' || isAdminEmail();
+      allow create: if isValidId(questionId) && isAdmin() && isValidQuestion(incoming(), questionId) &&
+        incoming().createdAt == request.time && incoming().updatedAt == request.time &&
+        exists(/databases/$(database)/documents/mockTests/$(incoming().testId));
+      allow update: if isValidId(questionId) && isAdmin() && isValidQuestion(incoming(), questionId) &&
+        incoming().createdAt == existing().createdAt && incoming().updatedAt == request.time;
+      allow delete: if isValidId(questionId) && isAdmin();
+    }
+
+    // 10. Test & DPP Attempts (Owner-only & immutable)
+    match /testAttempts/{attemptId} {
+      allow get: if isValidId(attemptId) && (existing().userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdminEmail());
+      allow create: if isVerified() && isValidId(attemptId) && isValidTestAttempt(incoming(), attemptId);
+      allow update: if false;
+      allow delete: if isValidId(attemptId) && isAdmin();
+    }
+
+    // 11. User Progress (Weekly Schedule, Planner, Watch-Time, Bookmarks, Focus)
+    match /userProgress/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isAdminEmail();
+      allow create: if isVerified() && isValidId(userId) && isOwner(userId) &&
+        isValidUserProgress(incoming(), userId);
+      allow update: if isVerified() && isValidId(userId) &&
+        isValidUserProgress(incoming(), userId) && (
+          isAdmin() ||
+          (isOwner(userId) &&
+            incoming().userId == existing().userId &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['plannerCompletedDays', 'weeklySchedule', 'manzilProgress', 'lectureWatchState', 'bookmarkedMaterials', 'recentMaterials', 'focusSessionsMinutes', 'updatedAt']))
+        );
+      allow delete: if isValidId(userId) && isAdmin();
+    }
+
+    // 12. Platform Settings
+    match /platformSettings/{settingId} {
+      allow get: if isValidId(settingId);
+      allow list: if true;
+      allow create, update: if isValidId(settingId) && isAdmin() &&
+        isValidPlatformSettings(incoming(), settingId) &&
+        incoming().updatedAt == request.time;
+      allow delete: if isValidId(settingId) && isAdmin();
+    }
+  }
+}

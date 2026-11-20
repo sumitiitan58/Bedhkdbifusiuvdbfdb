@@ -1,0 +1,42 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isAdmin() {
+      return request.auth != null &&
+        request.auth.token.email_verified == true &&
+        (request.auth.token.email == 'saurav586kumar@gmail.com' ||
+         request.auth.token.email == 'rahuldhi638@gmail.com');
+    }
+
+    // Public read for published educational assets; strictly admin write with MIME & size guards
+    match /materials/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin() &&
+        request.resource.size < 50 * 1024 * 1024 &&
+        (request.resource.contentType.matches('application/pdf') ||
+         request.resource.contentType.matches('image/.*'));
+      allow delete: if isAdmin();
+    }
+
+    match /lectures/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin() &&
+        request.resource.size < 500 * 1024 * 1024 &&
+        request.resource.contentType.matches('video/.*');
+      allow delete: if isAdmin();
+    }
+
+    match /questions/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin() &&
+        request.resource.size < 15 * 1024 * 1024 &&
+        request.resource.contentType.matches('image/.*');
+      allow delete: if isAdmin();
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
