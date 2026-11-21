@@ -8,12 +8,20 @@ import {
   JEE_CONCISE_MATERIALS,
 } from '../data/jeeConciseNotesCatalog';
 import {
+  FULL_MOCK_TEST_1_ID,
+  FULL_MOCK_TEST_1_QUESTIONS,
+  FULL_MOCK_TEST_1_RECORD,
+} from '../data/fullMockTest1Catalog';
+import {
   filterChaptersByCohort,
   filterMaterialsByCohort,
   filterSubjectsByCohort,
   filterTestsByCohort,
+  getTestCohortIds,
   mergeClassGroups,
   mergeOfficialJeeCatalog,
+  mergeOfficialMockTests,
+  testMatchesCohort,
 } from './catalogMerge';
 import {
   buildMaterialSeoSummary,
@@ -260,3 +268,99 @@ test('SEO helpers generate clean slugs, PYQ routes, 150-word summaries, and vali
   assert.ok(xml.includes('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'));
   assert.equal(xml.match(/<url>/g)?.length, 2);
 });
+
+test('Full Mock Test 1 has 75 verified questions, 150 cropped PNGs on disk, and targets 12th JEE & Dropper JEE', () => {
+  assert.equal(FULL_MOCK_TEST_1_RECORD.id, FULL_MOCK_TEST_1_ID);
+  assert.equal(FULL_MOCK_TEST_1_RECORD.title, 'Full Mock Test 1');
+  assert.equal(FULL_MOCK_TEST_1_RECORD.totalQuestions, 75);
+  assert.equal(FULL_MOCK_TEST_1_RECORD.totalMarks, 300);
+  assert.equal(FULL_MOCK_TEST_1_RECORD.durationMinutes, 180);
+  assert.equal(FULL_MOCK_TEST_1_RECORD.positiveMarks, 4);
+  assert.equal(FULL_MOCK_TEST_1_RECORD.negativeMarks, 1);
+  assert.equal(FULL_MOCK_TEST_1_RECORD.negativeMarkingEnabled, true);
+  assert.equal(FULL_MOCK_TEST_1_RECORD.status, 'published');
+
+  // Multi-cohort isolation: matches 12th JEE and Dropper JEE, NOT NEET or Class 11
+  assert.deepEqual(getTestCohortIds(FULL_MOCK_TEST_1_RECORD), ['class-12-jee', 'jee-dropper']);
+  assert.equal(testMatchesCohort(FULL_MOCK_TEST_1_RECORD, 'class-12-jee'), true);
+  assert.equal(testMatchesCohort(FULL_MOCK_TEST_1_RECORD, 'jee-dropper'), true);
+  assert.equal(testMatchesCohort(FULL_MOCK_TEST_1_RECORD, 'class-12-neet'), false);
+  assert.equal(testMatchesCohort(FULL_MOCK_TEST_1_RECORD, 'class-11-jee'), false);
+
+  assert.equal(FULL_MOCK_TEST_1_QUESTIONS.length, 75);
+
+  const phy = FULL_MOCK_TEST_1_QUESTIONS.filter((q) => q.subjectName === 'Physics');
+  const chem = FULL_MOCK_TEST_1_QUESTIONS.filter((q) => q.subjectName === 'Chemistry');
+  const math = FULL_MOCK_TEST_1_QUESTIONS.filter((q) => q.subjectName === 'Mathematics');
+  assert.equal(phy.length, 25);
+  assert.equal(chem.length, 25);
+  assert.equal(math.length, 25);
+
+  const mcqs = FULL_MOCK_TEST_1_QUESTIONS.filter((q) => q.questionType === 'single-mcq');
+  const numericals = FULL_MOCK_TEST_1_QUESTIONS.filter((q) => q.questionType === 'integer');
+  assert.equal(mcqs.length, 60);
+  assert.equal(numericals.length, 15);
+
+  const seenIds = new Set<string>();
+  const pngSig = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+
+  FULL_MOCK_TEST_1_QUESTIONS.forEach((q, idx) => {
+    assert.equal(q.questionNumber, idx + 1);
+    assert.equal(q.testId, FULL_MOCK_TEST_1_ID);
+    assert.equal(seenIds.has(q.id), false, `Duplicate question id: ${q.id}`);
+    seenIds.add(q.id);
+
+    if (q.questionType === 'single-mcq') {
+      assert.equal(q.optionTexts?.length, 4, `Q${q.questionNumber} must have 4 options`);
+      assert.equal(q.correctOptionIndices?.length, 1, `Q${q.questionNumber} must have 1 correct option`);
+      const ans = q.correctOptionIndices![0];
+      assert.ok(ans >= 0 && ans <= 3, `Q${q.questionNumber} answer index out of range`);
+    } else {
+      assert.ok(q.numericalAnswer && q.numericalAnswer.trim().length > 0, `Q${q.questionNumber} missing numerical answer`);
+    }
+
+    assert.ok(q.questionImageUrl?.startsWith('/assets/mocks/full-mock-test-1/q'));
+    assert.ok(q.solutionImageUrl?.startsWith('/assets/mocks/full-mock-test-1/s'));
+
+    const qPath = path.join(process.cwd(), 'public', q.questionImageUrl!);
+    const sPath = path.join(process.cwd(), 'public', q.solutionImageUrl!);
+    assert.equal(fs.existsSync(qPath), true, `Missing question PNG: ${qPath}`);
+    assert.equal(fs.existsSync(sPath), true, `Missing solution PNG: ${sPath}`);
+    assert.ok(fs.readFileSync(qPath).subarray(0, 4).equals(pngSig), `Invalid PNG header: ${qPath}`);
+    assert.ok(fs.readFileSync(sPath).subarray(0, 4).equals(pngSig), `Invalid PNG header: ${sPath}`);
+  });
+});
+
+test('mergeOfficialMockTests prepends Full Mock Test 1 alongside Firestore tests without duplication', () => {
+  const customTest: MockTestRecord = {
+    id: 'custom-admin-test-1',
+    title: 'Admin Custom Test',
+    destination: 'cbt-mock',
+    cohortId: 'class-12-jee',
+    examCategory: 'JEE Main',
+    totalQuestions: 1,
+    totalMarks: 4,
+    durationMinutes: 10,
+    positiveMarks: 4,
+    negativeMarks: 1,
+    negativeMarkingEnabled: true,
+    showSolutionsAfterSubmit: true,
+    status: 'published',
+  };
+
+  const mergedOnce = mergeOfficialMockTests({ mockTests: [customTest], questions: [] });
+  assert.equal(mergedOnce.mockTests.length, 2);
+  assert.equal(mergedOnce.mockTests[0].id, FULL_MOCK_TEST_1_ID);
+  assert.equal(mergedOnce.questions.length, 75);
+
+  // Calling again does not duplicate Full Mock Test 1 or its 75 questions
+  const mergedTwice = mergeOfficialMockTests(mergedOnce);
+  assert.equal(mergedTwice.mockTests.length, 2);
+  assert.equal(mergedTwice.questions.length, 75);
+
+  // Both 12th JEE and Dropper JEE filters return Full Mock Test 1
+  assert.ok(filterTestsByCohort(mergedOnce.mockTests, 'class-12-jee').some((t) => t.id === FULL_MOCK_TEST_1_ID));
+  assert.ok(filterTestsByCohort(mergedOnce.mockTests, 'jee-dropper').some((t) => t.id === FULL_MOCK_TEST_1_ID));
+  assert.equal(filterTestsByCohort(mergedOnce.mockTests, 'class-12-neet').some((t) => t.id === FULL_MOCK_TEST_1_ID), false);
+});
+

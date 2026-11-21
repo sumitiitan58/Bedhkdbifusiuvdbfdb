@@ -17,7 +17,11 @@ import { AttemptReviewModal } from '../components/analytics/AttemptReviewModal';
 import { NativeBannerAd } from '../components/ads/NativeBannerAd';
 import { useAuth } from '../context/AuthContext';
 import { usePlatformData } from '../context/PlatformDataContext';
-import { filterChaptersByCohort, filterSubjectsByCohort } from '../utils/catalogMerge';
+import {
+  filterChaptersByCohort,
+  filterSubjectsByCohort,
+  testMatchesCohort,
+} from '../utils/catalogMerge';
 import { getHierarchicalMockTestPath } from '../utils/seoHelpers';
 import { playClick } from '../utils/soundEffects';
 import type { MockTestRecord, StudentCohortId, TestAttemptRecord } from '../types';
@@ -60,7 +64,7 @@ export default function DppPage() {
     () =>
       mockTests.filter((t) => {
         if (t.destination !== 'dpp' || t.status !== 'published') return false;
-        if (selectedCohort !== 'all' && t.cohortId !== selectedCohort) return false;
+        if (selectedCohort !== 'all' && !testMatchesCohort(t, selectedCohort)) return false;
         if (selectedSubjectId !== 'all' && t.subjectId !== selectedSubjectId) return false;
         if (selectedChapterId !== 'all' && t.chapterId !== selectedChapterId) return false;
         return true;
