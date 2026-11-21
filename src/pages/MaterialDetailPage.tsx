@@ -5,6 +5,8 @@ import {
   Bookmark,
   BookmarkCheck,
   BookOpen,
+  CheckCircle2,
+  ChevronRight,
   Download,
   FileText,
   Sparkles,
@@ -20,13 +22,20 @@ import { resolveAssetUrl } from '../utils/instantUpload';
 import {
   buildMaterialSeoSummary,
   CANONICAL_ORIGIN,
-  getMaterialRoutePath,
+  getHierarchicalMaterialPath,
   getMaterialSlug,
+  stripChapterNumberPrefix,
 } from '../utils/seoHelpers';
 import { playClick } from '../utils/soundEffects';
 
 export default function MaterialDetailPage() {
-  const { slug } = useParams<{ slug: string }>();
+  const { slug, classSlug, chapterSlug } = useParams<{
+    slug?: string;
+    classSlug?: string;
+    subjectSlug?: string;
+    chapterSlug?: string;
+  }>();
+
   const {
     allCohorts,
     subjects,
@@ -37,14 +46,20 @@ export default function MaterialDetailPage() {
     recordMaterialView,
   } = usePlatformData();
 
+  const activeSlug = chapterSlug || slug || '';
+
   const material = useMemo(() => {
-    if (!slug) return null;
-    const normalized = slug.toLowerCase();
+    if (!activeSlug) return null;
+    const normalized = activeSlug.toLowerCase();
     return (
-      materials.find((m) => getMaterialSlug(m) === normalized || m.id.toLowerCase() === normalized) ??
-      null
+      materials.find(
+        (m) =>
+          getMaterialSlug(m) === normalized ||
+          m.id.toLowerCase() === normalized ||
+          (m.seoSlug && m.seoSlug.toLowerCase() === normalized)
+      ) ?? null
     );
-  }, [materials, slug]);
+  }, [materials, activeSlug]);
 
   const [resolvedUrl, setResolvedUrl] = useState<string>('');
 
@@ -73,6 +88,17 @@ export default function MaterialDetailPage() {
       .filter(Boolean);
   }, [allCohorts, material]);
 
+  const primaryCohortId = useMemo(() => {
+    if (!material) return 'class-11-jee';
+    if (classSlug && material.cohorts.includes(classSlug)) return classSlug;
+    return material.cohorts[0] ?? 'class-11-jee';
+  }, [classSlug, material]);
+
+  const primaryCohortLabel = useMemo(
+    () => allCohorts.find((c) => c.id === primaryCohortId)?.label ?? cohortLabels[0] ?? 'JEE & NEET',
+    [allCohorts, cohortLabels, primaryCohortId]
+  );
+
   const relatedMaterials = useMemo(() => {
     if (!material) return [];
     return materials
@@ -88,8 +114,8 @@ export default function MaterialDetailPage() {
     return (
       <PageLayout>
         <SeoHead
-          title="Study Material Not Found - Prepskm"
-          description="Browse free chapter-wise JEE Main, JEE Advanced & NEET UG study materials and concise notes on Prepskm."
+          title="Study Material Not Found | PREPSKM.IN"
+          description="Browse free chapter-wise JEE Main, JEE Advanced & NEET UG study materials and concise notes on PREPSKM.IN."
           canonicalPath="/materials"
         />
         <ResponsiveContainer size="narrow" className="py-16">
@@ -110,65 +136,132 @@ export default function MaterialDetailPage() {
     );
   }
 
-  const routePath = getMaterialRoutePath(material);
   const subjectName = subject?.name ?? 'Science';
-  const chapterName = chapter?.name ?? material.title;
+  const rawChapterName = chapter?.name ?? material.title;
+  const cleanChapterName = stripChapterNumberPrefix(rawChapterName);
+  const routePath = getHierarchicalMaterialPath(material, {
+    subjectName,
+    cohortId: primaryCohortId,
+  });
   const isBookmarked = progress.bookmarkedMaterials.includes(material.id);
+
+  const sectionLabel = material.sectionName || 'Concise Notes';
+  const pageTitle = `${cleanChapterName} ${sectionLabel} & PDF – ${primaryCohortLabel} ${subjectName} | PREPSKM.IN`;
+
+  const metaDescription =
+    material.seoDescription?.trim() ||
+    `Download free ${cleanChapterName} concise notes, formula sheets, PYQs, and attempt NTA-grade CBT mocks for ${primaryCohortLabel} on PREPSKM.IN.`;
 
   const seoSummary = buildMaterialSeoSummary({
     title: material.title,
     subjectName,
-    chapterName,
-    sectionName: material.sectionName,
+    chapterName: cleanChapterName,
+    sectionName: sectionLabel,
     cohortLabels,
     description: material.description,
   });
 
-  const metaDescription =
-    material.seoDescription ||
-    `Download free ${material.title} (${subjectName} · ${chapterName}) for ${cohortLabels.slice(0, 2).join(', ') || 'JEE & NEET'} on Prepskm.`;
-
   const jsonLd = {
     '@context': 'https://schema.org',
-    '@type': 'LearningResource',
-    name: material.title,
-    description: metaDescription,
-    educationalLevel: cohortLabels.join(', ') || 'Class 11 & Class 12 JEE / NEET',
-    learningResourceType: material.sectionName,
-    about: {
-      '@type': 'Thing',
-      name: `${subjectName} - ${chapterName}`,
-    },
-    url: `${CANONICAL_ORIGIN}${routePath}`,
-    provider: {
-      '@type': 'EducationalOrganization',
-      name: 'Prepskm',
-      url: CANONICAL_ORIGIN,
-    },
-    isAccessibleForFree: true,
+    '@graph': [
+      {
+        '@type': 'LearningResource',
+        name: pageTitle,
+        headline: material.title,
+        description: metaDescription,
+        educationalLevel: cohortLabels.join(', ') || primaryCohortLabel,
+        learningResourceType: sectionLabel,
+        inLanguage: 'en-IN',
+        about: {
+          '@type': 'Thing',
+          name: `${subjectName} - ${cleanChapterName}`,
+        },
+        url: `${CANONICAL_ORIGIN}${routePath}`,
+        provider: {
+          '@type': 'EducationalOrganization',
+          name: 'PREPSKM.IN',
+          url: CANONICAL_ORIGIN,
+        },
+        isAccessibleForFree: true,
+      },
+      {
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          {
+            '@type': 'ListItem',
+            position: 1,
+            name: 'Home',
+            item: `${CANONICAL_ORIGIN}/`,
+          },
+          {
+            '@type': 'ListItem',
+            position: 2,
+            name: 'Study Materials',
+            item: `${CANONICAL_ORIGIN}/materials`,
+          },
+          {
+            '@type': 'ListItem',
+            position: 3,
+            name: primaryCohortLabel,
+            item: `${CANONICAL_ORIGIN}/materials?track=${encodeURIComponent(primaryCohortId)}`,
+          },
+          {
+            '@type': 'ListItem',
+            position: 4,
+            name: `${cleanChapterName} ${sectionLabel}`,
+            item: `${CANONICAL_ORIGIN}${routePath}`,
+          },
+        ],
+      },
+    ],
   };
 
   return (
     <PageLayout>
       <SeoHead
-        title={`${material.title} - Prepskm`}
+        title={pageTitle}
         description={metaDescription}
         canonicalPath={routePath}
         keywords={
           material.seoKeywords ||
-          `${chapterName}, ${subjectName}, ${material.sectionName}, Prepskm, JEE notes, NEET notes`
+          `${cleanChapterName}, ${cleanChapterName} concise notes, ${subjectName}, ${primaryCohortLabel}, ${sectionLabel}, PREPSKM.IN, JEE notes, NEET notes`
         }
         jsonLd={jsonLd}
       />
 
       <ResponsiveContainer className="py-6 sm:py-8 space-y-6">
+        {/* Semantic Crawl-Friendly Breadcrumb Navigation */}
+        <nav
+          aria-label="Breadcrumb"
+          className="flex flex-wrap items-center gap-1.5 text-xs font-medium text-slate-500 dark:text-slate-400"
+        >
+          <Link to="/" className="hover:text-[#2563EB] dark:hover:text-sky-400 transition-colors">
+            Home
+          </Link>
+          <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+          <Link to="/materials" className="hover:text-[#2563EB] dark:hover:text-sky-400 transition-colors">
+            Materials
+          </Link>
+          <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+          <Link
+            to={`/materials?track=${encodeURIComponent(primaryCohortId)}`}
+            className="hover:text-[#2563EB] dark:hover:text-sky-400 transition-colors"
+          >
+            {primaryCohortLabel}
+          </Link>
+          <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+          <span className="text-[#0B1B3B] dark:text-slate-200 font-semibold truncate">
+            {cleanChapterName}
+          </span>
+        </nav>
+
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Link
-            to="/materials"
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-semibold text-[#0B1B3B] dark:text-white bg-white dark:bg-[#111A2E] border border-slate-200 dark:border-slate-800 hover:border-[#2563EB] transition-colors"
+            to={`/materials?track=${encodeURIComponent(primaryCohortId)}`}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-semibold text-[#0B1B3B] dark:text-white bg-white dark:bg-[#111A2E] border border-slate-200/80 dark:border-slate-800 hover:border-[#2563EB] transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
-            All Study Materials
+            All {primaryCohortLabel} Chapters
           </Link>
 
           <div className="flex items-center gap-2">
@@ -181,7 +274,7 @@ export default function MaterialDetailPage() {
               className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-colors ${
                 isBookmarked
                   ? 'bg-[#F97316] text-white border-[#F97316]'
-                  : 'bg-white dark:bg-[#111A2E] border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200'
+                  : 'bg-white dark:bg-[#111A2E] border-slate-200/80 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:border-[#2563EB]'
               }`}
             >
               {isBookmarked ? <BookmarkCheck className="w-4 h-4" /> : <Bookmark className="w-4 h-4" />}
@@ -199,36 +292,41 @@ export default function MaterialDetailPage() {
         </div>
 
         {/* Header Metadata */}
-        <ReusableCard className="space-y-3">
+        <ReusableCard className="space-y-3 rounded-2xl border-slate-200/80">
           <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
             <span className="text-[#F97316] inline-flex items-center gap-1">
               <Sparkles className="w-3.5 h-3.5" />
-              {material.sectionName}
+              {sectionLabel}
             </span>
             <span className="text-slate-300 dark:text-slate-700">·</span>
             <span className="text-[#2563EB] dark:text-sky-400">{subjectName}</span>
+            <span className="text-slate-300 dark:text-slate-700">·</span>
+            <span className="text-slate-600 dark:text-slate-300">{primaryCohortLabel}</span>
             {chapter && (
               <>
                 <span className="text-slate-300 dark:text-slate-700">·</span>
-                <span className="text-slate-600 dark:text-slate-300">{chapter.name}</span>
+                <span className="font-mono text-slate-600 dark:text-slate-300">
+                  {chapter.weightageMarks} Marks ({chapter.difficulty})
+                </span>
               </>
             )}
           </div>
 
           <h1 className="font-display text-2xl sm:text-3xl font-extrabold text-[#0B1B3B] dark:text-white leading-tight">
-            {material.title}
+            {cleanChapterName} {sectionLabel} &amp; PDF — {primaryCohortLabel} {subjectName}
           </h1>
 
           {cohortLabels.length > 0 && (
             <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-              Target Tracks: <strong className="text-slate-700 dark:text-slate-200">{cohortLabels.join(' · ')}</strong>
+              Applicable Tracks:{' '}
+              <strong className="text-slate-700 dark:text-slate-200">{cohortLabels.join(' · ')}</strong>
             </p>
           )}
         </ReusableCard>
 
         {/* Full Multi-Page PDF Viewer */}
         {material.mediaType === 'image' || material.mimeType?.startsWith('image/') ? (
-          <ReusableCard padding="sm" className="text-center">
+          <ReusableCard padding="sm" className="text-center rounded-2xl border-slate-200/80">
             <img
               src={resolvedUrl || material.fileUrl}
               alt={material.title}
@@ -244,44 +342,79 @@ export default function MaterialDetailPage() {
           />
         )}
 
-        {/* SEO-Friendly 150-Word Chapter Overview & Syllabus Guide for Googlebot & Students */}
-        <ReusableCard className="space-y-3">
-          <h2 className="font-display text-lg font-bold text-[#0B1B3B] dark:text-white flex items-center gap-2">
-            <FileText className="w-4 h-4 text-[#2563EB]" />
-            Chapter Overview &amp; Revision Summary — {chapterName}
-          </h2>
-          <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
-            {seoSummary}
-          </p>
-          <div className="pt-2 flex flex-wrap gap-3 text-xs font-semibold">
-            <Link to="/cbt-mocks" className="text-[#2563EB] dark:text-sky-400 hover:underline">
-              Attempt NTA CBT Mock Tests →
-            </Link>
-            <Link to="/dpp" className="text-[#F97316] hover:underline">
-              Practice Chapter-Wise DPPs →
-            </Link>
-          </div>
-        </ReusableCard>
+        {/* Semantic Key Concepts & Revision Checklist for Googlebot + Students */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          <ReusableCard className="lg:col-span-8 space-y-3 rounded-2xl border-slate-200/80">
+            <h2 className="font-display text-lg font-bold text-[#0B1B3B] dark:text-white flex items-center gap-2">
+              <FileText className="w-4 h-4 text-[#2563EB]" />
+              Key Concepts &amp; Formula Overview — {cleanChapterName}
+            </h2>
+            <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+              {seoSummary}
+            </p>
+            <div className="pt-2 flex flex-wrap gap-4 text-xs font-semibold">
+              <Link to="/cbt-mocks" className="text-[#2563EB] dark:text-sky-400 hover:underline">
+                Attempt NTA CBT Mock Tests →
+              </Link>
+              <Link to="/dpp" className="text-[#F97316] hover:underline">
+                Practice Chapter-Wise DPPs →
+              </Link>
+              <Link
+                to={`/materials?track=${encodeURIComponent(primaryCohortId)}`}
+                className="text-slate-600 dark:text-slate-300 hover:underline"
+              >
+                Explore All {primaryCohortLabel} Notes →
+              </Link>
+            </div>
+          </ReusableCard>
+
+          <ReusableCard className="lg:col-span-4 space-y-3 rounded-2xl border-slate-200/80">
+            <h2 className="font-display text-base font-bold text-[#0B1B3B] dark:text-white">
+              Included PDFs &amp; Revision Checklist
+            </h2>
+            <ul className="space-y-2 text-xs sm:text-sm text-slate-600 dark:text-slate-300">
+              <li className="flex items-start gap-2">
+                <CheckCircle2 className="w-4 h-4 text-[#10B981] shrink-0 mt-0.5" />
+                <span>High-resolution multi-page {sectionLabel} PDF for {cleanChapterName}</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <CheckCircle2 className="w-4 h-4 text-[#10B981] shrink-0 mt-0.5" />
+                <span>Aligned with latest NTA JEE Main, JEE Advanced &amp; NCERT syllabus</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <CheckCircle2 className="w-4 h-4 text-[#10B981] shrink-0 mt-0.5" />
+                <span>Instant bookmarking and offline PDF download on mobile &amp; desktop</span>
+              </li>
+            </ul>
+          </ReusableCard>
+        </div>
 
         {/* Related Crawlable Chapter Links */}
         {relatedMaterials.length > 0 && (
           <section className="space-y-3">
             <h2 className="font-display text-lg font-bold text-[#0B1B3B] dark:text-white">
-              More {subjectName} Study Materials
+              More {subjectName} Concise Notes &amp; Study Materials
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {relatedMaterials.map((rel) => (
-                <Link
-                  key={rel.id}
-                  to={getMaterialRoutePath(rel)}
-                  className="block rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111A2E] p-3.5 hover:border-[#2563EB] transition-colors"
-                >
-                  <p className="text-[11px] font-semibold text-[#F97316]">{rel.sectionName}</p>
-                  <h3 className="font-display text-sm font-bold text-[#0B1B3B] dark:text-white mt-0.5 line-clamp-2">
-                    {rel.title}
-                  </h3>
-                </Link>
-              ))}
+              {relatedMaterials.map((rel) => {
+                const relSubjectName = subjects.find((s) => s.id === rel.subjectId)?.name ?? subjectName;
+                const relPath = getHierarchicalMaterialPath(rel, {
+                  subjectName: relSubjectName,
+                  cohortId: rel.cohorts[0] ?? primaryCohortId,
+                });
+                return (
+                  <Link
+                    key={rel.id}
+                    to={relPath}
+                    className="block rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-[#111A2E] p-4 hover:border-[#2563EB] hover:-translate-y-0.5 transition-all"
+                  >
+                    <p className="text-[11px] font-semibold text-[#F97316]">{rel.sectionName}</p>
+                    <h3 className="font-display text-sm font-bold text-[#0B1B3B] dark:text-white mt-0.5 line-clamp-2">
+                      {rel.title}
+                    </h3>
+                  </Link>
+                );
+              })}
             </div>
           </section>
         )}

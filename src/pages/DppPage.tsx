@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   CheckCircle2,
   Eye,
@@ -16,6 +17,7 @@ import { AttemptReviewModal } from '../components/analytics/AttemptReviewModal';
 import { useAuth } from '../context/AuthContext';
 import { usePlatformData } from '../context/PlatformDataContext';
 import { filterChaptersByCohort, filterSubjectsByCohort } from '../utils/catalogMerge';
+import { getHierarchicalMockTestPath } from '../utils/seoHelpers';
 import { playClick } from '../utils/soundEffects';
 import type { MockTestRecord, StudentCohortId, TestAttemptRecord } from '../types';
 
@@ -228,7 +230,12 @@ export default function DppPage() {
                     </div>
 
                     <h2 className="font-display text-base sm:text-lg font-bold text-[#0F214D] dark:text-white leading-snug">
-                      {dpp.title}
+                      <Link
+                        to={getHierarchicalMockTestPath(dpp)}
+                        className="hover:text-[#2563EB] dark:hover:text-sky-400 transition-colors"
+                      >
+                        {dpp.title}
+                      </Link>
                     </h2>
 
                     <div className="flex flex-wrap gap-2 text-xs text-slate-600 dark:text-slate-400 tabular-nums">

@@ -19,8 +19,13 @@ import {
   buildMaterialSeoSummary,
   buildMockTestSeoSummary,
   buildSitemapXml,
+  CANONICAL_ORIGIN,
   generateCleanSlug,
+  getHierarchicalMaterialPath,
+  getHierarchicalMockTestPath,
   getMaterialRoutePath,
+  resolveSubjectSlug,
+  stripChapterNumberPrefix,
 } from './seoHelpers';
 import type { ChapterRecord, ClassGroupRecord, MockTestRecord, StudyMaterialRecord, SubjectRecord } from '../types';
 
@@ -205,10 +210,52 @@ test('SEO helpers generate clean slugs, PYQ routes, 150-word summaries, and vali
   });
   assert.ok(testSummary.split(/\s+/).length >= 100);
 
+  assert.equal(CANONICAL_ORIGIN, 'https://prepskm.in');
+  assert.equal(resolveSubjectSlug('subj-mathematics'), 'mathematics');
+  assert.equal(resolveSubjectSlug('subj-physics'), 'physics');
+  assert.equal(stripChapterNumberPrefix('01. Units, Dimensions & Errors'), 'Units, Dimensions & Errors');
+
+  assert.equal(
+    getHierarchicalMaterialPath({
+      id: 'mat-jee-phy-01',
+      title: 'Units, Dimensions & Errors — JEE Concise Notes',
+      slug: 'units-dimensions-errors-jee-concise-notes',
+      sectionName: 'Concise Notes',
+      resourceType: 'Short Notes',
+      subjectId: 'subj-physics',
+      cohorts: ['class-11-jee', 'jee-dropper'],
+    }),
+    '/materials/class-11-jee/physics/units-dimensions-errors-jee-concise-notes'
+  );
+
+  assert.equal(
+    getHierarchicalMockTestPath({
+      id: 't-cbt-1',
+      title: 'JEE Main Full Mock 1',
+      slug: 'jee-main-full-mock-1',
+      cohortId: 'class-12-jee',
+      examCategory: 'JEE Main',
+      destination: 'cbt-mock',
+    }),
+    '/cbt-mocks/class-12-jee/jee-main-full-mock-1'
+  );
+
+  assert.equal(
+    getHierarchicalMockTestPath({
+      id: 't-dpp-1',
+      title: 'Electrostatics DPP 01',
+      slug: 'electrostatics-dpp-01',
+      cohortId: 'class-12-jee',
+      examCategory: 'JEE Main',
+      destination: 'dpp',
+    }),
+    '/dpp/class-12-jee/electrostatics-dpp-01'
+  );
+
   const xml = buildSitemapXml([
-    { loc: 'https://www.prepskm.in/', lastmod: '2026-11-20', priority: '1.0' },
-    { loc: 'https://www.prepskm.in/cbt-mocks', lastmod: '2026-11-20', priority: '0.9' },
-    { loc: 'https://www.prepskm.in/', lastmod: '2026-11-20', priority: '1.0' }, // duplicate
+    { loc: 'https://prepskm.in/', lastmod: '2026-11-20', priority: '1.0' },
+    { loc: 'https://prepskm.in/cbt-mocks', lastmod: '2026-11-20', priority: '0.9' },
+    { loc: 'https://prepskm.in/', lastmod: '2026-11-20', priority: '1.0' }, // duplicate
   ]);
   assert.ok(xml.includes('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'));
   assert.equal(xml.match(/<url>/g)?.length, 2);

@@ -30,12 +30,18 @@ export default function App() {
                 <Routes>
                   <Route path="/" element={<HomePage />} />
                   <Route path="/materials" element={<MaterialsPage />} />
+                  <Route
+                    path="/materials/:classSlug/:subjectSlug/:chapterSlug"
+                    element={<MaterialDetailPage />}
+                  />
                   <Route path="/materials/:slug" element={<MaterialDetailPage />} />
                   <Route path="/pyqs/:slug" element={<MaterialDetailPage />} />
                   <Route path="/lectures" element={<LecturesPage />} />
                   <Route path="/cbt-mocks" element={<CbtMocksPage />} />
+                  <Route path="/cbt-mocks/:examSlug/:testSlug" element={<CbtMockDetailPage />} />
                   <Route path="/cbt-mocks/:slug" element={<CbtMockDetailPage />} />
                   <Route path="/dpp" element={<DppPage />} />
+                  <Route path="/dpp/:classSlug/:chapterSlug" element={<CbtMockDetailPage />} />
                   <Route path="/analytics" element={<AnalyticsPage />} />
                   <Route path="/profile" element={<ProfilePage />} />
                   <Route path="/about" element={<AboutPage />} />

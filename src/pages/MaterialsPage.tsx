@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
   Bookmark,
@@ -33,7 +33,7 @@ import {
   filterMaterialsByCohort,
   filterSubjectsByCohort,
 } from '../utils/catalogMerge';
-import { CANONICAL_ORIGIN, getMaterialRoutePath } from '../utils/seoHelpers';
+import { CANONICAL_ORIGIN, getHierarchicalMaterialPath } from '../utils/seoHelpers';
 import { playClick } from '../utils/soundEffects';
 import type {
   ChapterRecord,
@@ -94,9 +94,15 @@ export default function MaterialsPage() {
     recordMaterialView,
   } = usePlatformData();
 
-  const [selectedCohort, setSelectedCohort] = useState<StudentCohortId | 'all'>(cohortId || 'class-12-jee');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const trackParam = searchParams.get('track');
+  const queryParam = searchParams.get('q');
+
+  const [selectedCohort, setSelectedCohort] = useState<StudentCohortId | 'all'>(
+    trackParam || cohortId || 'class-12-jee'
+  );
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>('all');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(queryParam || '');
   const [activeChapterId, setActiveChapterId] = useState<string | null>(null);
   const [activeSectionFilter, setActiveSectionFilter] = useState<string>('all');
   const [onlyBookmarked, setOnlyBookmarked] = useState(false);
@@ -104,13 +110,22 @@ export default function MaterialsPage() {
   const [previewMaterial, setPreviewMaterial] = useState<StudyMaterialRecord | null>(null);
   const [resolvedPreviewUrl, setResolvedPreviewUrl] = useState<string>('');
 
-  // Keep cohort filter aligned with the student's active track when changed globally
+  // Sync from URL ?track= / ?q= when arriving from Footer internal SEO links or SearchAction
   useEffect(() => {
-    if (cohortId) {
+    if (trackParam) {
+      setSelectedCohort(trackParam);
+      setActiveChapterId(null);
+    } else if (cohortId) {
       setSelectedCohort(cohortId);
       setActiveChapterId(null);
     }
-  }, [cohortId]);
+  }, [trackParam, cohortId]);
+
+  useEffect(() => {
+    if (queryParam !== null) {
+      setSearchQuery(queryParam);
+    }
+  }, [queryParam]);
 
   useEffect(() => {
     let active = true;
@@ -525,7 +540,10 @@ export default function MaterialsPage() {
 
                           <h3 className="font-display text-sm sm:text-base font-bold text-[#0B1B3B] dark:text-white leading-snug">
                             <Link
-                              to={getMaterialRoutePath(mat)}
+                              to={getHierarchicalMaterialPath(mat, {
+                                subjectName: subjectMap.get(mat.subjectId)?.name,
+                                cohortId: selectedCohort !== 'all' ? selectedCohort : mat.cohorts[0],
+                              })}
                               className="hover:text-[#2563EB] dark:hover:text-sky-400 transition-colors"
                             >
                               {mat.title}
@@ -660,7 +678,14 @@ export default function MaterialsPage() {
                   <select
                     id="mat-cohort-filter"
                     value={selectedCohort}
-                    onChange={(e) => setSelectedCohort(e.target.value)}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      setSelectedCohort(next);
+                      const nextParams = new URLSearchParams(searchParams);
+                      if (next && next !== 'all') nextParams.set('track', next);
+                      else nextParams.delete('track');
+                      setSearchParams(nextParams, { replace: true });
+                    }}
                     className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm"
                   >
                     <option value="all">All Classes &amp; Sub-Classes</option>
@@ -819,8 +844,11 @@ export default function MaterialsPage() {
                   {cohortMaterials.slice(0, 18).map((mat) => (
                     <Link
                       key={mat.id}
-                      to={getMaterialRoutePath(mat)}
-                      className="flex items-center justify-between gap-2 p-3 rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-[#111A2E] hover:border-[#2563EB] transition-colors"
+                      to={getHierarchicalMaterialPath(mat, {
+                        subjectName: subjectMap.get(mat.subjectId)?.name,
+                        cohortId: selectedCohort !== 'all' ? selectedCohort : mat.cohorts[0],
+                      })}
+                      className="flex items-center justify-between gap-2 p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-[#111A2E] hover:border-[#2563EB] hover:-translate-y-0.5 transition-all"
                     >
                       <div className="min-w-0">
                         <p className="text-[11px] font-semibold text-[#F97316] truncate">

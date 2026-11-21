@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
   BookOpen,
+  ChevronRight,
   ClipboardCheck,
   Clock,
   Play,
@@ -15,6 +16,7 @@ import { ReusableButton } from '../components/ReusableButton';
 import { SeoHead } from '../components/SeoHead';
 import { CbtExamRunner } from '../components/exam/CbtExamRunner';
 import { usePlatformData } from '../context/PlatformDataContext';
+import { STARTER_QUESTIONS, STARTER_TESTS } from '../services/starterCatalog';
 import {
   getEffectiveTestInstructions,
   getEffectiveTestSyllabus,
@@ -22,43 +24,46 @@ import {
 import {
   buildMockTestSeoSummary,
   CANONICAL_ORIGIN,
+  getHierarchicalMockTestPath,
   getMockTestSlug,
 } from '../utils/seoHelpers';
 import { playClick } from '../utils/soundEffects';
 
 export default function CbtMockDetailPage() {
-  const { slug } = useParams<{ slug: string }>();
+  const { slug, testSlug, chapterSlug } = useParams<{
+    slug?: string;
+    examSlug?: string;
+    testSlug?: string;
+    classSlug?: string;
+    chapterSlug?: string;
+  }>();
   const { allCohorts, mockTests, questions } = usePlatformData();
   const [started, setStarted] = useState(false);
 
-  const test = useMemo(() => {
-    if (!slug) return null;
-    const normalized = slug.toLowerCase();
-    return (
-      mockTests.find(
-        (t) =>
-          t.status === 'published' &&
-          (getMockTestSlug(t) === normalized || t.id.toLowerCase() === normalized)
-      ) ?? null
-    );
-  }, [mockTests, slug]);
+  const activeSlug = testSlug || chapterSlug || slug || '';
 
-  const linkedQuestions = useMemo(
-    () =>
-      test
-        ? questions
-            .filter((q) => q.testId === test.id)
-            .sort((a, b) => a.questionNumber - b.questionNumber)
-        : [],
-    [questions, test]
-  );
+  const test = useMemo(() => {
+    if (!activeSlug) return null;
+    const normalized = activeSlug.toLowerCase();
+    const matchFn = (t: (typeof mockTests)[number]) =>
+      t.status === 'published' &&
+      (getMockTestSlug(t) === normalized || t.id.toLowerCase() === normalized);
+    return mockTests.find(matchFn) ?? STARTER_TESTS.find(matchFn) ?? null;
+  }, [mockTests, activeSlug]);
+
+  const linkedQuestions = useMemo(() => {
+    if (!test) return [];
+    const live = questions.filter((q) => q.testId === test.id);
+    const source = live.length > 0 ? live : STARTER_QUESTIONS.filter((q) => q.testId === test.id);
+    return [...source].sort((a, b) => a.questionNumber - b.questionNumber);
+  }, [questions, test]);
 
   if (!test) {
     return (
       <PageLayout>
         <SeoHead
-          title="Mock Test Not Found - Prepskm"
-          description="Attempt free NTA-pattern JEE Main, JEE Advanced & NEET CBT mock tests on Prepskm."
+          title="Mock Test Not Found | PREPSKM.IN"
+          description="Attempt free NTA-pattern JEE Main, JEE Advanced & NEET CBT mock tests on PREPSKM.IN."
           canonicalPath="/cbt-mocks"
         />
         <ResponsiveContainer size="narrow" className="py-16">
@@ -79,8 +84,10 @@ export default function CbtMockDetailPage() {
     );
   }
 
-  const testSlug = getMockTestSlug(test);
-  const canonicalPath = `/cbt-mocks/${testSlug}`;
+  const isDpp = test.destination === 'dpp';
+  const parentRoute = isDpp ? '/dpp' : '/cbt-mocks';
+  const parentLabel = isDpp ? 'Chapter-Wise DPPs' : 'CBT Mock Tests';
+  const canonicalPath = getHierarchicalMockTestPath(test);
   const cohortLabel = allCohorts.find((c) => c.id === test.cohortId)?.label ?? test.cohortId;
   const syllabus = getEffectiveTestSyllabus(test, linkedQuestions);
   const instructions = getEffectiveTestInstructions(test);
@@ -102,30 +109,61 @@ export default function CbtMockDetailPage() {
     syllabusSummary,
   });
 
+  const pageTitle = isDpp
+    ? `${test.title} – ${cohortLabel} Chapter DPP | PREPSKM.IN`
+    : `${test.title} – ${cohortLabel} Free NTA CBT Mock Test | PREPSKM.IN`;
+
   const metaDesc =
-    test.seoDescription ||
-    `Attempt ${test.title} free NTA CBT Mock Test for ${cohortLabel} on Prepskm — ${totalQuestions} questions, ${test.durationMinutes} min, +${test.positiveMarks}/-${test.negativeMarkingEnabled ? test.negativeMarks : 0} marking & instant solutions.`;
+    test.seoDescription?.trim() ||
+    `Attempt ${test.title} free ${isDpp ? 'Chapter DPP' : 'NTA CBT Mock Test'} for ${cohortLabel} on PREPSKM.IN — ${totalQuestions} questions, ${test.durationMinutes} min, +${test.positiveMarks}/-${test.negativeMarkingEnabled ? test.negativeMarks : 0} marking & instant solutions.`;
 
   const jsonLd = {
     '@context': 'https://schema.org',
-    '@type': 'Quiz',
-    name: test.title,
-    description: metaDesc,
-    educationalLevel: cohortLabel,
-    url: `${CANONICAL_ORIGIN}${canonicalPath}`,
-    provider: {
-      '@type': 'EducationalOrganization',
-      name: 'Prepskm',
-      url: CANONICAL_ORIGIN,
-    },
-    isAccessibleForFree: true,
+    '@graph': [
+      {
+        '@type': 'Quiz',
+        name: test.title,
+        description: metaDesc,
+        educationalLevel: cohortLabel,
+        url: `${CANONICAL_ORIGIN}${canonicalPath}`,
+        provider: {
+          '@type': 'EducationalOrganization',
+          name: 'PREPSKM.IN',
+          url: CANONICAL_ORIGIN,
+        },
+        isAccessibleForFree: true,
+      },
+      {
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          {
+            '@type': 'ListItem',
+            position: 1,
+            name: 'Home',
+            item: `${CANONICAL_ORIGIN}/`,
+          },
+          {
+            '@type': 'ListItem',
+            position: 2,
+            name: parentLabel,
+            item: `${CANONICAL_ORIGIN}${parentRoute}`,
+          },
+          {
+            '@type': 'ListItem',
+            position: 3,
+            name: test.title,
+            item: `${CANONICAL_ORIGIN}${canonicalPath}`,
+          },
+        ],
+      },
+    ],
   };
 
   if (started) {
     return (
       <PageLayout hideFooter>
         <SeoHead
-          title={`${test.title} - Prepskm CBT Mock Test`}
+          title={pageTitle}
           description={metaDesc}
           canonicalPath={canonicalPath}
           jsonLd={jsonLd}
@@ -144,21 +182,36 @@ export default function CbtMockDetailPage() {
   return (
     <PageLayout>
       <SeoHead
-        title={`${test.title} - Prepskm`}
+        title={pageTitle}
         description={metaDesc}
         canonicalPath={canonicalPath}
-        keywords={`${test.title}, ${test.examCategory}, ${cohortLabel}, Prepskm mock test, NTA CBT`}
+        keywords={`${test.title}, ${test.examCategory}, ${cohortLabel}, PREPSKM.IN mock test, NTA CBT, chapter DPP`}
         jsonLd={jsonLd}
       />
 
       <ResponsiveContainer className="py-6 sm:py-8 space-y-6">
+        <nav
+          aria-label="Breadcrumb"
+          className="flex flex-wrap items-center gap-1.5 text-xs font-medium text-slate-500 dark:text-slate-400"
+        >
+          <Link to="/" className="hover:text-[#2563EB] dark:hover:text-sky-400 transition-colors">
+            Home
+          </Link>
+          <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+          <Link to={parentRoute} className="hover:text-[#2563EB] dark:hover:text-sky-400 transition-colors">
+            {parentLabel}
+          </Link>
+          <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+          <span className="text-[#0B1B3B] dark:text-slate-200 font-semibold truncate">{test.title}</span>
+        </nav>
+
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Link
-            to="/cbt-mocks"
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-semibold text-[#0B1B3B] dark:text-white bg-white dark:bg-[#111A2E] border border-slate-200 dark:border-slate-800 hover:border-[#2563EB] transition-colors"
+            to={parentRoute}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-semibold text-[#0B1B3B] dark:text-white bg-white dark:bg-[#111A2E] border border-slate-200/80 dark:border-slate-800 hover:border-[#2563EB] transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
-            All CBT Mock Tests
+            All {parentLabel}
           </Link>
 
           <ReusableButton
@@ -170,11 +223,11 @@ export default function CbtMockDetailPage() {
             }}
           >
             <Play className="w-4 h-4" />
-            Start NTA CBT Exam Now
+            {isDpp ? 'Solve Chapter DPP Now' : 'Start NTA CBT Exam Now'}
           </ReusableButton>
         </div>
 
-        <ReusableCard className="space-y-4">
+        <ReusableCard className="space-y-4 rounded-2xl border-slate-200/80">
           <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
             <span className="text-[#F97316]">{test.examType ?? test.examCategory}</span>
             <span className="text-slate-300 dark:text-slate-700">·</span>
@@ -211,7 +264,7 @@ export default function CbtMockDetailPage() {
 
         {/* Syllabus & Exam Instructions */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          <ReusableCard className="space-y-3">
+          <ReusableCard className="space-y-3 rounded-2xl border-slate-200/80">
             <h2 className="font-display text-base font-bold text-[#0B1B3B] dark:text-white flex items-center gap-2">
               <BookOpen className="w-4 h-4 text-[#2563EB]" />
               Test Syllabus Breakdown
@@ -220,7 +273,7 @@ export default function CbtMockDetailPage() {
               {syllabus.map((row) => (
                 <div
                   key={row.subject}
-                  className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/50"
+                  className="p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/50"
                 >
                   <p className="text-xs font-bold uppercase tracking-wide text-[#2563EB] dark:text-sky-400">
                     {row.subject}
@@ -233,7 +286,7 @@ export default function CbtMockDetailPage() {
             </div>
           </ReusableCard>
 
-          <ReusableCard className="space-y-3">
+          <ReusableCard className="space-y-3 rounded-2xl border-slate-200/80">
             <h2 className="font-display text-base font-bold text-[#0B1B3B] dark:text-white flex items-center gap-2">
               <ShieldAlert className="w-4 h-4 text-[#F97316]" />
               NTA CBT Exam Instructions
@@ -247,7 +300,7 @@ export default function CbtMockDetailPage() {
         </div>
 
         {/* 150-Word SEO Overview for Search Indexing */}
-        <ReusableCard className="space-y-2.5">
+        <ReusableCard className="space-y-2.5 rounded-2xl border-slate-200/80">
           <h2 className="font-display text-base font-bold text-[#0B1B3B] dark:text-white">
             About {test.title}
           </h2>

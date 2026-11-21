@@ -6,18 +6,367 @@ import express from 'express';
 import { GoogleGenAI, Type } from '@google/genai';
 import {
   CANONICAL_ORIGIN,
+  buildMaterialSeoSummary,
+  buildMockTestSeoSummary,
   buildSitemapXml,
-  getMaterialRoutePath,
+  getHierarchicalMaterialPath,
+  getHierarchicalMockTestPath,
+  getMaterialSlug,
   getMockTestSlug,
+  stripChapterNumberPrefix,
   type SitemapUrlEntry,
 } from './src/utils/seoHelpers';
-import { JEE_CONCISE_MATERIALS } from './src/data/jeeConciseNotesCatalog';
-import { STARTER_MATERIALS, STARTER_TESTS } from './src/services/starterCatalog';
+import {
+  JEE_CONCISE_CHAPTERS,
+  JEE_CONCISE_MATERIALS,
+} from './src/data/jeeConciseNotesCatalog';
+import {
+  STARTER_CHAPTERS,
+  STARTER_MATERIALS,
+  STARTER_SUBJECTS,
+  STARTER_TESTS,
+} from './src/services/starterCatalog';
+import { flattenClassGroupsToCohorts, STARTER_CLASS_GROUPS } from './src/services/platformRegistry';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const GEMINI_MODEL = 'gemini-4-hydrogen';
+
+const ALL_STATIC_COHORTS = flattenClassGroupsToCohorts(STARTER_CLASS_GROUPS);
+const ALL_STATIC_MATERIALS = [...JEE_CONCISE_MATERIALS, ...STARTER_MATERIALS];
+const ALL_STATIC_CHAPTERS = [...JEE_CONCISE_CHAPTERS, ...STARTER_CHAPTERS];
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function getCohortLabel(cohortId?: string): string {
+  if (!cohortId) return 'JEE & NEET';
+  return ALL_STATIC_COHORTS.find((c) => c.id === cohortId)?.label ?? cohortId;
+}
+
+function getSubjectName(subjectId?: string): string {
+  if (!subjectId) return 'Science';
+  const found = STARTER_SUBJECTS.find((s) => s.id === subjectId);
+  if (found) return found.name;
+  if (subjectId === 'subj-mathematics') return 'Mathematics';
+  if (subjectId === 'subj-physics') return 'Physics';
+  if (subjectId === 'subj-chemistry') return 'Chemistry';
+  if (subjectId === 'subj-biology') return 'Biology';
+  return subjectId.replace(/^subj-/i, '');
+}
+
+interface RouteSeoSnapshot {
+  title: string;
+  description: string;
+  canonicalPath: string;
+  keywords?: string;
+  jsonLd?: Record<string, unknown>;
+  bodyHtml?: string;
+}
+
+function resolveRouteSeo(reqPath: string): RouteSeoSnapshot | null {
+  const cleanPath = reqPath.split('?')[0].replace(/\/+$/, '') || '/';
+
+  if (cleanPath === '/materials') {
+    return {
+      title: 'JEE & NEET Chapter-Wise Study Materials & Concise Notes | PREPSKM.IN',
+      description:
+        'Download free chapter-wise JEE Main, JEE Advanced, NEET UG & CBSE Board concise notes, formula sheets, and PYQ PDFs on PREPSKM.IN.',
+      canonicalPath: '/materials',
+    };
+  }
+
+  if (cleanPath === '/cbt-mocks') {
+    return {
+      title: 'NTA CBT Mock Test Engine - Prepskm',
+      description:
+        'Attempt free NTA-pattern JEE Main, JEE Advanced & NEET CBT mock tests with +4/-1 marking and AI analysis on PREPSKM.IN.',
+      canonicalPath: '/cbt-mocks',
+    };
+  }
+
+  if (cleanPath === '/dpp') {
+    return {
+      title: 'Daily Practice Problems (DPP) for JEE & NEET - Prepskm',
+      description:
+        'Solve timed chapter-wise Daily Practice Problems (DPPs) with instant evaluation, +4/-1 marking, and step-by-step solutions on PREPSKM.IN.',
+      canonicalPath: '/dpp',
+    };
+  }
+
+  if (cleanPath === '/analytics') {
+    return {
+      title: 'AI IQ & Performance Analytics | PREPSKM.IN',
+      description:
+        'Review past test solutions, Subject Mastery Radar, Exam IQ Score, and pacing insights on PREPSKM.IN.',
+      canonicalPath: '/analytics',
+    };
+  }
+
+  if (cleanPath === '/about') {
+    return {
+      title: 'About Prepskm (@unfiltereddsumit) | PREPSKM.IN',
+      description:
+        'Learn about Prepskm, founded by Sumit (@unfiltereddsumit) to deliver free JEE, NEET & Board concise notes, CBT mocks, and DPPs.',
+      canonicalPath: '/about',
+    };
+  }
+
+  // Match /materials/:classSlug/:subjectSlug/:chapterSlug, /materials/:slug, /pyqs/:slug
+  const hierarchicalMatMatch = cleanPath.match(/^\/materials\/([^/]+)\/([^/]+)\/([^/]+)$/);
+  const flatMatMatch = cleanPath.match(/^\/(?:materials|pyqs)\/([^/]+)$/);
+  const matSlug = (hierarchicalMatMatch?.[3] ?? flatMatMatch?.[1] ?? '').toLowerCase();
+
+  if (matSlug) {
+    const material = ALL_STATIC_MATERIALS.find(
+      (m) =>
+        getMaterialSlug(m) === matSlug ||
+        m.id.toLowerCase() === matSlug ||
+        (m.seoSlug && m.seoSlug.toLowerCase() === matSlug)
+    );
+    if (material) {
+      const subjectName = getSubjectName(material.subjectId);
+      const chapter = ALL_STATIC_CHAPTERS.find((c) => c.id === material.chapterId);
+      const cleanChapter = stripChapterNumberPrefix(chapter?.name ?? material.title);
+      const requestedClass = hierarchicalMatMatch?.[1];
+      const primaryCohortId =
+        requestedClass && material.cohorts.includes(requestedClass)
+          ? requestedClass
+          : material.cohorts[0] ?? 'class-11-jee';
+      const primaryCohortLabel = getCohortLabel(primaryCohortId);
+      const sectionLabel = material.sectionName || 'Concise Notes';
+      const canonicalPath = getHierarchicalMaterialPath(material, {
+        subjectName,
+        cohortId: primaryCohortId,
+      });
+      const title = `${cleanChapter} ${sectionLabel} & PDF – ${primaryCohortLabel} ${subjectName} | PREPSKM.IN`;
+      const description =
+        material.seoDescription?.trim() ||
+        `Download free ${cleanChapter} concise notes, formula sheets, PYQs, and attempt NTA-grade CBT mocks for ${primaryCohortLabel} on PREPSKM.IN.`;
+      const summary = buildMaterialSeoSummary({
+        title: material.title,
+        subjectName,
+        chapterName: cleanChapter,
+        sectionName: sectionLabel,
+        cohortLabels: material.cohorts.map(getCohortLabel),
+        description: material.description,
+      });
+
+      const jsonLd = {
+        '@context': 'https://schema.org',
+        '@graph': [
+          {
+            '@type': 'LearningResource',
+            name: title,
+            headline: material.title,
+            description,
+            educationalLevel: material.cohorts.map(getCohortLabel).join(', ') || primaryCohortLabel,
+            learningResourceType: sectionLabel,
+            inLanguage: 'en-IN',
+            about: { '@type': 'Thing', name: `${subjectName} - ${cleanChapter}` },
+            url: `${CANONICAL_ORIGIN}${canonicalPath}`,
+            provider: {
+              '@type': 'EducationalOrganization',
+              name: 'PREPSKM.IN',
+              url: CANONICAL_ORIGIN,
+            },
+            isAccessibleForFree: true,
+          },
+          {
+            '@type': 'BreadcrumbList',
+            itemListElement: [
+              { '@type': 'ListItem', position: 1, name: 'Home', item: `${CANONICAL_ORIGIN}/` },
+              {
+                '@type': 'ListItem',
+                position: 2,
+                name: 'Study Materials',
+                item: `${CANONICAL_ORIGIN}/materials`,
+              },
+              {
+                '@type': 'ListItem',
+                position: 3,
+                name: primaryCohortLabel,
+                item: `${CANONICAL_ORIGIN}/materials?track=${encodeURIComponent(primaryCohortId)}`,
+              },
+              {
+                '@type': 'ListItem',
+                position: 4,
+                name: `${cleanChapter} ${sectionLabel}`,
+                item: `${CANONICAL_ORIGIN}${canonicalPath}`,
+              },
+            ],
+          },
+        ],
+      };
+
+      const bodyHtml = `
+      <div style="font-family:'DM Sans',system-ui,sans-serif;max-width:960px;margin:0 auto;padding:24px 16px;color:#0B1B3B;">
+        <nav aria-label="Breadcrumb" style="font-size:13px;margin-bottom:12px;">
+          <a href="/">Home</a> &rsaquo; <a href="/materials">Materials</a> &rsaquo; <a href="/materials?track=${encodeURIComponent(primaryCohortId)}">${escapeHtml(primaryCohortLabel)}</a> &rsaquo; <span>${escapeHtml(cleanChapter)}</span>
+        </nav>
+        <h1 style="font-size:28px;font-weight:800;margin:0 0 12px;">${escapeHtml(cleanChapter)} ${escapeHtml(sectionLabel)} &amp; PDF — ${escapeHtml(primaryCohortLabel)} ${escapeHtml(subjectName)}</h1>
+        <p style="font-size:15px;line-height:1.6;color:#334155;">${escapeHtml(summary)}</p>
+        <h2 style="font-size:20px;font-weight:700;margin:20px 0 8px;">Key Concepts &amp; Formula Overview</h2>
+        <p style="font-size:14px;color:#475569;">${escapeHtml(material.description || description)}</p>
+        <p style="margin-top:16px;"><a href="${escapeHtml(material.fileUrl)}">Download ${escapeHtml(material.fileName || material.title)} PDF</a></p>
+      </div>`;
+
+      return {
+        title,
+        description,
+        canonicalPath,
+        keywords: material.seoKeywords,
+        jsonLd,
+        bodyHtml,
+      };
+    }
+  }
+
+  // Match /cbt-mocks/:examSlug/:testSlug, /cbt-mocks/:slug, /dpp/:classSlug/:chapterSlug
+  const testMatch =
+    cleanPath.match(/^\/cbt-mocks\/[^/]+\/([^/]+)$/) ||
+    cleanPath.match(/^\/cbt-mocks\/([^/]+)$/) ||
+    cleanPath.match(/^\/dpp\/[^/]+\/([^/]+)$/);
+  const testSlug = (testMatch?.[1] ?? '').toLowerCase();
+
+  if (testSlug) {
+    const test = STARTER_TESTS.find(
+      (t) =>
+        t.status === 'published' &&
+        (getMockTestSlug(t) === testSlug || t.id.toLowerCase() === testSlug)
+    );
+    if (test) {
+      const isDpp = test.destination === 'dpp';
+      const cohortLabel = getCohortLabel(test.cohortId);
+      const canonicalPath = getHierarchicalMockTestPath(test);
+      const title = isDpp
+        ? `${test.title} – ${cohortLabel} Chapter DPP | PREPSKM.IN`
+        : `${test.title} – ${cohortLabel} Free NTA CBT Mock Test | PREPSKM.IN`;
+      const description =
+        test.seoDescription?.trim() ||
+        `Attempt ${test.title} free ${isDpp ? 'Chapter DPP' : 'NTA CBT Mock Test'} for ${cohortLabel} on PREPSKM.IN — ${test.totalQuestions} questions, ${test.durationMinutes} min & instant solutions.`;
+      const summary = buildMockTestSeoSummary({
+        title: test.title,
+        examCategory: test.examType ?? test.examCategory,
+        cohortLabel,
+        durationMinutes: test.durationMinutes,
+        totalQuestions: test.totalQuestions,
+        totalMarks: test.totalMarks,
+        positiveMarks: test.positiveMarks,
+        negativeMarks: test.negativeMarks,
+        negativeMarkingEnabled: test.negativeMarkingEnabled,
+      });
+
+      const jsonLd = {
+        '@context': 'https://schema.org',
+        '@graph': [
+          {
+            '@type': 'Quiz',
+            name: test.title,
+            description,
+            educationalLevel: cohortLabel,
+            url: `${CANONICAL_ORIGIN}${canonicalPath}`,
+            provider: {
+              '@type': 'EducationalOrganization',
+              name: 'PREPSKM.IN',
+              url: CANONICAL_ORIGIN,
+            },
+            isAccessibleForFree: true,
+          },
+          {
+            '@type': 'BreadcrumbList',
+            itemListElement: [
+              { '@type': 'ListItem', position: 1, name: 'Home', item: `${CANONICAL_ORIGIN}/` },
+              {
+                '@type': 'ListItem',
+                position: 2,
+                name: isDpp ? 'Chapter-Wise DPPs' : 'CBT Mock Tests',
+                item: `${CANONICAL_ORIGIN}${isDpp ? '/dpp' : '/cbt-mocks'}`,
+              },
+              {
+                '@type': 'ListItem',
+                position: 3,
+                name: test.title,
+                item: `${CANONICAL_ORIGIN}${canonicalPath}`,
+              },
+            ],
+          },
+        ],
+      };
+
+      const bodyHtml = `
+      <div style="font-family:'DM Sans',system-ui,sans-serif;max-width:960px;margin:0 auto;padding:24px 16px;color:#0B1B3B;">
+        <nav aria-label="Breadcrumb" style="font-size:13px;margin-bottom:12px;">
+          <a href="/">Home</a> &rsaquo; <a href="${isDpp ? '/dpp' : '/cbt-mocks'}">${isDpp ? 'Chapter-Wise DPPs' : 'CBT Mock Tests'}</a> &rsaquo; <span>${escapeHtml(test.title)}</span>
+        </nav>
+        <h1 style="font-size:28px;font-weight:800;margin:0 0 12px;">${escapeHtml(test.title)}</h1>
+        <p style="font-size:15px;line-height:1.6;color:#334155;">${escapeHtml(summary)}</p>
+      </div>`;
+
+      return { title, description, canonicalPath, jsonLd, bodyHtml };
+    }
+  }
+
+  return null;
+}
+
+function injectRouteSeoIntoHtml(html: string, seo: RouteSeoSnapshot): string {
+  const safeTitle = escapeHtml(seo.title);
+  const safeDesc = escapeHtml(seo.description);
+  const canonicalUrl = `${CANONICAL_ORIGIN}${seo.canonicalPath}`;
+
+  let out = html
+    .replace(/<title>[\s\S]*?<\/title>/i, `<title>${safeTitle}</title>`)
+    .replace(
+      /<link\s+rel="canonical"\s+href="[^"]*"\s*\/?>/i,
+      `<link rel="canonical" href="${canonicalUrl}" />`
+    )
+    .replace(
+      /<meta\s+name="description"[\s\S]*?\/>/i,
+      `<meta name="description" content="${safeDesc}" />`
+    )
+    .replace(
+      /<meta\s+property="og:url"[\s\S]*?\/>/i,
+      `<meta property="og:url" content="${canonicalUrl}" />`
+    )
+    .replace(
+      /<meta\s+property="og:title"[\s\S]*?\/>/i,
+      `<meta property="og:title" content="${safeTitle}" />`
+    )
+    .replace(
+      /<meta\s+property="og:description"[\s\S]*?\/>/i,
+      `<meta property="og:description" content="${safeDesc}" />`
+    )
+    .replace(
+      /<meta\s+name="twitter:title"[\s\S]*?\/>/i,
+      `<meta name="twitter:title" content="${safeTitle}" />`
+    )
+    .replace(
+      /<meta\s+name="twitter:description"[\s\S]*?\/>/i,
+      `<meta name="twitter:description" content="${safeDesc}" />`
+    );
+
+  if (seo.jsonLd) {
+    const ldScript = `<script id="prepskm-ssr-ld" type="application/ld+json">${JSON.stringify(seo.jsonLd)}</script>\n  </head>`;
+    out = out.replace(/<\/head>/i, ldScript);
+  }
+
+  if (seo.bodyHtml) {
+    out = out.replace(
+      /<div id="root">[\s\S]*?<\/div>\s*<script type="module"/i,
+      `<div id="root">${seo.bodyHtml}</div>\n    <script type="module"`
+    );
+  }
+
+  return out;
+}
 
 function getGeminiClient(): GoogleGenAI {
   const apiKey = process.env.GEMINI_API_KEY?.trim();
@@ -83,10 +432,13 @@ async function createApp() {
       { loc: `${CANONICAL_ORIGIN}/about`, lastmod: todayIso, changefreq: 'monthly', priority: '0.6' },
     ];
 
-    // 1. Official 82 JEE Concise Notes + Starter Materials
-    for (const mat of [...JEE_CONCISE_MATERIALS, ...STARTER_MATERIALS]) {
+    // 1. Official 82 JEE Concise Notes + Starter Materials (hierarchical URLs)
+    for (const mat of ALL_STATIC_MATERIALS) {
       if (mat.isPublished === false) continue;
-      const routePath = getMaterialRoutePath(mat);
+      const routePath = getHierarchicalMaterialPath(mat, {
+        subjectName: getSubjectName(mat.subjectId),
+        cohortId: mat.cohorts[0],
+      });
       entries.push({
         loc: `${CANONICAL_ORIGIN}${routePath}`,
         lastmod: toIsoDate(mat.updatedAt),
@@ -95,19 +447,19 @@ async function createApp() {
       });
     }
 
-    // 2. Starter CBT Mocks
+    // 2. Starter CBT Mocks & DPPs (hierarchical URLs)
     for (const test of STARTER_TESTS) {
-      if (test.isPublished === false || test.destination === 'DPP') continue;
-      const slug = getMockTestSlug(test);
+      if (test.isPublished === false || test.status !== 'published') continue;
+      const routePath = getHierarchicalMockTestPath(test);
       entries.push({
-        loc: `${CANONICAL_ORIGIN}/cbt-mocks/${slug}`,
+        loc: `${CANONICAL_ORIGIN}${routePath}`,
         lastmod: toIsoDate(test.updatedAt ?? test.createdAtIso),
         changefreq: 'weekly',
-        priority: '0.9',
+        priority: test.destination === 'dpp' ? '0.8' : '0.9',
       });
     }
 
-    // 3. Dynamically query published materials & CBT mocks from Firestore REST API (non-blocking fallback)
+    // 3. Dynamically query published materials & CBT mocks/DPPs from Firestore REST API (non-blocking fallback)
     try {
       const fbConfigPath = path.resolve(__dirname, 'firebase-applet-config.json');
       if (fs.existsSync(fbConfigPath)) {
@@ -121,6 +473,12 @@ async function createApp() {
             fbConfig.projectId
           )}/databases/${encodeURIComponent(dbId)}/documents`;
 
+          interface FsField {
+            stringValue?: string;
+            booleanValue?: boolean;
+            arrayValue?: { values?: Array<{ stringValue?: string }> };
+          }
+
           const fetchCollection = async (col: string) => {
             const controller = new AbortController();
             const timer = setTimeout(() => controller.abort(), 2500);
@@ -131,7 +489,7 @@ async function createApp() {
                 documents?: Array<{
                   name?: string;
                   updateTime?: string;
-                  fields?: Record<string, { stringValue?: string; booleanValue?: boolean }>;
+                  fields?: Record<string, FsField>;
                 }>;
               };
               return data.documents ?? [];
@@ -153,14 +511,27 @@ async function createApp() {
             const id = doc.name?.split('/').pop() ?? '';
             const title = f.title?.stringValue ?? '';
             if (!id && !title) continue;
-            const routePath = getMaterialRoutePath({
-              id,
-              title,
-              slug: f.slug?.stringValue,
-              seoSlug: f.seoSlug?.stringValue,
-              sectionName: f.sectionName?.stringValue ?? '',
-              resourceType: (f.resourceType?.stringValue as 'PDF' | 'VIDEO' | 'BOTH' | undefined) ?? 'PDF',
-            });
+            const cohorts =
+              f.cohorts?.arrayValue?.values
+                ?.map((v) => v.stringValue)
+                .filter((s): s is string => Boolean(s)) ?? [];
+            const subjectId = f.subjectId?.stringValue ?? '';
+            const routePath = getHierarchicalMaterialPath(
+              {
+                id,
+                title,
+                slug: f.slug?.stringValue,
+                seoSlug: f.seoSlug?.stringValue,
+                sectionName: f.sectionName?.stringValue ?? '',
+                resourceType: (f.resourceType?.stringValue ?? 'PDF') as never,
+                subjectId,
+                cohorts,
+              },
+              {
+                subjectName: getSubjectName(subjectId),
+                cohortId: cohorts[0],
+              }
+            );
             const lastmod = toIsoDate(f.updatedAt?.stringValue || doc.updateTime);
             entries.push({
               loc: `${CANONICAL_ORIGIN}${routePath}`,
@@ -173,21 +544,25 @@ async function createApp() {
           for (const doc of fsTests) {
             const f = doc.fields ?? {};
             if (f.isPublished?.booleanValue === false) continue;
-            if (f.destination?.stringValue === 'DPP') continue;
+            if (f.status?.stringValue && f.status.stringValue !== 'published') continue;
             const id = doc.name?.split('/').pop() ?? '';
             const title = f.title?.stringValue ?? '';
             if (!id && !title) continue;
-            const slug = getMockTestSlug({
+            const dest = f.destination?.stringValue === 'dpp' ? 'dpp' : 'cbt-mock';
+            const routePath = getHierarchicalMockTestPath({
               id,
               title,
               slug: f.slug?.stringValue,
+              cohortId: f.cohortId?.stringValue ?? 'class-12-jee',
+              examCategory: f.examCategory?.stringValue ?? 'JEE Main',
+              destination: dest,
             });
             const lastmod = toIsoDate(f.updatedAt?.stringValue || doc.updateTime);
             entries.push({
-              loc: `${CANONICAL_ORIGIN}/cbt-mocks/${slug}`,
+              loc: `${CANONICAL_ORIGIN}${routePath}`,
               lastmod,
               changefreq: 'weekly',
-              priority: '0.9',
+              priority: dest === 'dpp' ? '0.8' : '0.9',
             });
           }
         }
@@ -465,13 +840,34 @@ async function createApp() {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
-      appType: 'spa',
+      appType: 'custom',
     });
     app.use(vite.middlewares);
+
+    // Dev SPA fallback with dynamic per-route SEO meta & semantic HTML injection
+    app.use('*', async (req, res, next) => {
+      try {
+        const url = req.originalUrl;
+        const templatePath = path.resolve(__dirname, 'index.html');
+        let template = fs.readFileSync(templatePath, 'utf-8');
+        const seo = resolveRouteSeo(url);
+        if (seo) {
+          template = injectRouteSeoIntoHtml(template, seo);
+        }
+        const transformed = await vite.transformIndexHtml(url, template);
+        res.status(200).set({ 'Content-Type': 'text/html; charset=utf-8' }).end(transformed);
+      } catch (e) {
+        vite.ssrFixStacktrace(e as Error);
+        next(e);
+      }
+    });
   } else if (fs.existsSync(distDir)) {
-    app.use(express.static(distDir));
-    app.get('*', (_req, res) => {
-      res.sendFile(path.join(distDir, 'index.html'));
+    app.use(express.static(distDir, { index: false }));
+    const distIndexHtml = fs.readFileSync(path.join(distDir, 'index.html'), 'utf-8');
+    app.get('*', (req, res) => {
+      const seo = resolveRouteSeo(req.originalUrl);
+      const html = seo ? injectRouteSeoIntoHtml(distIndexHtml, seo) : distIndexHtml;
+      res.status(200).set({ 'Content-Type': 'text/html; charset=utf-8' }).send(html);
     });
   }
 

@@ -25,7 +25,7 @@ import {
   getEffectiveTestInstructions,
   getEffectiveTestSyllabus,
 } from '../utils/examPresets';
-import { getMockTestSlug } from '../utils/seoHelpers';
+import { getHierarchicalMockTestPath } from '../utils/seoHelpers';
 import { playClick } from '../utils/soundEffects';
 import type { MockTestRecord, StudentCohortId, TestAttemptRecord } from '../types';
 
@@ -176,7 +176,7 @@ export default function CbtMocksPage() {
 
                     <h2 className="font-display text-lg font-bold text-[#0B1B3B] dark:text-white leading-snug">
                       <Link
-                        to={`/cbt-mocks/${getMockTestSlug(t)}`}
+                        to={getHierarchicalMockTestPath(t)}
                         className="hover:text-[#2563EB] dark:hover:text-sky-400 transition-colors"
                       >
                         {t.title}

@@ -30,6 +30,7 @@ const DEFAULT_SUBJECT_SLUGS: Record<string, string> = {
   'subj-physics': 'physics',
   'subj-chemistry': 'chemistry',
   'subj-maths': 'mathematics',
+  'subj-mathematics': 'mathematics',
   'subj-biology': 'biology',
   'subj-science': 'science',
 };
@@ -37,7 +38,12 @@ const DEFAULT_SUBJECT_SLUGS: Record<string, string> = {
 export function resolveSubjectSlug(subjectId?: string, subjectName?: string): string {
   if (subjectName?.trim()) return generateCleanSlug(subjectName, 'subject');
   if (subjectId && DEFAULT_SUBJECT_SLUGS[subjectId]) return DEFAULT_SUBJECT_SLUGS[subjectId];
-  return generateCleanSlug(subjectId || 'general', 'subject');
+  const stripped = (subjectId || 'general').replace(/^subj-/i, '');
+  return generateCleanSlug(stripped, 'subject');
+}
+
+export function stripChapterNumberPrefix(chapterName: string): string {
+  return chapterName.replace(/^\d+\.\s*/, '').trim() || chapterName.trim();
 }
 
 export function getHierarchicalMaterialPath(
