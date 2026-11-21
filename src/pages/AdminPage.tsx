@@ -28,6 +28,7 @@ import { QuestionPaperBuilder } from '../components/admin/QuestionPaperBuilder';
 import { useAuth } from '../context/AuthContext';
 import { usePlatformData } from '../context/PlatformDataContext';
 import { createSeoSlug } from '../utils/weeklySchedule';
+import { generateCleanSlug } from '../utils/seoHelpers';
 import { playClick, playSuccess } from '../utils/soundEffects';
 import {
   deleteChapterDoc,
@@ -45,10 +46,12 @@ import {
   saveSection,
   saveSubject,
   seedStarterCurriculumToFirestore,
+  syncJeeConciseNotesToFirestore,
   uploadPlatformFile,
 } from '../services/firestoreService';
 import type {
   ChapterDifficulty,
+  ChapterRecord,
   ClassGroupRecord,
   IQConfig,
   MaterialAttachment,
@@ -59,6 +62,7 @@ import type {
   StudentCohortId,
   StudyMaterialRecord,
   SubClassItem,
+  SubjectRecord,
   VideoLectureRecord,
 } from '../types';
 
@@ -93,6 +97,7 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState('classes');
   const [feedback, setFeedback] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   const [seeding, setSeeding] = useState(false);
+  const [syncingJee, setSyncingJee] = useState(false);
 
   // =====================================
   // 0. CLASSES & SUB-CLASSES STATE
@@ -113,8 +118,10 @@ export default function AdminPage() {
   // =====================================
   // 1. SUBJECTS & SCOPED SECTIONS STATE
   // =====================================
+  const [editingSubjectId, setEditingSubjectId] = useState<string | null>(null);
   const [newSubName, setNewSubName] = useState('');
   const [newSubCode, setNewSubCode] = useState('');
+  const [newSubCohorts, setNewSubCohorts] = useState<StudentCohortId[]>(['class-11-jee', 'class-12-jee']);
 
   const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
   const [secName, setSecName] = useState('');
@@ -126,10 +133,12 @@ export default function AdminPage() {
   // =====================================
   // 2. CHAPTERS STATE
   // =====================================
+  const [editingChapterId, setEditingChapterId] = useState<string | null>(null);
   const [chapSubId, setChapSubId] = useState(subjects[0]?.id ?? '');
   const [chapName, setChapName] = useState('');
   const [chapWeightage, setChapWeightage] = useState(4);
   const [chapDifficulty, setChapDifficulty] = useState<ChapterDifficulty>('Moderate');
+  const [chapCohorts, setChapCohorts] = useState<StudentCohortId[]>(['class-11-jee', 'class-12-jee']);
 
   // =====================================
   // 3. INSTANT MATERIALS (PDF / VIDEO / IMAGE / LINK) + EDIT STATE
@@ -259,12 +268,29 @@ export default function AdminPage() {
       playSuccess();
       setFeedback({
         type: 'ok',
-        text: 'Starter curriculum (Classes & Sub-Classes, Subjects, Scoped Sections, Chapters, Materials, Lectures, JEE & NEET CBT Mocks & DPPs) synced to live Firestore.',
+        text: 'Starter curriculum + 82 JEE Concise Notes chapters synced to live Firestore.',
       });
     } catch (err) {
       setFeedback({ type: 'err', text: err instanceof Error ? err.message : 'Seeding failed.' });
     } finally {
       setSeeding(false);
+    }
+  };
+
+  const handleSyncJeeNotes = async () => {
+    setSyncingJee(true);
+    setFeedback(null);
+    try {
+      await syncJeeConciseNotesToFirestore();
+      playSuccess();
+      setFeedback({
+        type: 'ok',
+        text: 'Synced Concise Notes section + all 82 Class 11 & Class 12 JEE chapters & PDFs to Firestore!',
+      });
+    } catch (err) {
+      setFeedback({ type: 'err', text: err instanceof Error ? err.message : 'JEE Notes sync failed.' });
+    } finally {
+      setSyncingJee(false);
     }
   };
 
@@ -398,26 +424,47 @@ export default function AdminPage() {
   // =====================================
   // SUBJECTS & SCOPED SECTIONS HANDLERS
   // =====================================
+  const resetSubjectForm = () => {
+    setEditingSubjectId(null);
+    setNewSubName('');
+    setNewSubCode('');
+    setNewSubCohorts(['class-11-jee', 'class-12-jee']);
+  };
+
+  const handleLoadSubjectForEdit = (sub: SubjectRecord) => {
+    setEditingSubjectId(sub.id);
+    setNewSubName(sub.name);
+    setNewSubCode(sub.code);
+    setNewSubCohorts(sub.cohorts.length > 0 ? sub.cohorts : allCohortIds);
+    playClick();
+  };
+
   const handleAddSubject = async () => {
     if (!newSubName.trim() || !newSubCode.trim()) {
       setFeedback({ type: 'err', text: 'Enter both Subject Name and Subject Code.' });
       return;
     }
+    const targetCohorts = newSubCohorts.length > 0 ? newSubCohorts : allCohortIds;
+    const existing = editingSubjectId ? subjects.find((s) => s.id === editingSubjectId) : null;
     try {
       await saveSubject(
         {
-          id: makeSafeDocId('sub'),
+          id: editingSubjectId ?? makeSafeDocId('sub'),
           name: newSubName.trim(),
           code: newSubCode.trim().toUpperCase(),
-          order: subjects.length + 1,
-          cohorts: allCohortIds,
+          order: existing?.order ?? subjects.length + 1,
+          cohorts: targetCohorts,
         },
-        false
+        Boolean(editingSubjectId)
       );
-      setNewSubName('');
-      setNewSubCode('');
       playSuccess();
-      setFeedback({ type: 'ok', text: `Subject "${newSubName.trim()}" added.` });
+      setFeedback({
+        type: 'ok',
+        text: editingSubjectId
+          ? `Subject "${newSubName.trim()}" updated for ${targetCohorts.length} sub-class(es).`
+          : `Subject "${newSubName.trim()}" added exclusively to ${targetCohorts.length} selected sub-class(es).`,
+      });
+      resetSubjectForm();
     } catch (err) {
       setFeedback({ type: 'err', text: err instanceof Error ? err.message : 'Failed to save subject.' });
     }
@@ -497,27 +544,51 @@ export default function AdminPage() {
   // =====================================
   // CHAPTER HANDLER
   // =====================================
+  const resetChapterForm = () => {
+    setEditingChapterId(null);
+    setChapName('');
+    setChapWeightage(4);
+    setChapDifficulty('Moderate');
+  };
+
+  const handleLoadChapterForEdit = (ch: ChapterRecord) => {
+    setEditingChapterId(ch.id);
+    setChapSubId(ch.subjectId);
+    setChapName(ch.name);
+    setChapWeightage(ch.weightageMarks);
+    setChapDifficulty(ch.difficulty);
+    setChapCohorts(ch.cohorts.length > 0 ? ch.cohorts : allCohortIds);
+    playClick();
+  };
+
   const handleAddChapter = async () => {
     if (!chapName.trim() || !chapSubId) {
       setFeedback({ type: 'err', text: 'Select a subject and enter a chapter name.' });
       return;
     }
+    const targetCohorts = chapCohorts.length > 0 ? chapCohorts : allCohortIds;
+    const existing = editingChapterId ? chapters.find((c) => c.id === editingChapterId) : null;
     try {
       await saveChapter(
         {
-          id: makeSafeDocId('ch'),
+          id: editingChapterId ?? makeSafeDocId('ch'),
           subjectId: chapSubId,
           name: chapName.trim(),
-          order: chapters.filter((c) => c.subjectId === chapSubId).length + 1,
-          cohorts: allCohortIds,
+          order: existing?.order ?? chapters.filter((c) => c.subjectId === chapSubId).length + 1,
+          cohorts: targetCohorts,
           weightageMarks: chapWeightage,
           difficulty: chapDifficulty,
         },
-        false
+        Boolean(editingChapterId)
       );
-      setChapName('');
       playSuccess();
-      setFeedback({ type: 'ok', text: `Chapter "${chapName.trim()}" added.` });
+      setFeedback({
+        type: 'ok',
+        text: editingChapterId
+          ? `Chapter "${chapName.trim()}" updated for ${targetCohorts.length} sub-class(es).`
+          : `Chapter "${chapName.trim()}" added strictly to ${targetCohorts.length} selected sub-class(es).`,
+      });
+      resetChapterForm();
     } catch (err) {
       setFeedback({ type: 'err', text: err instanceof Error ? err.message : 'Failed to save chapter.' });
     }
@@ -683,17 +754,27 @@ export default function AdminPage() {
         finalThumbUrl = thumbUploaded.downloadUrl;
       }
 
-      const cleanSlug = (matSeoSlug.trim() || createSeoSlug(matTitle.trim())).slice(0, 140);
+      const cleanSlug = generateCleanSlug(matSeoSlug.trim() || matTitle.trim(), 'material');
       const targetChapId =
         matChapId && chapters.some((c) => c.id === matChapId)
           ? matChapId
-          : matAvailableChapters[0]?.id ?? chapters[0]?.id ?? 'ch-phy-electro';
+          : matAvailableChapters[0]?.id ?? chapters[0]?.id ?? 'chap-phy-electrostatics';
+      const resolvedSubName = subjects.find((s) => s.id === (matSubId || subjects[0]?.id))?.name ?? 'Study';
+      const resolvedChapName = chapters.find((c) => c.id === targetChapId)?.name ?? '';
+      const autoSeoDesc = (
+        matDesc.trim() ||
+        `Download free ${matTitle.trim()} (${matSectionName}) for ${resolvedChapName || resolvedSubName} on Prepskm.`
+      ).slice(0, 300);
 
       await saveMaterial(
         {
           id: editingMaterialId ?? makeSafeDocId('mat'),
           title: matTitle.trim(),
-          subjectId: matSubId || subjects[0]?.id || 'sub-phy',
+          slug: cleanSlug,
+          seoSlug: cleanSlug,
+          seoDescription: autoSeoDesc,
+          isPublished: true,
+          subjectId: matSubId || subjects[0]?.id || 'subj-physics',
           chapterId: targetChapId,
           sectionName: matSectionName,
           resourceType: matSectionName,
@@ -707,7 +788,6 @@ export default function AdminPage() {
           mimeType,
           durationMinutes: matMediaType === 'video' ? matDuration : undefined,
           attachments: matAttachments.length > 0 ? matAttachments : undefined,
-          seoSlug: cleanSlug,
           seoKeywords: matSeoKeywords.trim() || undefined,
           description: matDesc.trim() || undefined,
           uploadedBy: firebaseUser?.uid,
@@ -802,8 +882,8 @@ export default function AdminPage() {
         {
           id: editingLectureId ?? makeSafeDocId('lec'),
           title: lecTitle.trim(),
-          subjectId: lecSubId || subjects[0]?.id || 'sub-phy',
-          chapterId: lecChapId || chapters[0]?.id || 'ch-phy-electro',
+          subjectId: lecSubId || subjects[0]?.id || 'subj-physics',
+          chapterId: lecChapId || chapters[0]?.id || 'chap-phy-electrostatics',
           lectureNumber: lecNum,
           cohorts: allCohortIds,
           videoUrl: finalVideoUrl,
@@ -865,17 +945,28 @@ export default function AdminPage() {
             </h1>
           </div>
 
-          {isUsingStarterCatalog && (
+          <div className="flex flex-wrap items-center gap-2">
             <ReusableButton
-              variant="accent"
+              variant="secondary"
               size="sm"
-              disabled={seeding}
-              onClick={() => void handleSeedStarter()}
+              disabled={syncingJee}
+              onClick={() => void handleSyncJeeNotes()}
             >
-              <Database className="w-4 h-4" />
-              {seeding ? 'Syncing Starter Data...' : 'Seed Starter Curriculum to Live Firestore'}
+              <Database className="w-4 h-4 text-[#2563EB]" />
+              {syncingJee ? 'Syncing 82 JEE Notes...' : 'Sync 82 JEE Concise Notes to Firestore'}
             </ReusableButton>
-          )}
+            {isUsingStarterCatalog && (
+              <ReusableButton
+                variant="accent"
+                size="sm"
+                disabled={seeding}
+                onClick={() => void handleSeedStarter()}
+              >
+                <Database className="w-4 h-4" />
+                {seeding ? 'Syncing Starter Data...' : 'Seed Starter Curriculum'}
+              </ReusableButton>
+            )}
+          </div>
         </div>
 
         {feedback && (
@@ -1130,38 +1221,88 @@ export default function AdminPage() {
             {activeTab === 'subjects' && (
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                 <ReusableCard className="space-y-4">
-                  <h2 className="font-display text-lg font-bold text-[#0B1B3B] dark:text-white">
-                    Dynamic Subjects ({subjects.length})
-                  </h2>
-                  <div className="flex flex-wrap gap-2">
-                    <input
-                      type="text"
-                      placeholder="Subject Name (e.g. Biology)"
-                      value={newSubName}
-                      onChange={(e) => setNewSubName(e.target.value)}
-                      className="flex-1 min-w-[160px] px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Code (BIO)"
-                      value={newSubCode}
-                      onChange={(e) => setNewSubCode(e.target.value)}
-                      className="w-28 px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-mono uppercase"
-                    />
-                    <ReusableButton variant="primary" size="sm" onClick={() => void handleAddSubject()}>
-                      <Plus className="w-4 h-4" />
-                      Add
-                    </ReusableButton>
+                  <div className="flex items-center justify-between gap-2">
+                    <h2 className="font-display text-lg font-bold text-[#0B1B3B] dark:text-white">
+                      Dynamic Subjects ({subjects.length})
+                    </h2>
+                    {editingSubjectId && (
+                      <ReusableButton variant="ghost" size="sm" onClick={resetSubjectForm}>
+                        Cancel Edit
+                      </ReusableButton>
+                    )}
+                  </div>
+                  <div className="space-y-3 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800">
+                    <div className="flex flex-wrap gap-2">
+                      <input
+                        type="text"
+                        placeholder="Subject Name (e.g. Biology, Accounts, CS)"
+                        value={newSubName}
+                        onChange={(e) => setNewSubName(e.target.value)}
+                        className="flex-1 min-w-[160px] px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Code (BIO)"
+                        value={newSubCode}
+                        onChange={(e) => setNewSubCode(e.target.value)}
+                        className="w-28 px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-mono uppercase"
+                      />
+                      <ReusableButton variant="primary" size="sm" onClick={() => void handleAddSubject()}>
+                        {editingSubjectId ? <Save className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                        {editingSubjectId ? 'Update' : 'Add'}
+                      </ReusableButton>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <p className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                        Visible ONLY in Selected Classes / Sub-Classes ({newSubCohorts.length} selected)
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {allCohorts.map((c) => {
+                          const checked = newSubCohorts.includes(c.id);
+                          return (
+                            <button
+                              key={c.id}
+                              type="button"
+                              onClick={() =>
+                                setNewSubCohorts((prev) =>
+                                  prev.includes(c.id)
+                                    ? prev.filter((id) => id !== c.id)
+                                    : [...prev, c.id]
+                                )
+                              }
+                              className={`px-2 py-1 rounded-lg text-[11px] font-semibold border transition-colors ${
+                                checked
+                                  ? 'bg-[#2563EB] text-white border-[#2563EB]'
+                                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                              }`}
+                            >
+                              {c.shortLabel}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                  <div className="divide-y divide-slate-100 dark:divide-slate-800 max-h-80 overflow-y-auto">
                     {subjects.map((sub, idx) => (
                       <div key={sub.id} className="py-2.5 flex items-center justify-between gap-2">
-                        <div>
+                        <div className="min-w-0">
                           <p className="text-sm font-bold text-slate-900 dark:text-white">{sub.name}</p>
-                          <p className="text-xs font-mono text-slate-500">{sub.code} · Order {sub.order}</p>
+                          <p className="text-xs font-mono text-slate-500 truncate">
+                            {sub.code} · {sub.cohorts.length} sub-class(es)
+                          </p>
                         </div>
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            type="button"
+                            aria-label={`Edit ${sub.name}`}
+                            onClick={() => handleLoadSubjectForEdit(sub)}
+                            className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
                           <button
                             type="button"
                             aria-label={`Move ${sub.name} up`}
@@ -1364,75 +1505,130 @@ export default function AdminPage() {
             {/* WORKSPACE 2: CHAPTER MANAGER */}
             {activeTab === 'chapters' && (
               <ReusableCard className="space-y-5">
-                <h2 className="font-display text-lg font-bold text-[#0B1B3B] dark:text-white">
-                  Chapter Manager ({chapters.length})
-                </h2>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-                  <select
-                    aria-label="Chapter subject"
-                    value={chapSubId}
-                    onChange={(e) => setChapSubId(e.target.value)}
-                    className="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm"
-                  >
-                    {subjects.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    type="text"
-                    placeholder="Chapter Name"
-                    value={chapName}
-                    onChange={(e) => setChapName(e.target.value)}
-                    className="lg:col-span-2 px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm"
-                  />
-                  <select
-                    aria-label="Chapter difficulty"
-                    value={chapDifficulty}
-                    onChange={(e) => setChapDifficulty(e.target.value as ChapterDifficulty)}
-                    className="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm"
-                  >
-                    <option value="Easy">Easy</option>
-                    <option value="Moderate">Moderate</option>
-                    <option value="Tough">Tough</option>
-                  </select>
-                  <div className="flex gap-2">
-                    <input
-                      type="number"
-                      aria-label="Weightage marks"
-                      min={0}
-                      max={40}
-                      value={chapWeightage}
-                      onChange={(e) => setChapWeightage(Number(e.target.value) || 4)}
-                      className="w-20 px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-mono"
-                    />
-                    <ReusableButton variant="primary" size="sm" onClick={() => void handleAddChapter()}>
-                      <Plus className="w-4 h-4" />
-                      Add
+                <div className="flex items-center justify-between gap-2">
+                  <h2 className="font-display text-lg font-bold text-[#0B1B3B] dark:text-white">
+                    Chapter Manager ({chapters.length})
+                  </h2>
+                  {editingChapterId && (
+                    <ReusableButton variant="ghost" size="sm" onClick={resetChapterForm}>
+                      Cancel Edit
                     </ReusableButton>
+                  )}
+                </div>
+
+                <div className="space-y-3 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                    <select
+                      aria-label="Chapter subject"
+                      value={chapSubId}
+                      onChange={(e) => setChapSubId(e.target.value)}
+                      className="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm"
+                    >
+                      {subjects.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="text"
+                      placeholder="Chapter Name"
+                      value={chapName}
+                      onChange={(e) => setChapName(e.target.value)}
+                      className="lg:col-span-2 px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm"
+                    />
+                    <select
+                      aria-label="Chapter difficulty"
+                      value={chapDifficulty}
+                      onChange={(e) => setChapDifficulty(e.target.value as ChapterDifficulty)}
+                      className="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm"
+                    >
+                      <option value="Easy">Easy</option>
+                      <option value="Moderate">Moderate</option>
+                      <option value="Tough">Tough</option>
+                    </select>
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        aria-label="Weightage marks"
+                        min={0}
+                        max={40}
+                        value={chapWeightage}
+                        onChange={(e) => setChapWeightage(Number(e.target.value) || 4)}
+                        className="w-20 px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-mono"
+                      />
+                      <ReusableButton variant="primary" size="sm" onClick={() => void handleAddChapter()}>
+                        {editingChapterId ? <Save className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                        {editingChapterId ? 'Save' : 'Add'}
+                      </ReusableButton>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <p className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                      Assign Chapter ONLY to Selected Classes / Sub-Classes ({chapCohorts.length} selected)
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {allCohorts.map((c) => {
+                        const checked = chapCohorts.includes(c.id);
+                        return (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() =>
+                              setChapCohorts((prev) =>
+                                prev.includes(c.id)
+                                  ? prev.filter((id) => id !== c.id)
+                                  : [...prev, c.id]
+                              )
+                            }
+                            className={`px-2 py-1 rounded-lg text-[11px] font-semibold border transition-colors ${
+                              checked
+                                ? 'bg-[#0B1B3B] text-white border-[#0B1B3B] dark:bg-[#2563EB] dark:border-[#2563EB]'
+                                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                            }`}
+                          >
+                            {c.shortLabel}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
 
                 <div className="divide-y divide-slate-100 dark:divide-slate-800 max-h-[420px] overflow-y-auto">
                   {chapters.map((ch) => (
                     <div key={ch.id} className="py-2.5 flex items-center justify-between gap-2">
-                      <div>
-                        <p className="text-sm font-bold text-slate-900 dark:text-white">{ch.name}</p>
-                        <p className="text-xs text-slate-500">
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{ch.name}</p>
+                        <p className="text-xs text-slate-500 truncate">
                           {subjects.find((s) => s.id === ch.subjectId)?.name ?? ch.subjectId} ·{' '}
-                          {ch.weightageMarks} Marks · {ch.difficulty}
+                          {ch.weightageMarks} Marks · {ch.difficulty} ·{' '}
+                          {ch.cohorts
+                            .map((cid) => allCohorts.find((c) => c.id === cid)?.shortLabel ?? cid)
+                            .slice(0, 3)
+                            .join(', ')}
+                          {ch.cohorts.length > 3 ? ` +${ch.cohorts.length - 3}` : ''}
                         </p>
                       </div>
-                      <button
-                        type="button"
-                        aria-label={`Delete ${ch.name}`}
-                        onClick={() => void deleteChapterDoc(ch.id)}
-                        className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          aria-label={`Edit ${ch.name}`}
+                          onClick={() => handleLoadChapterForEdit(ch)}
+                          className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`Delete ${ch.name}`}
+                          onClick={() => void deleteChapterDoc(ch.id)}
+                          className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>

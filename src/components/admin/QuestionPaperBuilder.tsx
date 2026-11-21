@@ -1,14 +1,13 @@
-import { useMemo, useRef, useState } from 'react';
-import ReactCrop, { type Crop, type PixelCrop } from 'react-image-crop';
-import 'react-image-crop/dist/ReactCrop.css';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { type PixelCrop } from 'react-image-crop';
 import {
   ArrowDown,
   ArrowUp,
   CheckCircle2,
+  ChevronRight,
   Crop as CropIcon,
   FilePlus2,
   FileUp,
-  ImagePlus,
   Layers,
   Loader2,
   Pencil,
@@ -17,8 +16,6 @@ import {
   Send,
   Sparkles,
   Trash2,
-  ZoomIn,
-  ZoomOut,
 } from 'lucide-react';
 import type {
   ExamType,
@@ -40,9 +37,11 @@ import {
 import { requestGeminiPdfExtraction } from '../../services/geminiClient';
 import { getNextQuestionNumber, transitionQuestionType } from '../../utils/scoringEngine';
 import { EXAM_TYPES, getDefaultExamInstructions } from '../../utils/examPresets';
+import { generateCleanSlug } from '../../utils/seoHelpers';
 import { playAiSparkle, playClick, playSuccess } from '../../utils/soundEffects';
 import { ReusableButton } from '../ReusableButton';
 import { ReusableCard } from '../ReusableCard';
+import { PdfDirectCropCanvas, type ActiveCropSelection } from './PdfDirectCropCanvas';
 
 type CropSlot = 'question' | 'solution';
 
@@ -167,12 +166,13 @@ export function QuestionPaperBuilder() {
   const [builtQuestions, setBuiltQuestions] = useState<TestQuestionRecord[]>([]);
   const [editingQuestionIndex, setEditingQuestionIndex] = useState<number | null>(null);
 
-  // Multi-page paper cropper state
+  // Direct Full-PDF / Image continuous scroll cropper state
   const [currentPageNumber, setCurrentPageNumber] = useState(1);
-  const [pageImageSrc, setPageImageSrc] = useState<string | null>(null);
+  const [totalPaperPages, setTotalPaperPages] = useState(0);
+  const [paperSourceFile, setPaperSourceFile] = useState<File | null>(null);
   const [zoomPercent, setZoomPercent] = useState(100);
-  const [crop, setCrop] = useState<Crop>();
-  const [completedCrop, setCompletedCrop] = useState<PixelCrop | null>(null);
+  const [activeCropSelection, setActiveCropSelection] = useState<ActiveCropSelection | null>(null);
+  const [cropClearSignal, setCropClearSignal] = useState(0);
   const [activeSlot, setActiveSlot] = useState<CropSlot>('question');
   const [croppingBusy, setCroppingBusy] = useState(false);
 
@@ -182,9 +182,14 @@ export function QuestionPaperBuilder() {
   const [pdfExtractBusy, setPdfExtractBusy] = useState(false);
   const [pdfMaxQuestions, setPdfMaxQuestions] = useState(15);
   const pdfInputRef = useRef<HTMLInputElement | null>(null);
-
-  const imgRef = useRef<HTMLImageElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleActiveCropChange = useCallback((sel: ActiveCropSelection | null) => {
+    setActiveCropSelection(sel);
+    if (sel) {
+      setCurrentPageNumber(sel.pageNumber);
+    }
+  }, []);
 
   const defaultSubName = useMemo(() => {
     if (destination === 'dpp') {
@@ -271,39 +276,32 @@ export function QuestionPaperBuilder() {
     setBuiltQuestions([]);
     setEditingQuestionIndex(null);
     setCurrentPageNumber(1);
-    setPageImageSrc(null);
+    setTotalPaperPages(0);
+    setPaperSourceFile(null);
+    setActiveCropSelection(null);
     setDraftQ(createEmptyDraft(freshId, 1, 'Physics', 1));
     setStatusMessage(null);
   };
 
-  const handlePageImageUpload = (file: File | undefined) => {
+  const handlePaperSourceUpload = (file: File | undefined) => {
     if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      setStatusMessage({ type: 'err', text: 'Please upload a PNG, JPG, or WebP question paper page image.' });
+    const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+    const isImg = file.type.startsWith('image/');
+    if (!isPdf && !isImg) {
+      setStatusMessage({
+        type: 'err',
+        text: 'Please upload a PDF question paper or a PNG/JPG/WebP image.',
+      });
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      setPageImageSrc(typeof reader.result === 'string' ? reader.result : null);
-      setCrop(undefined);
-      setCompletedCrop(null);
-      setZoomPercent(100);
-      setStatusMessage({
-        type: 'ok',
-        text: `Loaded Page ${currentPageNumber}. Continuing sequentially at Q${draftQ.questionNumber}.`,
-      });
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleDoneWithPage = () => {
-    const nextPage = currentPageNumber + 1;
-    setCurrentPageNumber(nextPage);
-    setPageImageSrc(null);
-    setCrop(undefined);
-    setCompletedCrop(null);
-    setDraftQ((prev) => ({ ...prev, sourcePageNumber: nextPage }));
-    fileInputRef.current?.click();
+    setPaperSourceFile(file);
+    setCurrentPageNumber(1);
+    setZoomPercent(100);
+    setActiveCropSelection(null);
+    setStatusMessage({
+      type: 'ok',
+      text: `Loaded "${file.name}". Scroll up/down through pages, drag a box to crop Q${draftQ.questionNumber}, and save on the side panel.`,
+    });
   };
 
   const handleQuestionTypeChange = (nextType: QuestionType) => {
@@ -435,10 +433,14 @@ export function QuestionPaperBuilder() {
   };
 
   const handleApplyCrop = async () => {
-    if (!imgRef.current || !completedCrop || completedCrop.width < 8 || completedCrop.height < 8) {
+    if (
+      !activeCropSelection ||
+      activeCropSelection.pixelCrop.width < 8 ||
+      activeCropSelection.pixelCrop.height < 8
+    ) {
       setStatusMessage({
         type: 'err',
-        text: 'Drag a rectangular selection on the question paper image first.',
+        text: 'Drag a rectangular selection on any PDF page first.',
       });
       return;
     }
@@ -447,7 +449,10 @@ export function QuestionPaperBuilder() {
     setStatusMessage(null);
 
     try {
-      const { blob, dataUrl } = await extractCroppedBlob(imgRef.current, completedCrop);
+      const { blob, dataUrl } = await extractCroppedBlob(
+        activeCropSelection.imageEl,
+        activeCropSelection.pixelCrop
+      );
       let finalUrl = dataUrl;
 
       try {
@@ -462,17 +467,15 @@ export function QuestionPaperBuilder() {
 
       setDraftQ((prev) =>
         activeSlot === 'question'
-          ? { ...prev, questionImageUrl: finalUrl }
-          : { ...prev, solutionImageUrl: finalUrl }
+          ? { ...prev, questionImageUrl: finalUrl, sourcePageNumber: activeCropSelection.pageNumber }
+          : { ...prev, solutionImageUrl: finalUrl, sourcePageNumber: activeCropSelection.pageNumber }
       );
 
-      // Toggle directly from 1. Question -> 2. Answer / Solution
       if (activeSlot === 'question') {
         setActiveSlot('solution');
       }
       playSuccess();
-      setCrop(undefined);
-      setCompletedCrop(null);
+      setCropClearSignal((n) => n + 1);
     } catch (err) {
       setStatusMessage({
         type: 'err',
@@ -569,9 +572,16 @@ export function QuestionPaperBuilder() {
         }))
         .filter((row) => row.subject.length > 0 && row.chapters.length > 0);
 
+      const cleanSlug = generateCleanSlug(title.trim(), testId);
+      const cohortLabel = allCohorts.find((c) => c.id === cohortId)?.label ?? cohortId;
+      const autoSeoDesc = `Attempt ${title.trim()} (${examCategory.trim() || examType}) for ${cohortLabel} on Prepskm — ${builtQuestions.length} questions, ${durationMinutes} mins, NTA CBT interface with instant solutions.`;
+
       const testPayload: Omit<MockTestRecord, 'createdAt' | 'updatedAt' | 'createdAtIso'> = {
         id: testId,
         title: title.trim(),
+        slug: cleanSlug,
+        seoDescription: autoSeoDesc,
+        isPublished: status === 'published',
         destination,
         cohortId,
         examCategory: examCategory.trim() || examType,
@@ -1129,353 +1139,337 @@ export function QuestionPaperBuilder() {
         </div>
       </ReusableCard>
 
-      {/* Step 2B: Fast 2-Crop Visual Question Paper Cropper (1. Question & 2. Answer/Solution) */}
+      {/* Step 2B: Direct Full-PDF Scroll & Side-by-Side 2-Crop Builder */}
       <ReusableCard className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 className="font-display text-base font-bold text-[#0F214D] dark:text-white flex items-center gap-2">
               <CropIcon className="w-5 h-5 text-[#E86F0C]" />
-              2. Fast 2-Crop Question Builder — Page {currentPageNumber} · Q
-              {draftQ.questionNumber}
+              2. Direct Full-PDF Scroll &amp; Crop Builder — Q{draftQ.questionNumber}
+              {totalPaperPages > 0 ? ` (Page ${currentPageNumber}/${totalPaperPages})` : ''}
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Only 2 crops needed: <strong>1. Question</strong> and <strong>2. Answer / Solution</strong>. Then just click A/B/C/D (Single or Multiple) or type the Numerical Answer!
+              Upload your full PDF once, scroll smoothly up &amp; down through all pages on the left, crop directly on any page, and set Answer Key + Continue / Next right beside it!
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/*"
+              accept="application/pdf,.pdf,image/*"
               className="hidden"
-              onChange={(e) => handlePageImageUpload(e.target.files?.[0])}
+              onChange={(e) => handlePaperSourceUpload(e.target.files?.[0])}
             />
             <ReusableButton
-              variant="secondary"
+              variant="primary"
               size="sm"
               onClick={() => fileInputRef.current?.click()}
             >
-              <ImagePlus className="w-4 h-4" />
-              {pageImageSrc ? `Replace Page ${currentPageNumber}` : `Upload Page ${currentPageNumber}`}
+              <FileUp className="w-4 h-4" />
+              {paperSourceFile ? 'Change PDF / Image' : 'Upload Full PDF or Image'}
             </ReusableButton>
-            {pageImageSrc && (
-              <ReusableButton variant="primary" size="sm" onClick={handleDoneWithPage}>
-                Done with Page {currentPageNumber} → Next Page
-              </ReusableButton>
-            )}
           </div>
         </div>
 
-        {/* Question Metadata Row */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div>
-            <label htmlFor="draft-qnum" className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
-              Question #
-            </label>
-            <input
-              id="draft-qnum"
-              type="number"
-              min={1}
-              value={draftQ.questionNumber}
-              onChange={(e) => {
-                const n = Math.max(1, Number(e.target.value) || 1);
-                setDraftQ((prev) => ({
-                  ...prev,
-                  questionNumber: n,
-                  subjectName:
-                    destination === 'cbt-mock'
-                      ? resolveSubjectFromRanges(n, subjectRanges, prev.subjectName)
-                      : prev.subjectName,
-                }));
-              }}
-              className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-mono font-bold"
+        {/* Side-by-Side Split Workspace: Full Scrollable PDF (Left) + Sticky Controls & Save/Next (Right) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+          {/* LEFT COLUMN (7 cols): Full Scrollable Multi-Page PDF Cropper */}
+          <div className="lg:col-span-7 space-y-3">
+            <PdfDirectCropCanvas
+              sourceFile={paperSourceFile}
+              zoomPercent={zoomPercent}
+              onZoomChange={setZoomPercent}
+              onActiveCropChange={handleActiveCropChange}
+              onPageCountDetected={setTotalPaperPages}
+              clearSignal={cropClearSignal}
             />
           </div>
 
-          <div>
-            <label htmlFor="draft-qtype" className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
-              Question Type
-            </label>
-            <select
-              id="draft-qtype"
-              value={draftQ.questionType}
-              onChange={(e) => handleQuestionTypeChange(e.target.value as QuestionType)}
-              className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm"
-            >
-              <option value="single-mcq">Single Choice MCQ (Click 1 Option)</option>
-              <option value="multi-mcq">Multiple Choice MCQ (Click Multi Options)</option>
-              <option value="integer">Integer / Numerical Box</option>
-            </select>
-          </div>
-
-          <div>
-            <label htmlFor="draft-subj" className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
-              Subject
-            </label>
-            <input
-              id="draft-subj"
-              type="text"
-              value={draftQ.subjectName}
-              onChange={(e) => setDraftQ((prev) => ({ ...prev, subjectName: e.target.value }))}
-              className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="draft-chap" className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
-              Chapter Tag
-            </label>
-            <input
-              id="draft-chap"
-              type="text"
-              placeholder="e.g. Electrostatics"
-              value={draftQ.chapterName ?? ''}
-              onChange={(e) => setDraftQ((prev) => ({ ...prev, chapterName: e.target.value }))}
-              className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm"
-            />
-          </div>
-        </div>
-
-        {/* Guided 2-Crop Selector: ONLY 1. Question & 2. Answer / Solution */}
-        <div className="flex flex-wrap items-center gap-2">
-          {activeSlots.map((slot) => {
-            const hasImg =
-              slot.id === 'question'
-                ? Boolean(draftQ.questionImageUrl)
-                : Boolean(draftQ.solutionImageUrl);
-            const isSelected = activeSlot === slot.id;
-            return (
-              <button
-                key={slot.id}
-                type="button"
-                onClick={() => {
-                  playClick();
-                  setActiveSlot(slot.id);
-                }}
-                className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition-colors ${
-                  isSelected
-                    ? 'bg-[#0F214D] text-white border-[#0F214D] dark:bg-sky-500 dark:text-slate-950'
-                    : hasImg
-                      ? 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
-                      : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
-                }`}
-              >
-                {slot.label} {hasImg ? '✓' : ''}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Interactive Image Cropper Workspace */}
-        {pageImageSrc ? (
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-50 dark:bg-slate-900/70 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800">
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  aria-label="Zoom out"
-                  onClick={() => setZoomPercent((z) => Math.max(50, z - 25))}
-                  className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700"
-                >
-                  <ZoomOut className="w-4 h-4" />
-                </button>
-                <span className="font-mono text-xs font-semibold w-12 text-center tabular-nums">
-                  {zoomPercent}%
+          {/* RIGHT COLUMN (5 cols): Sticky Side Controls — Capture Crop, Answer Key, Continue & Next */}
+          <div className="lg:col-span-5 lg:sticky lg:top-20 space-y-3.5 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60">
+            {/* Slot Switcher + Primary Capture Button right beside the PDF */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-[#0F214D] dark:text-sky-300">
+                  Editing Q{draftQ.questionNumber}
                 </span>
-                <button
-                  type="button"
-                  aria-label="Zoom in"
-                  onClick={() => setZoomPercent((z) => Math.min(250, z + 25))}
-                  className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700"
-                >
-                  <ZoomIn className="w-4 h-4" />
-                </button>
+                <span className="text-[11px] font-semibold text-slate-500">
+                  {destination === 'cbt-mock' ? 'CBT Mock' : 'DPP'} · {allCohorts.find((c) => c.id === cohortId)?.shortLabel ?? cohortId}
+                </span>
               </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                {activeSlots.map((slot) => {
+                  const hasImg =
+                    slot.id === 'question'
+                      ? Boolean(draftQ.questionImageUrl)
+                      : Boolean(draftQ.solutionImageUrl);
+                  const isSelected = activeSlot === slot.id;
+                  return (
+                    <button
+                      key={slot.id}
+                      type="button"
+                      onClick={() => {
+                        playClick();
+                        setActiveSlot(slot.id);
+                      }}
+                      className={`px-3 py-2 rounded-xl text-xs font-bold border transition-colors ${
+                        isSelected
+                          ? 'bg-[#0F214D] text-white border-[#0F214D] dark:bg-sky-500 dark:text-slate-950'
+                          : hasImg
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
+                            : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                      }`}
+                    >
+                      {slot.label} {hasImg ? '✓' : ''}
+                    </button>
+                  );
+                })}
+              </div>
+
               <ReusableButton
                 variant="accent"
                 size="sm"
-                disabled={croppingBusy || !completedCrop}
+                className="w-full justify-center"
+                disabled={croppingBusy || !activeCropSelection}
                 onClick={() => void handleApplyCrop()}
               >
                 <CropIcon className="w-4 h-4" />
                 {croppingBusy
-                  ? 'Cropping...'
-                  : `Capture Crop → ${activeSlots.find((s) => s.id === activeSlot)?.label}`}
+                  ? 'Capturing Crop…'
+                  : activeCropSelection
+                    ? `Capture Page ${activeCropSelection.pageNumber} → ${activeSlots.find((s) => s.id === activeSlot)?.label}`
+                    : `Drag box on PDF → Capture ${activeSlots.find((s) => s.id === activeSlot)?.label}`}
               </ReusableButton>
             </div>
 
-            <div className="max-h-[460px] overflow-auto rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-950 p-3">
-              <div style={{ width: `${zoomPercent}%`, minWidth: '100%' }}>
-                <ReactCrop
-                  crop={crop}
-                  onChange={(c) => setCrop(c)}
-                  onComplete={(c) => setCompletedCrop(c)}
+            {/* Compact Metadata Grid */}
+            <div className="grid grid-cols-2 gap-2.5 pt-1 border-t border-slate-200 dark:border-slate-800">
+              <div>
+                <label htmlFor="draft-qnum" className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                  Q#
+                </label>
+                <input
+                  id="draft-qnum"
+                  type="number"
+                  min={1}
+                  value={draftQ.questionNumber}
+                  onChange={(e) => {
+                    const n = Math.max(1, Number(e.target.value) || 1);
+                    setDraftQ((prev) => ({
+                      ...prev,
+                      questionNumber: n,
+                      subjectName:
+                        destination === 'cbt-mock'
+                          ? resolveSubjectFromRanges(n, subjectRanges, prev.subjectName)
+                          : prev.subjectName,
+                    }));
+                  }}
+                  className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-mono font-bold"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="draft-qtype" className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                  Question Type
+                </label>
+                <select
+                  id="draft-qtype"
+                  value={draftQ.questionType}
+                  onChange={(e) => handleQuestionTypeChange(e.target.value as QuestionType)}
+                  className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs"
                 >
-                  <img
-                    ref={imgRef}
-                    src={pageImageSrc}
-                    alt={`Question Paper Page ${currentPageNumber}`}
-                    className="max-w-none w-full h-auto block"
-                  />
-                </ReactCrop>
+                  <option value="single-mcq">Single MCQ</option>
+                  <option value="multi-mcq">Multi MCQ</option>
+                  <option value="integer">Integer / Numerical</option>
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="draft-subj" className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                  Subject
+                </label>
+                <input
+                  id="draft-subj"
+                  type="text"
+                  value={draftQ.subjectName}
+                  onChange={(e) => setDraftQ((prev) => ({ ...prev, subjectName: e.target.value }))}
+                  className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="draft-chap" className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                  Chapter Tag
+                </label>
+                <input
+                  id="draft-chap"
+                  type="text"
+                  placeholder="e.g. Electrostatics"
+                  value={draftQ.chapterName ?? ''}
+                  onChange={(e) => setDraftQ((prev) => ({ ...prev, chapterName: e.target.value }))}
+                  className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs"
+                />
               </div>
             </div>
-          </div>
-        ) : (
-          <div className="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-2xl p-5 text-center">
-            <p className="text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300">
-              Upload a question paper page (PNG/JPG) to crop ONLY <strong>1. Question</strong> and <strong>2. Answer / Solution</strong> — or use Gemini PDF Fetch above / type text below.
-            </p>
-          </div>
-        )}
 
-        {/* Text, Crop Previews & Instant Click-to-Answer Column */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-2">
-          <div className="space-y-3">
-            <div>
-              <label htmlFor="draft-qtext" className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
-                Question Text (Optional if cropped)
-              </label>
-              <textarea
-                id="draft-qtext"
-                rows={3}
-                value={draftQ.questionText ?? ''}
-                onChange={(e) => setDraftQ((prev) => ({ ...prev, questionText: e.target.value }))}
-                className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm"
-              />
-            </div>
-
-            {draftQ.questionImageUrl && (
-              <div className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white">
-                <p className="text-[11px] font-semibold text-slate-500 mb-1">1. Question Crop Preview</p>
-                <img src={draftQ.questionImageUrl} alt="Question crop preview" className="max-h-32 object-contain" />
-              </div>
-            )}
-
-            <div>
-              <label htmlFor="draft-soltext" className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
-                Answer / Solution Explanation (Optional if cropped)
-              </label>
-              <textarea
-                id="draft-soltext"
-                rows={2}
-                value={draftQ.solutionText ?? ''}
-                onChange={(e) => setDraftQ((prev) => ({ ...prev, solutionText: e.target.value }))}
-                className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm"
-              />
-            </div>
-
-            {draftQ.solutionImageUrl && (
-              <div className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white">
-                <p className="text-[11px] font-semibold text-slate-500 mb-1">2. Answer / Solution Crop Preview</p>
-                <img src={draftQ.solutionImageUrl} alt="Solution crop preview" className="max-h-28 object-contain" />
-              </div>
-            )}
-          </div>
-
-          {/* One-Tap Answer Key / Numerical Box Column */}
-          <div className="space-y-3">
+            {/* Instant Answer Key Selector */}
             {draftQ.questionType === 'integer' ? (
-              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 space-y-2">
-                <label htmlFor="draft-numans" className="block text-xs font-bold uppercase tracking-wide text-[#F97316]">
-                  Numerical / Integer Answer Box
+              <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-1.5">
+                <label htmlFor="draft-numans" className="block text-[11px] font-bold uppercase tracking-wide text-[#F97316]">
+                  Numerical / Integer Answer
                 </label>
                 <input
                   id="draft-numans"
                   type="text"
-                  placeholder="Type exact answer e.g. 24 or 9.8"
+                  placeholder="e.g. 24 or 9.8"
                   value={draftQ.numericalAnswer ?? ''}
                   onChange={(e) =>
                     setDraftQ((prev) => ({ ...prev, numericalAnswer: e.target.value }))
                   }
-                  className="w-full px-4 py-3 rounded-xl border-2 border-[#2563EB]/40 focus:border-[#2563EB] bg-white dark:bg-slate-900 font-mono text-lg font-bold focus:outline-none"
+                  className="w-full px-3 py-2 rounded-lg border-2 border-[#2563EB]/40 focus:border-[#2563EB] bg-white dark:bg-slate-950 font-mono text-base font-bold focus:outline-none"
                 />
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Students will type their numerical answer into a clean numeric box in the CBT exam.
-                </p>
               </div>
             ) : (
-              <div className="space-y-3">
-                {/* Instant One-Tap Answer Key Selector */}
-                <div className="p-3.5 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/25 border border-emerald-200/80 dark:border-emerald-900/70 space-y-2">
-                  <p className="text-xs font-bold text-emerald-900 dark:text-emerald-300">
-                    {draftQ.questionType === 'single-mcq'
-                      ? 'Click 1 Option to Set Single Answer Key'
-                      : 'Click All Correct Options (Multi-Correct Key)'}
-                  </p>
-                  <div className="grid grid-cols-4 gap-2">
-                    {OPTION_LETTERS.map((letter, idx) => {
-                      const isCorrect = (draftQ.correctOptionIndices ?? []).includes(idx);
-                      return (
-                        <button
-                          key={letter}
-                          type="button"
-                          onClick={() => {
-                            playClick();
-                            setDraftQ((prev) => {
-                              const curr = prev.correctOptionIndices ?? [];
-                              if (prev.questionType === 'single-mcq') {
-                                return { ...prev, correctOptionIndices: [idx] };
-                              }
-                              const next = curr.includes(idx)
-                                ? curr.filter((i) => i !== idx)
-                                : [...curr, idx].sort((a, b) => a - b);
-                              return { ...prev, correctOptionIndices: next };
-                            });
-                          }}
-                          aria-pressed={isCorrect}
-                          aria-label={`Set option ${letter} as correct answer`}
-                          className={`py-2.5 rounded-xl font-mono text-sm font-extrabold border-2 transition-all ${
-                            isCorrect
-                              ? 'bg-[#10B981] text-white border-[#10B981] shadow-sm scale-[1.02]'
-                              : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:border-[#2563EB]'
-                          }`}
-                        >
-                          {letter} {isCorrect ? '✓' : ''}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Optional Text Labels for Options A–D (Skip if options are already inside the Question crop!) */}
-                <div className="space-y-1.5">
-                  <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                    Optional Option Text (leave blank if options A–D are already inside the Question crop image)
-                  </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {OPTION_LETTERS.map((letter, idx) => (
-                      <div key={letter} className="flex items-center gap-1.5">
-                        <span className="w-6 text-center font-mono text-xs font-bold text-slate-500">
-                          {letter}
-                        </span>
-                        <input
-                          type="text"
-                          placeholder={`Option ${letter} text (optional)`}
-                          value={draftQ.optionTexts?.[idx] ?? ''}
-                          onChange={(e) =>
-                            setDraftQ((prev) => {
-                              const next = [...(prev.optionTexts ?? ['', '', '', ''])];
-                              next[idx] = e.target.value;
-                              return { ...prev, optionTexts: next };
-                            })
-                          }
-                          className="flex-1 min-w-0 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs"
-                        />
-                      </div>
-                    ))}
-                  </div>
+              <div className="p-3 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/25 border border-emerald-200/80 dark:border-emerald-900/70 space-y-2">
+                <p className="text-[11px] font-bold text-emerald-900 dark:text-emerald-300">
+                  {draftQ.questionType === 'single-mcq'
+                    ? 'Answer Key (Click 1 Option)'
+                    : 'Answer Key (Click All Correct)'}
+                </p>
+                <div className="grid grid-cols-4 gap-2">
+                  {OPTION_LETTERS.map((letter, idx) => {
+                    const isCorrect = (draftQ.correctOptionIndices ?? []).includes(idx);
+                    return (
+                      <button
+                        key={letter}
+                        type="button"
+                        onClick={() => {
+                          playClick();
+                          setDraftQ((prev) => {
+                            const curr = prev.correctOptionIndices ?? [];
+                            if (prev.questionType === 'single-mcq') {
+                              return { ...prev, correctOptionIndices: [idx] };
+                            }
+                            const next = curr.includes(idx)
+                              ? curr.filter((i) => i !== idx)
+                              : [...curr, idx].sort((a, b) => a - b);
+                            return { ...prev, correctOptionIndices: next };
+                          });
+                        }}
+                        aria-pressed={isCorrect}
+                        aria-label={`Set option ${letter} as correct answer`}
+                        className={`py-2 rounded-xl font-mono text-sm font-extrabold border-2 transition-all ${
+                          isCorrect
+                            ? 'bg-[#10B981] text-white border-[#10B981] shadow-sm'
+                            : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:border-[#2563EB]'
+                        }`}
+                      >
+                        {letter} {isCorrect ? '✓' : ''}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
-          </div>
-        </div>
 
-        <div className="flex flex-wrap items-center justify-end gap-2.5 pt-2 border-t border-slate-100 dark:border-slate-800">
-          <ReusableButton variant="primary" size="sm" onClick={handleSaveQuestionAndNext}>
-            <Save className="w-4 h-4" />
-            {editingQuestionIndex !== null ? 'Update Question' : 'Save Question & Next on Same Page'}
-          </ReusableButton>
+            {/* Crop Previews */}
+            {(draftQ.questionImageUrl || draftQ.solutionImageUrl) && (
+              <div className="grid grid-cols-2 gap-2">
+                {draftQ.questionImageUrl && (
+                  <div className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white">
+                    <p className="text-[10px] font-bold text-slate-500 mb-1">1. Question Crop</p>
+                    <img src={draftQ.questionImageUrl} alt="Question crop preview" className="max-h-20 w-full object-contain" />
+                  </div>
+                )}
+                {draftQ.solutionImageUrl && (
+                  <div className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white">
+                    <p className="text-[10px] font-bold text-slate-500 mb-1">2. Solution Crop</p>
+                    <img src={draftQ.solutionImageUrl} alt="Solution crop preview" className="max-h-20 w-full object-contain" />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Optional Text Inputs (Collapsible / Compact) */}
+            <details className="text-xs">
+              <summary className="cursor-pointer font-semibold text-slate-600 dark:text-slate-300 hover:text-[#2563EB]">
+                Optional: Type Question / Option / Solution Text
+              </summary>
+              <div className="mt-2 space-y-2">
+                <textarea
+                  id="draft-qtext"
+                  rows={2}
+                  placeholder="Question text (optional if cropped)"
+                  value={draftQ.questionText ?? ''}
+                  onChange={(e) => setDraftQ((prev) => ({ ...prev, questionText: e.target.value }))}
+                  className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs"
+                />
+                {draftQ.questionType !== 'integer' && (
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {OPTION_LETTERS.map((letter, idx) => (
+                      <input
+                        key={letter}
+                        type="text"
+                        placeholder={`Option ${letter} text`}
+                        value={draftQ.optionTexts?.[idx] ?? ''}
+                        onChange={(e) =>
+                          setDraftQ((prev) => {
+                            const next = [...(prev.optionTexts ?? ['', '', '', ''])];
+                            next[idx] = e.target.value;
+                            return { ...prev, optionTexts: next };
+                          })
+                        }
+                        className="px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs"
+                      />
+                    ))}
+                  </div>
+                )}
+                <textarea
+                  id="draft-soltext"
+                  rows={2}
+                  placeholder="Solution text (optional if cropped)"
+                  value={draftQ.solutionText ?? ''}
+                  onChange={(e) => setDraftQ((prev) => ({ ...prev, solutionText: e.target.value }))}
+                  className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs"
+                />
+              </div>
+            </details>
+
+            {/* Side-by-Side Primary Action Buttons: Continue / Save & Next Question */}
+            <div className="flex flex-col gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+              <ReusableButton
+                variant="primary"
+                size="sm"
+                className="w-full justify-center"
+                onClick={handleSaveQuestionAndNext}
+              >
+                <span>
+                  {editingQuestionIndex !== null
+                    ? `Update Q${draftQ.questionNumber}`
+                    : `Save Q${draftQ.questionNumber} & Continue to Q${getNextQuestionNumber(builtQuestions) + (editingQuestionIndex === null ? 1 : 0)}`}
+                </span>
+                <ChevronRight className="w-4 h-4" />
+              </ReusableButton>
+
+              {builtQuestions.length > 0 && (
+                <ReusableButton
+                  variant="accent"
+                  size="sm"
+                  className="w-full justify-center"
+                  disabled={savingTest}
+                  onClick={() => void handlePersistTest('published')}
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>
+                    {savingTest
+                      ? 'Publishing…'
+                      : `Publish Live (${builtQuestions.length} Qs)`}
+                  </span>
+                </ReusableButton>
+              )}
+            </div>
+          </div>
         </div>
       </ReusableCard>
 

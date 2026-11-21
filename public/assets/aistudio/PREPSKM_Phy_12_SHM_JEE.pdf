@@ -1,0 +1,193 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+2 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Courier-Bold >>
+endobj
+4 0 obj
+<< /Type /Pages /Kids [6 0 R] /Count 1 >>
+endobj
+5 0 obj
+<< /Length 4949 >>
+stream
+0.043 0.106 0.231 rg
+0 766 595 76 re f
+0.976 0.451 0.086 rg
+0 762 595 4 re f
+1 1 1 rg
+BT /F2 10 Tf
+42 816 Td (PREPSKM.IN  |  JEE MAIN & ADVANCED CONCISE NOTES) Tj ET
+0.976 0.451 0.086 rg
+BT /F2 9 Tf
+428.2 816 Td (PHYSICS  |  CLASS 11 JEE) Tj ET
+1 1 1 rg
+BT /F2 16 Tf
+42 790 Td (Ch 12: Simple Harmonic Motion) Tj ET
+0.80 0.86 0.96 rg
+BT /F1 8.5 Tf
+42 774 Td (Weightage: 4 Marks  |  Difficulty: Moderate  |  Page 1) Tj ET
+0.85 0.88 0.92 RG 0.6 w
+42 36 m 553 36 l S
+0.40 0.46 0.55 rg
+BT /F1 8 Tf
+42 22 Td (PREPSKM.IN  -  Curated by @unfiltereddsumit  |  Free JEE Revision Library) Tj ET
+BT /F1 8 Tf
+511 22 Td (Page 1) Tj ET
+0.97 0.98 1.0 rg
+42 695.5 511 54.5 re f
+0.80 0.86 0.96 RG 0.7 w
+42 695.5 511 54.5 re S
+0.14 0.20 0.30 rg
+BT /F1 9.5 Tf
+52 736 Td (SHM Kinematics, Phasor Circle Method, Superposition of Collinear & Orthogonal SHMs, Energy) Tj ET
+BT /F1 9.5 Tf
+52 722.5 Td (Time vs Space Averages, Spring-Block & Pulley-Spring Systems, Simple/Physical/Torsional) Tj ET
+BT /F1 9.5 Tf
+52 709 Td (Pendulums, Damped & Forced Oscillations.) Tj ET
+0.945 0.965 0.992 rg
+42 663.5 511 22 re f
+0.145 0.388 0.922 rg
+42 663.5 4 22 re f
+0.043 0.106 0.231 rg
+BT /F2 11 Tf
+54 670.5 Td (1. HIGH-YIELD SYLLABUS & CONCEPT ROADMAP) Tj ET
+0.976 0.451 0.086 rg
+48 643.5 3.5 3.5 re f
+0.12 0.16 0.24 rg
+BT /F2 9.5 Tf
+58 642.5 Td (SHM Kinematics & Phasor Circle: a = -omega^2 x; v = omega * sqrt\(A^2 - x^2\). Time from 0) Tj ET
+BT /F1 9.5 Tf
+58 629 Td (to A/2 is T/12; from A/2 to A is T/6 \(phasor circle makes time intervals instant!\).) Tj ET
+0.976 0.451 0.086 rg
+48 610.5 3.5 3.5 re f
+0.12 0.16 0.24 rg
+BT /F2 9.5 Tf
+58 609.5 Td (Energy in SHM: E = \(1/2\) m omega^2 A^2. Time average: <K>_t = <U>_t = E/2. Space) Tj ET
+BT /F1 9.5 Tf
+58 596 Td (average: <K>_x = \(2/3\)E, <U>_x = \(1/3\)E.) Tj ET
+0.976 0.451 0.086 rg
+48 577.5 3.5 3.5 re f
+0.12 0.16 0.24 rg
+BT /F2 9.5 Tf
+58 576.5 Td (Spring-Block & Pulley Combinations: Series: 1/k_eq = 1/k1 + 1/k2. Parallel: k_eq = k1 +) Tj ET
+BT /F1 9.5 Tf
+58 563 Td (k2. Cutting spring of length L into ratio n1:n2 gives k proportional to 1/L.) Tj ET
+0.976 0.451 0.086 rg
+48 544.5 3.5 3.5 re f
+0.12 0.16 0.24 rg
+BT /F2 9.5 Tf
+58 543.5 Td (Pendulums & g_eff: Simple: T = 2*pi*sqrt\(L/g_eff\). Physical: T = 2*pi*sqrt\(I/\(m*g*d\)\).) Tj ET
+BT /F1 9.5 Tf
+58 530 Td (Infinite length pendulum: T = 2*pi*sqrt\(R_earth / g\) = 84.6 min.) Tj ET
+0.945 0.965 0.992 rg
+42 501.5 511 22 re f
+0.063 0.725 0.506 rg
+42 501.5 4 22 re f
+0.043 0.106 0.231 rg
+BT /F2 11 Tf
+54 508.5 Td (2. MASTER FORMULA SHEET & KEY RELATIONS) Tj ET
+0.965 0.973 0.985 rg
+48 451.5 499 40 re f
+0.82 0.87 0.94 RG 0.6 w
+48 451.5 499 40 re S
+0.043 0.106 0.231 rg
+BT /F3 9 Tf
+56 478.5 Td (Two-Block Spring System \(m1, m2\): T = 2*pi * sqrt\(mu / k\), where mu = m1*m2 / \(m1) Tj ET
+BT /F3 9 Tf
+56 465 Td (+ m2\)) Tj ET
+0.965 0.973 0.985 rg
+48 419.5 499 26 re f
+0.82 0.87 0.94 RG 0.6 w
+48 419.5 499 26 re S
+0.043 0.106 0.231 rg
+BT /F3 9 Tf
+56 432.5 Td (Spring with Mass m_s: T = 2*pi * sqrt\(\(M + m_s/3\) / k\)) Tj ET
+0.965 0.973 0.985 rg
+48 373.5 499 40 re f
+0.82 0.87 0.94 RG 0.6 w
+48 373.5 499 40 re S
+0.043 0.106 0.231 rg
+BT /F3 9 Tf
+56 400.5 Td (Damped Oscillation: x\(t\) = A0 * exp\(-b*t / \(2m\)\) * cos\(omega'*t + phi\) | E\(t\) = E0) Tj ET
+BT /F3 9 Tf
+56 387 Td (* exp\(-b*t / m\)) Tj ET
+0.965 0.973 0.985 rg
+48 327.5 499 40 re f
+0.82 0.87 0.94 RG 0.6 w
+48 327.5 499 40 re S
+0.043 0.106 0.231 rg
+BT /F3 9 Tf
+56 354.5 Td (Superposition of Collinear SHMs \(same omega\): A_res = sqrt\(A1^2 + A2^2 + 2 A1 A2) Tj ET
+BT /F3 9 Tf
+56 341 Td (cos\(dphi\)\)) Tj ET
+0.945 0.965 0.992 rg
+42 301.5 511 22 re f
+0.976 0.451 0.086 rg
+42 301.5 4 22 re f
+0.043 0.106 0.231 rg
+BT /F2 11 Tf
+54 308.5 Td (3. CLASSIC JEE TRAPS, EXCEPTIONS & EXAM SHORTCUTS) Tj ET
+1.0 0.968 0.929 rg
+48 252.5 499 39 re f
+0.976 0.451 0.086 rg
+48 252.5 3.5 39 re f
+0.45 0.18 0.04 rg
+BT /F1 9.2 Tf
+58 278.5 Td (TRAP 1: Frequency of KE or PE oscillation is 2f \(double the SHM frequency!\), while) Tj ET
+BT /F1 9.2 Tf
+58 265 Td (total energy E is constant.) Tj ET
+1.0 0.968 0.929 rg
+48 207.5 499 39 re f
+0.976 0.451 0.086 rg
+48 207.5 3.5 39 re f
+0.45 0.18 0.04 rg
+BT /F1 9.2 Tf
+58 233.5 Td (TRAP 2: Hanging a spring vertically shifts ONLY the mean position by mg/k; time) Tj ET
+BT /F1 9.2 Tf
+58 220 Td (period T = 2*pi*sqrt\(m/k\) is UNCHANGED!) Tj ET
+0.945 0.965 0.992 rg
+42 181.5 511 22 re f
+0.145 0.388 0.922 rg
+42 181.5 4 22 re f
+0.043 0.106 0.231 rg
+BT /F2 11 Tf
+54 188.5 Td (4. SOLVED PYQ CHECKPOINTS \(JEE MAIN & ADVANCED\)) Tj ET
+0.976 0.451 0.086 rg
+48 161.5 3.5 3.5 re f
+0.12 0.16 0.24 rg
+BT /F2 9.5 Tf
+58 160.5 Td (PYQ Check 1: U-tube liquid column of total length L: T = 2*pi * sqrt\(L / \(2g\)\).) Tj ET
+0.976 0.451 0.086 rg
+48 142.5 3.5 3.5 re f
+0.12 0.16 0.24 rg
+BT /F2 9.5 Tf
+58 141.5 Td (PYQ Check 2: In a movable pulley with mass attached to pulley and spring k on string:) Tj ET
+BT /F1 9.5 Tf
+58 128 Td (k_eff = 4k or k/4 depending on whether mass moves 2x or x/2 wrt spring.) Tj ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 4 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 5 0 R >>
+endobj
+7 0 obj
+<< /Type /Catalog /Pages 4 0 R >>
+endobj
+xref
+0 8
+0000000000 65535 f 
+0000000009 00000 n 
+0000000079 00000 n 
+0000000154 00000 n 
+0000000227 00000 n 
+0000000284 00000 n 
+0000005285 00000 n 
+0000005431 00000 n 
+trailer
+<< /Size 8 /Root 7 0 R >>
+startxref
+5480
+%%EOF

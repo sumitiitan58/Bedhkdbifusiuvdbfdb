@@ -38,8 +38,14 @@ import {
   STARTER_TESTS,
 } from './starterCatalog';
 import { STARTER_CLASS_GROUPS } from './platformRegistry';
+import {
+  CONCISE_NOTES_SECTION,
+  JEE_CONCISE_CHAPTERS,
+  JEE_CONCISE_MATERIALS,
+} from '../data/jeeConciseNotesCatalog';
 import { DEFAULT_IQ_CONFIG } from '../utils/scoringEngine';
 import { instantUploadAsset } from '../utils/instantUpload';
+import { generateCleanSlug } from '../utils/seoHelpers';
 
 export function makeSafeDocId(prefix: string): string {
   const rand = Math.random().toString(36).slice(2, 8);
@@ -552,9 +558,20 @@ export async function saveMaterial(
   isEdit: boolean
 ) {
   const path = `materials/${mat.id}`;
+  const resolvedSlug = generateCleanSlug(mat.slug?.trim() || mat.seoSlug?.trim() || mat.title, mat.id);
+  const resolvedSeoDesc = (
+    mat.seoDescription?.trim() ||
+    mat.description?.trim() ||
+    `${mat.title.trim()} — free chapter-wise ${mat.sectionName.trim()} PDF & study notes on Prepskm.`
+  ).slice(0, 320);
+
   const basePayload = {
     id: mat.id,
     title: mat.title.trim().slice(0, 200),
+    slug: resolvedSlug,
+    seoSlug: resolvedSlug,
+    seoDescription: resolvedSeoDesc,
+    isPublished: mat.isPublished ?? true,
     subjectId: mat.subjectId,
     chapterId: mat.chapterId,
     sectionName: mat.sectionName.trim().slice(0, 80),
@@ -580,7 +597,6 @@ export async function saveMaterial(
     ...(mat.fileSizeBytes !== undefined ? { fileSizeBytes: mat.fileSizeBytes } : {}),
     ...(mat.mimeType ? { mimeType: mat.mimeType.slice(0, 120) } : {}),
     ...(mat.durationMinutes !== undefined ? { durationMinutes: Math.max(0, Math.min(600, Math.round(mat.durationMinutes))) } : {}),
-    ...(mat.seoSlug ? { seoSlug: mat.seoSlug.trim().slice(0, 140) } : {}),
     ...(mat.seoKeywords ? { seoKeywords: mat.seoKeywords.trim().slice(0, 300) } : {}),
     ...(mat.description ? { description: mat.description.trim().slice(0, 600) } : {}),
     ...(mat.uploadedBy ? { uploadedBy: mat.uploadedBy.slice(0, 128) } : {}),
@@ -667,9 +683,18 @@ export async function saveMockTestWithQuestions(
   const totalQuestions = questions.length;
   const totalMarks = questions.reduce((sum, q) => sum + (q.positiveMarks ?? test.positiveMarks), 0);
 
+  const resolvedSlug = generateCleanSlug(test.slug?.trim() || test.title, test.id);
+  const resolvedSeoDesc = (
+    test.seoDescription?.trim() ||
+    `Attempt ${test.title.trim()} (${test.examCategory.trim()}) on Prepskm — ${totalQuestions} questions, ${test.durationMinutes} minutes, NTA CBT pattern with instant solutions.`
+  ).slice(0, 320);
+
   const testPayload = {
     id: test.id,
     title: test.title.trim().slice(0, 200),
+    slug: resolvedSlug,
+    seoDescription: resolvedSeoDesc,
+    isPublished: test.isPublished ?? test.status === 'published',
     destination: test.destination,
     cohortId: test.cohortId,
     examCategory: test.examCategory.trim().slice(0, 80),
@@ -785,6 +810,20 @@ export async function saveIqSettings(cfg: IQConfig): Promise<void> {
   }
 }
 
+export async function syncJeeConciseNotesToFirestore(): Promise<void> {
+  try {
+    await saveSection(CONCISE_NOTES_SECTION, false);
+    for (const ch of JEE_CONCISE_CHAPTERS) {
+      await saveChapter(ch, false);
+    }
+    for (const m of JEE_CONCISE_MATERIALS) {
+      await saveMaterial(m, false);
+    }
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, 'syncJeeConciseNotes');
+  }
+}
+
 export async function seedStarterCurriculumToFirestore(): Promise<void> {
   try {
     for (const cg of STARTER_CLASS_GROUPS) {
@@ -809,6 +848,7 @@ export async function seedStarterCurriculumToFirestore(): Promise<void> {
       const qs = STARTER_QUESTIONS.filter((q) => q.testId === t.id);
       await saveMockTestWithQuestions(t, qs, false);
     }
+    await syncJeeConciseNotesToFirestore();
     await saveIqSettings(DEFAULT_IQ_CONFIG);
   } catch (err) {
     handleFirestoreError(err, OperationType.WRITE, 'seedStarterCurriculum');

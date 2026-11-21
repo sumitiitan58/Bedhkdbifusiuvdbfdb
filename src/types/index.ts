@@ -147,7 +147,10 @@ export interface StudyMaterialRecord {
   mimeType?: string;
   durationMinutes?: number;
   seoSlug?: string;
+  slug?: string;
   seoKeywords?: string;
+  seoDescription?: string;
+  isPublished?: boolean;
   description?: string;
   uploadedBy?: string;
   createdAtIso?: string;
@@ -194,6 +197,9 @@ export interface TestSyllabusItem {
 export interface MockTestRecord {
   id: string;
   title: string;
+  slug?: string;
+  seoDescription?: string;
+  isPublished?: boolean;
   destination: TestDestination;
   cohortId: StudentCohortId;
   examCategory: string;

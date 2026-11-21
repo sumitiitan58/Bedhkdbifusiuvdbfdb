@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   ArrowLeft,
   Bookmark,
@@ -23,9 +24,16 @@ import { ResponsiveContainer } from '../components/ResponsiveContainer';
 import { ReusableCard } from '../components/ReusableCard';
 import { ReusableButton } from '../components/ReusableButton';
 import { SeoHead } from '../components/SeoHead';
+import { FullPdfViewer } from '../components/materials/FullPdfViewer';
 import { useAuth } from '../context/AuthContext';
 import { usePlatformData } from '../context/PlatformDataContext';
 import { resolveAssetUrl } from '../utils/instantUpload';
+import {
+  filterChaptersByCohort,
+  filterMaterialsByCohort,
+  filterSubjectsByCohort,
+} from '../utils/catalogMerge';
+import { CANONICAL_ORIGIN, getMaterialRoutePath } from '../utils/seoHelpers';
 import { playClick } from '../utils/soundEffects';
 import type {
   ChapterRecord,
@@ -86,7 +94,7 @@ export default function MaterialsPage() {
     recordMaterialView,
   } = usePlatformData();
 
-  const [selectedCohort, setSelectedCohort] = useState<StudentCohortId | 'all'>('all');
+  const [selectedCohort, setSelectedCohort] = useState<StudentCohortId | 'all'>(cohortId || 'class-12-jee');
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeChapterId, setActiveChapterId] = useState<string | null>(null);
@@ -95,6 +103,14 @@ export default function MaterialsPage() {
 
   const [previewMaterial, setPreviewMaterial] = useState<StudyMaterialRecord | null>(null);
   const [resolvedPreviewUrl, setResolvedPreviewUrl] = useState<string>('');
+
+  // Keep cohort filter aligned with the student's active track when changed globally
+  useEffect(() => {
+    if (cohortId) {
+      setSelectedCohort(cohortId);
+      setActiveChapterId(null);
+    }
+  }, [cohortId]);
 
   useEffect(() => {
     let active = true;
@@ -110,6 +126,26 @@ export default function MaterialsPage() {
     };
   }, [previewMaterial]);
 
+  const visibleSubjects = useMemo(
+    () => filterSubjectsByCohort(subjects, selectedCohort),
+    [subjects, selectedCohort]
+  );
+
+  // Reset subject filter if the selected subject isn't part of the current Class/Sub-Class
+  useEffect(() => {
+    if (
+      selectedSubjectId !== 'all' &&
+      !visibleSubjects.some((s) => s.id === selectedSubjectId)
+    ) {
+      setSelectedSubjectId('all');
+    }
+  }, [selectedSubjectId, visibleSubjects]);
+
+  const cohortMaterials = useMemo(
+    () => filterMaterialsByCohort(materials, selectedCohort),
+    [materials, selectedCohort]
+  );
+
   const subjectMap = useMemo(
     () => new Map(subjects.map((s) => [s.id, s])),
     [subjects]
@@ -119,42 +155,68 @@ export default function MaterialsPage() {
     [progress.bookmarkedMaterials]
   );
 
-  // Chapters filtered by Class/Cohort, Subject, and Search
+  // Strictly isolated Chapters filtered by Class/Sub-Class, Subject, and Search
   const filteredChapters = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    return chapters.filter((ch) => {
-      if (selectedCohort !== 'all' && !ch.cohorts.includes(selectedCohort)) return false;
-      if (selectedSubjectId !== 'all' && ch.subjectId !== selectedSubjectId) return false;
-      if (q) {
-        const subName = (subjectMap.get(ch.subjectId)?.name ?? '').toLowerCase();
-        const chMats = materials.filter((m) => m.chapterId === ch.id);
-        const matchesMaterial = chMats.some(
-          (m) =>
-            m.title.toLowerCase().includes(q) ||
-            (m.description ?? '').toLowerCase().includes(q) ||
-            m.sectionName.toLowerCase().includes(q)
-        );
-        return ch.name.toLowerCase().includes(q) || subName.includes(q) || matchesMaterial;
-      }
-      return true;
-    });
-  }, [chapters, materials, searchQuery, selectedCohort, selectedSubjectId, subjectMap]);
+    const visibleSubjectIds = new Set(visibleSubjects.map((s) => s.id));
+    const cohortChaps = filterChaptersByCohort(chapters, selectedCohort);
+    return cohortChaps
+      .filter((ch) => {
+        if (selectedCohort !== 'all' && !visibleSubjectIds.has(ch.subjectId)) return false;
+        if (selectedSubjectId !== 'all' && ch.subjectId !== selectedSubjectId) return false;
+        if (q) {
+          const subName = (subjectMap.get(ch.subjectId)?.name ?? '').toLowerCase();
+          const chMats = cohortMaterials.filter((m) => m.chapterId === ch.id);
+          const matchesMaterial = chMats.some(
+            (m) =>
+              m.title.toLowerCase().includes(q) ||
+              (m.description ?? '').toLowerCase().includes(q) ||
+              m.sectionName.toLowerCase().includes(q)
+          );
+          return ch.name.toLowerCase().includes(q) || subName.includes(q) || matchesMaterial;
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        const subA = subjectMap.get(a.subjectId)?.order ?? 99;
+        const subB = subjectMap.get(b.subjectId)?.order ?? 99;
+        if (subA !== subB) return subA - subB;
+        return (a.order ?? 0) - (b.order ?? 0);
+      });
+  }, [chapters, cohortMaterials, searchQuery, selectedCohort, selectedSubjectId, subjectMap, visibleSubjects]);
 
   const activeChapter = useMemo(
     () => (activeChapterId ? chapters.find((c) => c.id === activeChapterId) ?? null : null),
     [activeChapterId, chapters]
   );
 
-  // Sections applicable to the clicked chapter (All Subjects + Multi-Subject + Specific Chapter)
+  // All materials in this chapter STRICTLY belonging to the active Class/Sub-Class
+  const activeChapterAllCohortMaterials = useMemo(() => {
+    if (!activeChapter) return [];
+    return cohortMaterials.filter((m) => m.chapterId === activeChapter.id);
+  }, [activeChapter, cohortMaterials]);
+
+  // Sections applicable to the clicked chapter (only showing Concise Notes / scoped sections properly)
   const chapterSections = useMemo(() => {
     if (!activeChapter) return [];
-    const applicable = sections.filter((sec) => sectionAppliesToChapter(sec, activeChapter));
-    // Also ensure any section name referenced by materials in this chapter appears
+    const applicable = sections.filter((sec) => {
+      if (!sectionAppliesToChapter(sec, activeChapter)) return false;
+      // Keep Concise Notes scoped to JEE tracks (or whenever items exist in it for this track)
+      if (
+        sec.slug === 'concise-notes' &&
+        selectedCohort !== 'all' &&
+        !selectedCohort.includes('jee') &&
+        !activeChapterAllCohortMaterials.some((m) => m.sectionName === sec.name)
+      ) {
+        return false;
+      }
+      return true;
+    });
     const existingNames = new Set(applicable.map((s) => s.name));
     const extraNames = Array.from(
       new Set(
-        materials
-          .filter((m) => m.chapterId === activeChapter.id && !existingNames.has(m.sectionName))
+        activeChapterAllCohortMaterials
+          .filter((m) => !existingNames.has(m.sectionName))
           .map((m) => m.sectionName)
       )
     );
@@ -165,19 +227,18 @@ export default function MaterialsPage() {
       order: 100 + idx,
       scope: 'chapters',
     }));
-    return [...applicable, ...extras];
-  }, [activeChapter, materials, sections]);
+    return [...applicable, ...extras].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  }, [activeChapter, activeChapterAllCohortMaterials, sections, selectedCohort]);
 
-  // Materials inside the opened Chapter
+  // Strictly isolated Materials inside the opened Chapter
   const chapterMaterials = useMemo(() => {
     if (!activeChapter) return [];
-    return materials.filter((m) => {
-      if (m.chapterId !== activeChapter.id) return false;
+    return activeChapterAllCohortMaterials.filter((m) => {
       if (activeSectionFilter !== 'all' && m.sectionName !== activeSectionFilter) return false;
       if (onlyBookmarked && !bookmarkSet.has(m.id)) return false;
       return true;
     });
-  }, [activeChapter, activeSectionFilter, bookmarkSet, materials, onlyBookmarked]);
+  }, [activeChapter, activeChapterAllCohortMaterials, activeSectionFilter, bookmarkSet, onlyBookmarked]);
 
   const handleOpenPreview = (mat: StudyMaterialRecord) => {
     playClick();
@@ -209,20 +270,20 @@ export default function MaterialsPage() {
     : '';
 
   const seoTitle = activeChapter
-    ? `${activeChapter.name} (${activeSubjectName}) Notes, PYQs & Videos — PREPSKM.IN`
-    : 'Chapter-Wise Study Materials, PDFs & Concept Videos — PREPSKM.IN';
+    ? `${activeChapter.name} (${activeSubjectName}) Concise Notes & PYQs - Prepskm`
+    : 'JEE & NEET Chapter-Wise Study Materials & Notes - Prepskm';
 
   const seoDescription = activeChapter
-    ? `Explore ${activeChapter.name} in ${activeSubjectName}: admin-curated Short Notes, Formula Sheets, PYQs, and Concept Videos with thumbnails for JEE, NEET & Boards on PREPSKM.IN.`
-    : 'Click any chapter across Physics, Chemistry, Mathematics, and Biology to explore structured Short Notes, Formula Sheets, PYQs, and Concept Videos on PREPSKM.IN.';
+    ? `Download free ${activeChapter.name} (${activeSubjectName}) Concise Notes, Short Notes, Formula Sheets, and PYQs on Prepskm.`
+    : 'Browse free JEE Main, JEE Advanced, NEET UG & Board chapter-wise Concise Notes, Short Notes, Formula Sheets, and PYQ PDFs on Prepskm.';
 
   const materialsJsonLd = useMemo(
     () => ({
       '@context': 'https://schema.org',
       '@type': 'Course',
-      name: activeChapter ? `${activeChapter.name} — ${activeSubjectName}` : 'PREPSKM.IN Chapter Study Materials',
+      name: activeChapter ? `${activeChapter.name} — ${activeSubjectName}` : 'Prepskm Chapter Study Materials & Concise Notes',
       description: seoDescription,
-      provider: { '@type': 'Organization', name: 'PREPSKM.IN', url: 'https://prepskm.in/' },
+      provider: { '@type': 'EducationalOrganization', name: 'Prepskm', url: CANONICAL_ORIGIN },
     }),
     [activeChapter, activeSubjectName, seoDescription]
   );
@@ -301,12 +362,12 @@ export default function MaterialsPage() {
                         : 'bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-[#2563EB]'
                     }`}
                   >
-                    All Sections ({materials.filter((m) => m.chapterId === activeChapter.id).length})
+                    All Sections ({activeChapterAllCohortMaterials.length})
                   </button>
 
                   {chapterSections.map((sec) => {
-                    const count = materials.filter(
-                      (m) => m.chapterId === activeChapter.id && m.sectionName === sec.name
+                    const count = activeChapterAllCohortMaterials.filter(
+                      (m) => m.sectionName === sec.name
                     ).length;
                     const active = activeSectionFilter === sec.name;
                     return (
@@ -463,7 +524,12 @@ export default function MaterialsPage() {
                           </div>
 
                           <h3 className="font-display text-sm sm:text-base font-bold text-[#0B1B3B] dark:text-white leading-snug">
-                            {mat.title}
+                            <Link
+                              to={getMaterialRoutePath(mat)}
+                              className="hover:text-[#2563EB] dark:hover:text-sky-400 transition-colors"
+                            >
+                              {mat.title}
+                            </Link>
                           </h3>
 
                           {mat.description && (
@@ -565,7 +631,7 @@ export default function MaterialsPage() {
               </div>
               <div className="flex items-center gap-4 text-xs font-semibold tabular-nums text-slate-600 dark:text-slate-400">
                 <span>{filteredChapters.length} Chapters</span>
-                <span>{materials.length} Resources</span>
+                <span>{cohortMaterials.length} Resources</span>
               </div>
             </div>
 
@@ -617,8 +683,8 @@ export default function MaterialsPage() {
                     onChange={(e) => setSelectedSubjectId(e.target.value)}
                     className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm"
                   >
-                    <option value="all">All Subjects</option>
-                    {subjects.map((s) => (
+                    <option value="all">All Track Subjects ({visibleSubjects.length})</option>
+                    {visibleSubjects.map((s) => (
                       <option key={s.id} value={s.id}>
                         {s.name}
                       </option>
@@ -643,7 +709,7 @@ export default function MaterialsPage() {
                 >
                   All Subjects
                 </button>
-                {subjects.map((s) => (
+                {visibleSubjects.map((s) => (
                   <button
                     key={s.id}
                     type="button"
@@ -686,7 +752,7 @@ export default function MaterialsPage() {
               <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-4">
                 {filteredChapters.map((ch) => {
                   const subj = subjectMap.get(ch.subjectId);
-                  const chItems = materials.filter((m) => m.chapterId === ch.id);
+                  const chItems = cohortMaterials.filter((m) => m.chapterId === ch.id);
                   const applicableSecs = sections.filter((s) => sectionAppliesToChapter(s, ch));
                   const videoCount = chItems.filter((m) => isVideoMaterial(m)).length;
                   const pdfCount = chItems.length - videoCount;
@@ -736,6 +802,39 @@ export default function MaterialsPage() {
                   );
                 })}
               </div>
+            )}
+
+            {/* Direct Crawlable Published PDFs & Concise Notes Index for Googlebot + Fast Access */}
+            {cohortMaterials.length > 0 && (
+              <section className="pt-4 border-t border-slate-200 dark:border-slate-800 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <h2 className="font-display text-base sm:text-lg font-bold text-[#0B1B3B] dark:text-white">
+                    Published Notes &amp; PDFs ({cohortMaterials.length})
+                  </h2>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                    Click any PDF to open its full multi-page reader
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                  {cohortMaterials.slice(0, 18).map((mat) => (
+                    <Link
+                      key={mat.id}
+                      to={getMaterialRoutePath(mat)}
+                      className="flex items-center justify-between gap-2 p-3 rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-[#111A2E] hover:border-[#2563EB] transition-colors"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-semibold text-[#F97316] truncate">
+                          {mat.sectionName} · {subjectMap.get(mat.subjectId)?.name ?? 'Subject'}
+                        </p>
+                        <p className="text-xs sm:text-sm font-bold text-[#0B1B3B] dark:text-white truncate">
+                          {mat.title}
+                        </p>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+                    </Link>
+                  ))}
+                </div>
+              </section>
             )}
           </>
         )}
@@ -833,10 +932,11 @@ export default function MaterialsPage() {
                   className="max-h-[70vh] mx-auto rounded-lg object-contain"
                 />
               ) : (
-                <iframe
+                <FullPdfViewer
+                  url={resolvedPreviewUrl || previewMaterial.fileUrl}
                   title={previewMaterial.title}
-                  src={resolvedPreviewUrl || previewMaterial.fileUrl}
-                  className="w-full h-[68vh] rounded-xl bg-white border border-slate-200 dark:border-slate-800"
+                  fileName={previewMaterial.fileName}
+                  heightClassName="h-[68vh]"
                 />
               )}
 

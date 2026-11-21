@@ -1,0 +1,191 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+2 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Courier-Bold >>
+endobj
+4 0 obj
+<< /Type /Pages /Kids [6 0 R] /Count 1 >>
+endobj
+5 0 obj
+<< /Length 4952 >>
+stream
+0.043 0.106 0.231 rg
+0 766 595 76 re f
+0.976 0.451 0.086 rg
+0 762 595 4 re f
+1 1 1 rg
+BT /F2 10 Tf
+42 816 Td (PREPSKM.IN  |  JEE MAIN & ADVANCED CONCISE NOTES) Tj ET
+0.976 0.451 0.086 rg
+BT /F2 9 Tf
+428.2 816 Td (PHYSICS  |  CLASS 11 JEE) Tj ET
+1 1 1 rg
+BT /F2 16 Tf
+42 790 Td (Ch 10: Thermal Physics) Tj ET
+0.80 0.86 0.96 rg
+BT /F1 8.5 Tf
+42 774 Td (Weightage: 4 Marks  |  Difficulty: Moderate  |  Page 1) Tj ET
+0.85 0.88 0.92 RG 0.6 w
+42 36 m 553 36 l S
+0.40 0.46 0.55 rg
+BT /F1 8 Tf
+42 22 Td (PREPSKM.IN  -  Curated by @unfiltereddsumit  |  Free JEE Revision Library) Tj ET
+BT /F1 8 Tf
+511 22 Td (Page 1) Tj ET
+0.97 0.98 1.0 rg
+42 695.5 511 54.5 re f
+0.80 0.86 0.96 RG 0.7 w
+42 695.5 511 54.5 re S
+0.14 0.20 0.30 rg
+BT /F1 9.5 Tf
+52 736 Td (Thermometry, Linear/Area/Volume Thermal Expansion, Apparent Liquid Expansion, Pendulum) Tj ET
+BT /F1 9.5 Tf
+52 722.5 Td (Clock & Scale Errors, Calorimetry \(Ice-Steam Mixing\), Heat Conduction \(Thermal Resistance) Tj ET
+BT /F1 9.5 Tf
+52 709 Td (& Ice Growth\), Radiation \(Kirchhoff, Wien, Stefan-Boltzmann\) & Newton Law of Cooling.) Tj ET
+0.945 0.965 0.992 rg
+42 663.5 511 22 re f
+0.145 0.388 0.922 rg
+42 663.5 4 22 re f
+0.043 0.106 0.231 rg
+BT /F2 11 Tf
+54 670.5 Td (1. HIGH-YIELD SYLLABUS & CONCEPT ROADMAP) Tj ET
+0.976 0.451 0.086 rg
+48 643.5 3.5 3.5 re f
+0.12 0.16 0.24 rg
+BT /F2 9.5 Tf
+58 642.5 Td (Thermal Expansion: L = L0\(1 + alpha*dT\); beta = 2*alpha, gamma = 3*alpha \(isotropic\).) Tj ET
+BT /F1 9.5 Tf
+58 629 Td (Apparent expansion: gamma_app = gamma_liquid - gamma_vessel.) Tj ET
+0.976 0.451 0.086 rg
+48 610.5 3.5 3.5 re f
+0.12 0.16 0.24 rg
+BT /F2 9.5 Tf
+58 609.5 Td (Pendulum & Scale Errors: Fractional time loss/gain: dT/T = \(1/2\) alpha * dT. Hot metal) Tj ET
+BT /F1 9.5 Tf
+58 596 Td (scale expands => reads LESS than true length!) Tj ET
+0.976 0.451 0.086 rg
+48 577.5 3.5 3.5 re f
+0.12 0.16 0.24 rg
+BT /F2 9.5 Tf
+58 576.5 Td (Calorimetry \(Ice-Water-Steam\): Ice c = 0.5 cal/gC, Water c = 1 cal/gC, L_f = 80 cal/g,) Tj ET
+BT /F1 9.5 Tf
+58 563 Td (L_v = 540 cal/g. Check phase change heat thresholds before computing T_final.) Tj ET
+0.976 0.451 0.086 rg
+48 544.5 3.5 3.5 re f
+0.12 0.16 0.24 rg
+BT /F2 9.5 Tf
+58 543.5 Td (Conduction & Radiation: Thermal resistance R_th = L / \(k*A\). Stefan-Boltzmann: P =) Tj ET
+BT /F1 9.5 Tf
+58 530 Td (e*sigma*A*\(T^4 - T0^4\). Wien Law: lambda_m * T = b = 2.898e-3 m*K.) Tj ET
+0.945 0.965 0.992 rg
+42 501.5 511 22 re f
+0.063 0.725 0.506 rg
+42 501.5 4 22 re f
+0.043 0.106 0.231 rg
+BT /F2 11 Tf
+54 508.5 Td (2. MASTER FORMULA SHEET & KEY RELATIONS) Tj ET
+0.965 0.973 0.985 rg
+48 465.5 499 26 re f
+0.82 0.87 0.94 RG 0.6 w
+48 465.5 499 26 re S
+0.043 0.106 0.231 rg
+BT /F3 9 Tf
+56 478.5 Td (Bimetallic Strip Radius of Curvature: R = d / \(\(alpha2 - alpha1\) * dT\)) Tj ET
+0.965 0.973 0.985 rg
+48 419.5 499 40 re f
+0.82 0.87 0.94 RG 0.6 w
+48 419.5 499 40 re S
+0.043 0.106 0.231 rg
+BT /F3 9 Tf
+56 446.5 Td (Growth of Ice Layer on Pond \(thickness x\): t = \(rho * L_f / \(2 * k * |T|\)\) * x^2) Tj ET
+BT /F3 9 Tf
+56 433 Td (=> t proportional to x^2) Tj ET
+0.965 0.973 0.985 rg
+48 387.5 499 26 re f
+0.82 0.87 0.94 RG 0.6 w
+48 387.5 499 26 re S
+0.043 0.106 0.231 rg
+BT /F3 9 Tf
+56 400.5 Td (Newton Law of Cooling \(Average Form\): \(T1 - T2\)/t = K * [\(T1 + T2\)/2 - T_surr]) Tj ET
+0.965 0.973 0.985 rg
+48 341.5 499 40 re f
+0.82 0.87 0.94 RG 0.6 w
+48 341.5 499 40 re S
+0.043 0.106 0.231 rg
+BT /F3 9 Tf
+56 368.5 Td (Solar Constant & Equilibrium Temperature of Planet: T_eq = T_sun * sqrt\(R_sun /) Tj ET
+BT /F3 9 Tf
+56 355 Td (\(2*d\)\)) Tj ET
+0.945 0.965 0.992 rg
+42 315.5 511 22 re f
+0.976 0.451 0.086 rg
+42 315.5 4 22 re f
+0.043 0.106 0.231 rg
+BT /F2 11 Tf
+54 322.5 Td (3. CLASSIC JEE TRAPS, EXCEPTIONS & EXAM SHORTCUTS) Tj ET
+1.0 0.968 0.929 rg
+48 266.5 499 39 re f
+0.976 0.451 0.086 rg
+48 266.5 3.5 39 re f
+0.45 0.18 0.04 rg
+BT /F1 9.2 Tf
+58 292.5 Td (TRAP 1: Rate of cooling \(-dT/dt\) is proportional to \(A / m*c\) = 3 / \(rho*c*R\), so) Tj ET
+BT /F1 9.2 Tf
+58 279 Td (smaller sphere cools FASTER, even though larger sphere radiates more power!) Tj ET
+1.0 0.968 0.929 rg
+48 235 499 25.5 re f
+0.976 0.451 0.086 rg
+48 235 3.5 25.5 re f
+0.45 0.18 0.04 rg
+BT /F1 9.2 Tf
+58 247.5 Td (TRAP 2: In Stefan-Boltzmann Law, T MUST always be in Kelvin \(K\), never Celsius.) Tj ET
+0.945 0.965 0.992 rg
+42 209 511 22 re f
+0.145 0.388 0.922 rg
+42 209 4 22 re f
+0.043 0.106 0.231 rg
+BT /F2 11 Tf
+54 216 Td (4. SOLVED PYQ CHECKPOINTS \(JEE MAIN & ADVANCED\)) Tj ET
+0.976 0.451 0.086 rg
+48 189 3.5 3.5 re f
+0.12 0.16 0.24 rg
+BT /F2 9.5 Tf
+58 188 Td (PYQ Check 1: Two rods in series \(L1, k1 & L2, k2\): k_eq = \(L1 + L2\) / \(L1/k1 + L2/k2\).) Tj ET
+BT /F1 9.5 Tf
+58 174.5 Td (In parallel: k_eq = \(k1*A1 + k2*A2\)/\(A1 + A2\).) Tj ET
+0.976 0.451 0.086 rg
+48 156 3.5 3.5 re f
+0.12 0.16 0.24 rg
+BT /F2 9.5 Tf
+58 155 Td (PYQ Check 2: Hole in a heated metal plate EXPANDS just like the solid material) Tj ET
+BT /F1 9.5 Tf
+58 141.5 Td (\(photographic enlargement!\).) Tj ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 4 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 5 0 R >>
+endobj
+7 0 obj
+<< /Type /Catalog /Pages 4 0 R >>
+endobj
+xref
+0 8
+0000000000 65535 f 
+0000000009 00000 n 
+0000000079 00000 n 
+0000000154 00000 n 
+0000000227 00000 n 
+0000000284 00000 n 
+0000005288 00000 n 
+0000005434 00000 n 
+trailer
+<< /Size 8 /Root 7 0 R >>
+startxref
+5483
+%%EOF

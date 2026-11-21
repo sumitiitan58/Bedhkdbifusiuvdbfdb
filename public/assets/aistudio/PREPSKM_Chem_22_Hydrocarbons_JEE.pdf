@@ -1,0 +1,246 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+2 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Courier-Bold >>
+endobj
+4 0 obj
+<< /Type /Pages /Kids [6 0 R 8 0 R] /Count 2 >>
+endobj
+5 0 obj
+<< /Length 5178 >>
+stream
+0.043 0.106 0.231 rg
+0 766 595 76 re f
+0.976 0.451 0.086 rg
+0 762 595 4 re f
+1 1 1 rg
+BT /F2 10 Tf
+42 816 Td (PREPSKM.IN  |  JEE MAIN & ADVANCED CONCISE NOTES) Tj ET
+0.976 0.451 0.086 rg
+BT /F2 9 Tf
+417.79999999999995 816 Td (CHEMISTRY  |  CLASS 11 JEE) Tj ET
+1 1 1 rg
+BT /F2 16 Tf
+42 790 Td (Ch 22: Hydrocarbons) Tj ET
+0.80 0.86 0.96 rg
+BT /F1 8.5 Tf
+42 774 Td (Weightage: 8 Marks  |  Difficulty: Moderate  |  Page 1) Tj ET
+0.85 0.88 0.92 RG 0.6 w
+42 36 m 553 36 l S
+0.40 0.46 0.55 rg
+BT /F1 8 Tf
+42 22 Td (PREPSKM.IN  -  Curated by @unfiltereddsumit  |  Free JEE Revision Library) Tj ET
+BT /F1 8 Tf
+511 22 Td (Page 1) Tj ET
+0.97 0.98 1.0 rg
+42 682 511 68 re f
+0.80 0.86 0.96 RG 0.7 w
+42 682 511 68 re S
+0.14 0.20 0.30 rg
+BT /F1 9.5 Tf
+52 736 Td (Alkanes \(Wurtz, Corey-House, Kolbe Electrolysis, Soda-Lime, Free Radical Halogenation) Tj ET
+BT /F1 9.5 Tf
+52 722.5 Td (Selectivity\), Alkenes \(Lindlar vs Birch, HX/OMDM/HBO, Peroxide Effect, Halonium) Tj ET
+BT /F1 9.5 Tf
+52 709 Td (Anti-Addition, Baeyer/OsO4 Syn-Hydroxylation, Ozonolysis\), Alkynes \(Kucherov, Red-Hot Fe\)) Tj ET
+BT /F1 9.5 Tf
+52 695.5 Td (& Benzene EAS.) Tj ET
+0.945 0.965 0.992 rg
+42 650 511 22 re f
+0.145 0.388 0.922 rg
+42 650 4 22 re f
+0.043 0.106 0.231 rg
+BT /F2 11 Tf
+54 657 Td (1. HIGH-YIELD SYLLABUS & CONCEPT ROADMAP) Tj ET
+0.976 0.451 0.086 rg
+48 630 3.5 3.5 re f
+0.12 0.16 0.24 rg
+BT /F2 9.5 Tf
+58 629 Td (Alkanes & Halogenation Selectivity: Wurtz gives symmetrical alkanes \(fails for 3 deg) Tj ET
+BT /F1 9.5 Tf
+58 615.5 Td (RX\). Corey-House \(R2CuLi + R'X\) makes unsymmetrical alkanes! Br2 is highly selective \(3) Tj ET
+BT /F1 9.5 Tf
+58 602 Td (deg:2 deg:1 deg = 1600:82:1\); Cl2 is 5:3.8:1.) Tj ET
+0.976 0.451 0.086 rg
+48 583 3.5 3.5 re f
+0.12 0.16 0.24 rg
+BT /F2 9.5 Tf
+58 582 Td (Alkenes: 3 Hydration Pathways: H3O+: Markovnikov WITH carbocation rearrangement!) Tj ET
+BT /F1 9.5 Tf
+58 568.5 Td (Oxymercuration-Demercuration \(Hg\(OAc\)2/H2O, NaBH4\): Markovnikov NO rearrangement!) Tj ET
+BT /F1 9.5 Tf
+58 555 Td (Hydroboration-Oxidation \(BH3/THF, H2O2/OH-\): Anti-Markovnikov SYN, NO rearrangement!) Tj ET
+0.976 0.451 0.086 rg
+48 536 3.5 3.5 re f
+0.12 0.16 0.24 rg
+BT /F2 9.5 Tf
+58 535 Td (Alkenes Stereochemistry & Ozonolysis: Br2/CCl4: ANTI addition \(cis -> racemic, trans ->) Tj ET
+BT /F1 9.5 Tf
+58 521.5 Td (meso!\). Cold KMnO4 / OsO4: SYN dihydroxylation \(cis -> meso, trans -> racemic!\).) Tj ET
+BT /F1 9.5 Tf
+58 508 Td (Reductive ozonolysis \(O3, Zn/H2O\) -> aldehydes/ketones; Oxidative \(O3, H2O2\) ->) Tj ET
+BT /F1 9.5 Tf
+58 494.5 Td (acids/ketones.) Tj ET
+0.976 0.451 0.086 rg
+48 475 3.5 3.5 re f
+0.12 0.16 0.24 rg
+BT /F2 9.5 Tf
+58 474 Td (Alkynes & Benzene EAS: Lindlar \(H2/Pd-BaSO4\): CIS alkene; Birch \(Na/liq NH3\): TRANS) Tj ET
+BT /F1 9.5 Tf
+58 460.5 Td (alkene. Terminal alkyne gives white ppt with Tollens & red ppt with Cu2Cl2/NH4OH.) Tj ET
+BT /F1 9.5 Tf
+58 447 Td (Benzene + Friedel-Crafts: carbocation rearranges & fails on strongly deactivated rings) Tj ET
+BT /F1 9.5 Tf
+58 433.5 Td (\(-NO2, -NR3+, and -NH2 due to salt formation!\).) Tj ET
+0.945 0.965 0.992 rg
+42 404 511 22 re f
+0.063 0.725 0.506 rg
+42 404 4 22 re f
+0.043 0.106 0.231 rg
+BT /F2 11 Tf
+54 411 Td (2. MASTER FORMULA SHEET & KEY RELATIONS) Tj ET
+0.965 0.973 0.985 rg
+48 354 499 40 re f
+0.82 0.87 0.94 RG 0.6 w
+48 354 499 40 re S
+0.043 0.106 0.231 rg
+BT /F3 9 Tf
+56 381 Td (Peroxide Effect \(Kharasch\): Works ONLY for HBr + Peroxide \(free radical) Tj ET
+BT /F3 9 Tf
+56 367.5 Td (Anti-Markovnikov\), NEVER for HCl or HI!) Tj ET
+0.965 0.973 0.985 rg
+48 308 499 40 re f
+0.82 0.87 0.94 RG 0.6 w
+48 308 499 40 re S
+0.043 0.106 0.231 rg
+BT /F3 9 Tf
+56 335 Td (Kucherov Hydration \(Hg2+/H2SO4\): Ethyne -> Acetaldehyde; All higher alkynes ->) Tj ET
+BT /F3 9 Tf
+56 321.5 Td (Ketones) Tj ET
+0.965 0.973 0.985 rg
+48 262 499 40 re f
+0.82 0.87 0.94 RG 0.6 w
+48 262 499 40 re S
+0.043 0.106 0.231 rg
+BT /F3 9 Tf
+56 289 Td (Red-Hot Fe Tube \(873 K\): 3 HC#CH -> Benzene | 3 CH3-C#CH -> Mesitylene) Tj ET
+BT /F3 9 Tf
+56 275.5 Td (\(1,3,5-trimethylbenzene\)) Tj ET
+0.965 0.973 0.985 rg
+48 216 499 40 re f
+0.82 0.87 0.94 RG 0.6 w
+48 216 499 40 re S
+0.043 0.106 0.231 rg
+BT /F3 9 Tf
+56 243 Td (Soda-Lime Decarboxylation \(NaOH + CaO\): R-COONa -> R-H + Na2CO3 \(rate proportional) Tj ET
+BT /F3 9 Tf
+56 229.5 Td (to carbanion stability!\)) Tj ET
+0.945 0.965 0.992 rg
+42 190 511 22 re f
+0.976 0.451 0.086 rg
+42 190 4 22 re f
+0.043 0.106 0.231 rg
+BT /F2 11 Tf
+54 197 Td (3. CLASSIC JEE TRAPS, EXCEPTIONS & EXAM SHORTCUTS) Tj ET
+1.0 0.968 0.929 rg
+48 127.5 499 52.5 re f
+0.976 0.451 0.086 rg
+48 127.5 3.5 52.5 re f
+0.45 0.18 0.04 rg
+BT /F1 9.2 Tf
+58 167 Td (TRAP 1: Friedel-Crafts alkylation of Benzene with n-propyl chloride + AlCl3 gives) Tj ET
+BT /F1 9.2 Tf
+58 153.5 Td (ISOPROPYLBENZENE \(cumene\) due to 1,2-hydride shift! Use Friedel-Crafts ACYLATION +) Tj ET
+BT /F1 9.2 Tf
+58 140 Td (Clemmensen/Wolff-Kishner to make n-propylbenzene!) Tj ET
+1.0 0.968 0.929 rg
+48 82.5 499 39 re f
+0.976 0.451 0.086 rg
+48 82.5 3.5 39 re f
+0.45 0.18 0.04 rg
+BT /F1 9.2 Tf
+58 108.5 Td (TRAP 2: Kolbe electrolysis of RCOONa gives R-R at ANODE and H2 + NaOH at CATHODE) Tj ET
+BT /F1 9.2 Tf
+58 95 Td (\(solution pH increases!\).) Tj ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 4 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 5 0 R >>
+endobj
+7 0 obj
+<< /Length 1328 >>
+stream
+0.043 0.106 0.231 rg
+0 766 595 76 re f
+0.976 0.451 0.086 rg
+0 762 595 4 re f
+1 1 1 rg
+BT /F2 10 Tf
+42 816 Td (PREPSKM.IN  |  JEE MAIN & ADVANCED CONCISE NOTES) Tj ET
+0.976 0.451 0.086 rg
+BT /F2 9 Tf
+417.79999999999995 816 Td (CHEMISTRY  |  CLASS 11 JEE) Tj ET
+1 1 1 rg
+BT /F2 16 Tf
+42 790 Td (Ch 22: Hydrocarbons) Tj ET
+0.80 0.86 0.96 rg
+BT /F1 8.5 Tf
+42 774 Td (Weightage: 8 Marks  |  Difficulty: Moderate  |  Page 2) Tj ET
+0.85 0.88 0.92 RG 0.6 w
+42 36 m 553 36 l S
+0.40 0.46 0.55 rg
+BT /F1 8 Tf
+42 22 Td (PREPSKM.IN  -  Curated by @unfiltereddsumit  |  Free JEE Revision Library) Tj ET
+BT /F1 8 Tf
+511 22 Td (Page 2) Tj ET
+0.945 0.965 0.992 rg
+42 728 511 22 re f
+0.145 0.388 0.922 rg
+42 728 4 22 re f
+0.043 0.106 0.231 rg
+BT /F2 11 Tf
+54 735 Td (4. SOLVED PYQ CHECKPOINTS \(JEE MAIN & ADVANCED\)) Tj ET
+0.976 0.451 0.086 rg
+48 708 3.5 3.5 re f
+0.12 0.16 0.24 rg
+BT /F2 9.5 Tf
+58 707 Td (PYQ Check 1: Birch reduction of substituted benzene: EDG \(-OMe, -Me\) stays ON the double) Tj ET
+BT /F1 9.5 Tf
+58 693.5 Td (bond; EWG \(-COOH\) stays AWAY from double bond \(on sp3 C\).) Tj ET
+0.976 0.451 0.086 rg
+48 675 3.5 3.5 re f
+0.12 0.16 0.24 rg
+BT /F2 9.5 Tf
+58 674 Td (PYQ Check 2: NBS \(N-bromosuccinimide\) performs selective ALLYLIC and BENZYLIC) Tj ET
+BT /F1 9.5 Tf
+58 660.5 Td (bromination via free-radical mechanism!) Tj ET
+endstream
+endobj
+8 0 obj
+<< /Type /Page /Parent 4 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 7 0 R >>
+endobj
+9 0 obj
+<< /Type /Catalog /Pages 4 0 R >>
+endobj
+xref
+0 10
+0000000000 65535 f 
+0000000009 00000 n 
+0000000079 00000 n 
+0000000154 00000 n 
+0000000227 00000 n 
+0000000290 00000 n 
+0000005520 00000 n 
+0000005666 00000 n 
+0000007046 00000 n 
+0000007192 00000 n 
+trailer
+<< /Size 10 /Root 9 0 R >>
+startxref
+7241
+%%EOF

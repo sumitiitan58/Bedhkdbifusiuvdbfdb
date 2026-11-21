@@ -1,0 +1,201 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+2 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Courier-Bold >>
+endobj
+4 0 obj
+<< /Type /Pages /Kids [6 0 R] /Count 1 >>
+endobj
+5 0 obj
+<< /Length 5225 >>
+stream
+0.043 0.106 0.231 rg
+0 766 595 76 re f
+0.976 0.451 0.086 rg
+0 762 595 4 re f
+1 1 1 rg
+BT /F2 10 Tf
+42 816 Td (PREPSKM.IN  |  JEE MAIN & ADVANCED CONCISE NOTES) Tj ET
+0.976 0.451 0.086 rg
+BT /F2 9 Tf
+417.79999999999995 816 Td (CHEMISTRY  |  CLASS 11 JEE) Tj ET
+1 1 1 rg
+BT /F2 16 Tf
+42 790 Td (Ch 11: Periodic Table & Periodicity) Tj ET
+0.80 0.86 0.96 rg
+BT /F1 8.5 Tf
+42 774 Td (Weightage: 4 Marks  |  Difficulty: Easy  |  Page 1) Tj ET
+0.85 0.88 0.92 RG 0.6 w
+42 36 m 553 36 l S
+0.40 0.46 0.55 rg
+BT /F1 8 Tf
+42 22 Td (PREPSKM.IN  -  Curated by @unfiltereddsumit  |  Free JEE Revision Library) Tj ET
+BT /F1 8 Tf
+511 22 Td (Page 1) Tj ET
+0.97 0.98 1.0 rg
+42 682 511 68 re f
+0.80 0.86 0.96 RG 0.7 w
+42 682 511 68 re S
+0.14 0.20 0.30 rg
+BT /F1 9.5 Tf
+52 736 Td (Period/Block/Group Identification, IUPAC Nomenclature for Z > 100, Slater Rules & Z_eff,) Tj ET
+BT /F1 9.5 Tf
+52 722.5 Td (Atomic & Ionic Radii Exceptions, Hydrated Radius, Ionization Enthalpy \(IE1 & IE2\)) Tj ET
+BT /F1 9.5 Tf
+52 709 Td (Exceptions, Electron Gain Enthalpy \(Cl > F!\), Electronegativity, Nature of Oxides &) Tj ET
+BT /F1 9.5 Tf
+52 695.5 Td (Diagonal Relationship.) Tj ET
+0.945 0.965 0.992 rg
+42 650 511 22 re f
+0.145 0.388 0.922 rg
+42 650 4 22 re f
+0.043 0.106 0.231 rg
+BT /F2 11 Tf
+54 657 Td (1. HIGH-YIELD SYLLABUS & CONCEPT ROADMAP) Tj ET
+0.976 0.451 0.086 rg
+48 630 3.5 3.5 re f
+0.12 0.16 0.24 rg
+BT /F2 9.5 Tf
+58 629 Td (Atomic & Ionic Radii Exceptions: Lanthanoid contraction makes 4d ~ 5d \(Zr ~ Hf, Nb ~) Tj ET
+BT /F1 9.5 Tf
+58 615.5 Td (Ta\)! Group 13 anomaly: r\(Ga\) < r\(Al\) due to poor 3d shielding! Isoelectronic radius) Tj ET
+BT /F1 9.5 Tf
+58 602 Td (decreases as Z increases.) Tj ET
+0.976 0.451 0.086 rg
+48 583 3.5 3.5 re f
+0.12 0.16 0.24 rg
+BT /F2 9.5 Tf
+58 582 Td (Ionization Enthalpy \(IE1 & IE2\): Period 2 IE1 order: Li < B < Be < C < O < N < F < Ne) Tj ET
+BT /F1 9.5 Tf
+58 568.5 Td (\(Be > B due to 2s2; N > O due to half-filled 2p3!\). Period 3: Na < Al < Mg < Si < S < P) Tj ET
+BT /F1 9.5 Tf
+58 555 Td (< Cl < Ar.) Tj ET
+0.976 0.451 0.086 rg
+48 536 3.5 3.5 re f
+0.12 0.16 0.24 rg
+BT /F2 9.5 Tf
+58 535 Td (Electron Gain Enthalpy \(EGE\): 3rd period > 2nd period in Groups 15-17 due to smaller 2p) Tj ET
+BT /F1 9.5 Tf
+58 521.5 Td (repulsion: Cl > F > Br > I; S > Se > Te > Po > O \(O is LAST in Group 16!\).) Tj ET
+0.976 0.451 0.086 rg
+48 503 3.5 3.5 re f
+0.12 0.16 0.24 rg
+BT /F2 9.5 Tf
+58 502 Td (Oxides & Amphoteric List: Amphoteric oxides: ZnO, Al2O3, BeO, PbO, SnO, Ga2O3, Cr2O3,) Tj ET
+BT /F1 9.5 Tf
+58 488.5 Td (V2O5, As2O3, Sb2O3. Neutral oxides: CO, NO, N2O.) Tj ET
+0.945 0.965 0.992 rg
+42 460 511 22 re f
+0.063 0.725 0.506 rg
+42 460 4 22 re f
+0.043 0.106 0.231 rg
+BT /F2 11 Tf
+54 467 Td (2. MASTER FORMULA SHEET & KEY RELATIONS) Tj ET
+0.965 0.973 0.985 rg
+48 410 499 40 re f
+0.82 0.87 0.94 RG 0.6 w
+48 410 499 40 re S
+0.043 0.106 0.231 rg
+BT /F3 9 Tf
+56 437 Td (Slater Z_eff = Z - sigma \(same ns/np: 0.35; \(n-1\): 0.85; \(n-2\) or inner: 1.00; for) Tj ET
+BT /F3 9 Tf
+56 423.5 Td (d/f inner shells: 1.00\)) Tj ET
+0.965 0.973 0.985 rg
+48 364 499 40 re f
+0.82 0.87 0.94 RG 0.6 w
+48 364 499 40 re S
+0.043 0.106 0.231 rg
+BT /F3 9 Tf
+56 391 Td (Mulliken-Pauling Electronegativity: EN_Pauling = EN_Mulliken / 2.8 = \(IE + EA\) /) Tj ET
+BT /F3 9 Tf
+56 377.5 Td (\(5.6 eV\)) Tj ET
+0.965 0.973 0.985 rg
+48 318 499 40 re f
+0.82 0.87 0.94 RG 0.6 w
+48 318 499 40 re S
+0.043 0.106 0.231 rg
+BT /F3 9 Tf
+56 345 Td (Hydrated Radius Order \(Group 1\): Li+\(aq\) > Na+\(aq\) > K+\(aq\) > Rb+\(aq\) > Cs+\(aq\)) Tj ET
+BT /F3 9 Tf
+56 331.5 Td ([ionic mobility is REVERSE!]) Tj ET
+0.965 0.973 0.985 rg
+48 272 499 40 re f
+0.82 0.87 0.94 RG 0.6 w
+48 272 499 40 re S
+0.043 0.106 0.231 rg
+BT /F3 9 Tf
+56 299 Td (IUPAC Roots: 0=nil, 1=un, 2=bi, 3=tri, 4=quad, 5=pent, 6=hex, 7=sept, 8=oct, 9=enn) Tj ET
+BT /F3 9 Tf
+56 285.5 Td (\(e.g. Z=118 Oganesson = Ununoctium\)) Tj ET
+0.945 0.965 0.992 rg
+42 246 511 22 re f
+0.976 0.451 0.086 rg
+42 246 4 22 re f
+0.043 0.106 0.231 rg
+BT /F2 11 Tf
+54 253 Td (3. CLASSIC JEE TRAPS, EXCEPTIONS & EXAM SHORTCUTS) Tj ET
+1.0 0.968 0.929 rg
+48 197 499 39 re f
+0.976 0.451 0.086 rg
+48 197 3.5 39 re f
+0.45 0.18 0.04 rg
+BT /F1 9.2 Tf
+58 223 Td (TRAP 1: IE2 of O > N and Cu > Zn and Cr > Mn because removing 2nd electron breaks) Tj ET
+BT /F1 9.2 Tf
+58 209.5 Td (half-filled/full-filled noble configuration!) Tj ET
+1.0 0.968 0.929 rg
+48 152 499 39 re f
+0.976 0.451 0.086 rg
+48 152 3.5 39 re f
+0.45 0.18 0.04 rg
+BT /F1 9.2 Tf
+58 178 Td (TRAP 2: Addition of 2nd electron \(O- + e- -> O2-\) is ALWAYS endothermic \(positive) Tj ET
+BT /F1 9.2 Tf
+58 164.5 Td (dH_eg\)!) Tj ET
+0.945 0.965 0.992 rg
+42 126 511 22 re f
+0.145 0.388 0.922 rg
+42 126 4 22 re f
+0.043 0.106 0.231 rg
+BT /F2 11 Tf
+54 133 Td (4. SOLVED PYQ CHECKPOINTS \(JEE MAIN & ADVANCED\)) Tj ET
+0.976 0.451 0.086 rg
+48 106 3.5 3.5 re f
+0.12 0.16 0.24 rg
+BT /F2 9.5 Tf
+58 105 Td (PYQ Check 1: Most negative electron gain enthalpy in periodic table = Chlorine \(Cl\);) Tj ET
+BT /F1 9.5 Tf
+58 91.5 Td (highest electronegativity = Fluorine \(F\); highest IE1 = Helium \(He\).) Tj ET
+0.976 0.451 0.086 rg
+48 73 3.5 3.5 re f
+0.12 0.16 0.24 rg
+BT /F2 9.5 Tf
+58 72 Td (PYQ Check 2: Diagonal relationships \(similar charge/radius ratio\): Li-Mg, Be-Al, B-Si.) Tj ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 4 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 5 0 R >>
+endobj
+7 0 obj
+<< /Type /Catalog /Pages 4 0 R >>
+endobj
+xref
+0 8
+0000000000 65535 f 
+0000000009 00000 n 
+0000000079 00000 n 
+0000000154 00000 n 
+0000000227 00000 n 
+0000000284 00000 n 
+0000005561 00000 n 
+0000005707 00000 n 
+trailer
+<< /Size 8 /Root 7 0 R >>
+startxref
+5756
+%%EOF

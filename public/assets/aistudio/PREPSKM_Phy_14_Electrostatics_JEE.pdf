@@ -1,0 +1,195 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+2 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Courier-Bold >>
+endobj
+4 0 obj
+<< /Type /Pages /Kids [6 0 R] /Count 1 >>
+endobj
+5 0 obj
+<< /Length 5045 >>
+stream
+0.043 0.106 0.231 rg
+0 766 595 76 re f
+0.976 0.451 0.086 rg
+0 762 595 4 re f
+1 1 1 rg
+BT /F2 10 Tf
+42 816 Td (PREPSKM.IN  |  JEE MAIN & ADVANCED CONCISE NOTES) Tj ET
+0.976 0.451 0.086 rg
+BT /F2 9 Tf
+428.2 816 Td (PHYSICS  |  CLASS 12 JEE) Tj ET
+1 1 1 rg
+BT /F2 16 Tf
+42 790 Td (Ch 14: Electrostatics) Tj ET
+0.80 0.86 0.96 rg
+BT /F1 8.5 Tf
+42 774 Td (Weightage: 8 Marks  |  Difficulty: Moderate  |  Page 1) Tj ET
+0.85 0.88 0.92 RG 0.6 w
+42 36 m 553 36 l S
+0.40 0.46 0.55 rg
+BT /F1 8 Tf
+42 22 Td (PREPSKM.IN  -  Curated by @unfiltereddsumit  |  Free JEE Revision Library) Tj ET
+BT /F1 8 Tf
+511 22 Td (Page 1) Tj ET
+0.97 0.98 1.0 rg
+42 695.5 511 54.5 re f
+0.80 0.86 0.96 RG 0.7 w
+42 695.5 511 54.5 re S
+0.14 0.20 0.30 rg
+BT /F1 9.5 Tf
+52 736 Td (Coulomb Law, Continuous Charge E-Fields \(Ring, Disc, Rod, Arc\), Gauss Law \(Sphere,) Tj ET
+BT /F1 9.5 Tf
+52 722.5 Td (Cylinder, Cube Flux, Cavity\), Electrostatic Potential & Self-Energy, Electric Dipole,) Tj ET
+BT /F1 9.5 Tf
+52 709 Td (Conductors, Earthing & Facing Parallel Plates.) Tj ET
+0.945 0.965 0.992 rg
+42 663.5 511 22 re f
+0.145 0.388 0.922 rg
+42 663.5 4 22 re f
+0.043 0.106 0.231 rg
+BT /F2 11 Tf
+54 670.5 Td (1. HIGH-YIELD SYLLABUS & CONCEPT ROADMAP) Tj ET
+0.976 0.451 0.086 rg
+48 643.5 3.5 3.5 re f
+0.12 0.16 0.24 rg
+BT /F2 9.5 Tf
+58 642.5 Td (Continuous Charge E-Fields: Infinite wire: E = 2k*lambda/r. Infinite sheet: E =) Tj ET
+BT /F1 9.5 Tf
+58 629 Td (sigma/\(2*eps0\). Ring on axis: E = kQx/\(R^2 + x^2\)^\(3/2\) \(max at x = R/sqrt\(2\)\).) Tj ET
+0.976 0.451 0.086 rg
+48 610.5 3.5 3.5 re f
+0.12 0.16 0.24 rg
+BT /F2 9.5 Tf
+58 609.5 Td (Gauss Law & Cube Flux Tricks: Flux = q_in / eps0. Charge at cube corner: flux through) Tj ET
+BT /F1 9.5 Tf
+58 596 Td (cube = q/\(8*eps0\), through each of 3 non-adjacent faces = q/\(24*eps0\).) Tj ET
+0.976 0.451 0.086 rg
+48 577.5 3.5 3.5 re f
+0.12 0.16 0.24 rg
+BT /F2 9.5 Tf
+58 576.5 Td (Electric Dipole: Axial E = 2kp/r^3; Equatorial E = -kp/r^3; General E = \(kp/r^3\)*sqrt\(1) Tj ET
+BT /F1 9.5 Tf
+58 563 Td (+ 3 cos^2 theta\). Torque tau = p x E; PE U = -p . E.) Tj ET
+0.976 0.451 0.086 rg
+48 544.5 3.5 3.5 re f
+0.12 0.16 0.24 rg
+BT /F2 9.5 Tf
+58 543.5 Td (Conductors, Earthing & Concentric Shells: Inside conductor bulk: E = 0, V = constant.) Tj ET
+BT /F1 9.5 Tf
+58 530 Td (Facing plates: outermost faces carry identical charge \(Q_total / 2\); inner facing) Tj ET
+BT /F1 9.5 Tf
+58 516.5 Td (surfaces carry equal & opposite charges!) Tj ET
+0.945 0.965 0.992 rg
+42 487.5 511 22 re f
+0.063 0.725 0.506 rg
+42 487.5 4 22 re f
+0.043 0.106 0.231 rg
+BT /F2 11 Tf
+54 494.5 Td (2. MASTER FORMULA SHEET & KEY RELATIONS) Tj ET
+0.965 0.973 0.985 rg
+48 451.5 499 26 re f
+0.82 0.87 0.94 RG 0.6 w
+48 451.5 499 26 re S
+0.043 0.106 0.231 rg
+BT /F3 9 Tf
+56 464.5 Td (Arc of Angle alpha & Radius R: E_center = \(2 k lambda / R\) * sin\(alpha / 2\)) Tj ET
+0.965 0.973 0.985 rg
+48 405.5 499 40 re f
+0.82 0.87 0.94 RG 0.6 w
+48 405.5 499 40 re S
+0.043 0.106 0.231 rg
+BT /F3 9 Tf
+56 432.5 Td (Solid Uniformly Charged Sphere \(R\): E_in = rho*r / \(3*eps0\) | V_center = 1.5 *) Tj ET
+BT /F3 9 Tf
+56 419 Td (kQ/R) Tj ET
+0.965 0.973 0.985 rg
+48 373.5 499 26 re f
+0.82 0.87 0.94 RG 0.6 w
+48 373.5 499 26 re S
+0.043 0.106 0.231 rg
+BT /F3 9 Tf
+56 386.5 Td (Electrostatic Pressure on Charged Conductor Surface: P_elec = sigma^2 / \(2 * eps0\)) Tj ET
+0.965 0.973 0.985 rg
+48 327.5 499 40 re f
+0.82 0.87 0.94 RG 0.6 w
+48 327.5 499 40 re S
+0.043 0.106 0.231 rg
+BT /F3 9 Tf
+56 354.5 Td (Self-Energy of Conducting Sphere: U = k Q^2 / \(2R\) | Solid Non-Conducting Sphere:) Tj ET
+BT /F3 9 Tf
+56 341 Td (U = 3 k Q^2 / \(5R\)) Tj ET
+0.945 0.965 0.992 rg
+42 301.5 511 22 re f
+0.976 0.451 0.086 rg
+42 301.5 4 22 re f
+0.043 0.106 0.231 rg
+BT /F2 11 Tf
+54 308.5 Td (3. CLASSIC JEE TRAPS, EXCEPTIONS & EXAM SHORTCUTS) Tj ET
+1.0 0.968 0.929 rg
+48 252.5 499 39 re f
+0.976 0.451 0.086 rg
+48 252.5 3.5 39 re f
+0.45 0.18 0.04 rg
+BT /F1 9.2 Tf
+58 278.5 Td (TRAP 1: Gauss Law holds for ALL closed surfaces, and E in Integral\(E.dA\) is the NET) Tj ET
+BT /F1 9.2 Tf
+58 265 Td (electric field due to BOTH inside and outside charges!) Tj ET
+1.0 0.968 0.929 rg
+48 207.5 499 39 re f
+0.976 0.451 0.086 rg
+48 207.5 3.5 39 re f
+0.45 0.18 0.04 rg
+BT /F1 9.2 Tf
+58 233.5 Td (TRAP 2: Earthing a conductor sets its POTENTIAL V = 0, NOT necessarily its charge q) Tj ET
+BT /F1 9.2 Tf
+58 220 Td (= 0!) Tj ET
+0.945 0.965 0.992 rg
+42 181.5 511 22 re f
+0.145 0.388 0.922 rg
+42 181.5 4 22 re f
+0.043 0.106 0.231 rg
+BT /F2 11 Tf
+54 188.5 Td (4. SOLVED PYQ CHECKPOINTS \(JEE MAIN & ADVANCED\)) Tj ET
+0.976 0.451 0.086 rg
+48 161.5 3.5 3.5 re f
+0.12 0.16 0.24 rg
+BT /F2 9.5 Tf
+58 160.5 Td (PYQ Check 1: Spherical cavity inside solid sphere of charge density rho: E_cavity = rho) Tj ET
+BT /F1 9.5 Tf
+58 147 Td (* \(vector O -> O_cav\) / \(3*eps0\) \(UNIFORM field!\).) Tj ET
+0.976 0.451 0.086 rg
+48 128.5 3.5 3.5 re f
+0.12 0.16 0.24 rg
+BT /F2 9.5 Tf
+58 127.5 Td (PYQ Check 2: Two small dipoles p1, p2 along axis at distance r: Force F = 6 k p1 p2 /) Tj ET
+BT /F1 9.5 Tf
+58 114 Td (r^4 \(attractive if aligned\).) Tj ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 4 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 5 0 R >>
+endobj
+7 0 obj
+<< /Type /Catalog /Pages 4 0 R >>
+endobj
+xref
+0 8
+0000000000 65535 f 
+0000000009 00000 n 
+0000000079 00000 n 
+0000000154 00000 n 
+0000000227 00000 n 
+0000000284 00000 n 
+0000005381 00000 n 
+0000005527 00000 n 
+trailer
+<< /Size 8 /Root 7 0 R >>
+startxref
+5576
+%%EOF

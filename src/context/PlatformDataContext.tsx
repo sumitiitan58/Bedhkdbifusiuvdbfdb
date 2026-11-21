@@ -42,6 +42,7 @@ import {
   STARTER_TESTS,
 } from '../services/starterCatalog';
 import { flattenClassGroupsToCohorts, STARTER_CLASS_GROUPS } from '../services/platformRegistry';
+import { mergeClassGroups, mergeOfficialJeeCatalog } from '../utils/catalogMerge';
 import { DEFAULT_IQ_CONFIG } from '../utils/scoringEngine';
 import { createDefaultWeeklySchedule } from '../utils/weeklySchedule';
 
@@ -387,18 +388,32 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
     [firebaseUser]
   );
 
-  const classGroups = fsClassGroups.length > 0 ? fsClassGroups : STARTER_CLASS_GROUPS;
+  const classGroups = useMemo(
+    () => mergeClassGroups(fsClassGroups, STARTER_CLASS_GROUPS),
+    [fsClassGroups]
+  );
   const allCohorts = useMemo(() => flattenClassGroupsToCohorts(classGroups), [classGroups]);
   const isUsingStarterCatalog = fsSubjects.length === 0 && fsTests.length === 0;
+
+  const mergedCatalog = useMemo(
+    () =>
+      mergeOfficialJeeCatalog({
+        subjects: fsSubjects.length > 0 ? fsSubjects : STARTER_SUBJECTS,
+        sections: fsSections.length > 0 ? fsSections : STARTER_SECTIONS,
+        chapters: fsChapters.length > 0 ? fsChapters : STARTER_CHAPTERS,
+        materials: fsMaterials.length > 0 ? fsMaterials : STARTER_MATERIALS,
+      }),
+    [fsSubjects, fsSections, fsChapters, fsMaterials]
+  );
 
   const value = useMemo<PlatformDataContextValue>(
     () => ({
       classGroups,
       allCohorts,
-      subjects: fsSubjects.length > 0 ? fsSubjects : STARTER_SUBJECTS,
-      sections: fsSections.length > 0 ? fsSections : STARTER_SECTIONS,
-      chapters: fsChapters.length > 0 ? fsChapters : STARTER_CHAPTERS,
-      materials: fsMaterials.length > 0 ? fsMaterials : STARTER_MATERIALS,
+      subjects: mergedCatalog.subjects,
+      sections: mergedCatalog.sections,
+      chapters: mergedCatalog.chapters,
+      materials: mergedCatalog.materials,
       lectures: fsLectures.length > 0 ? fsLectures : STARTER_LECTURES,
       mockTests: fsTests.length > 0 ? fsTests : STARTER_TESTS,
       questions: fsQuestions.length > 0 ? fsQuestions : STARTER_QUESTIONS,
@@ -422,10 +437,7 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
     [
       classGroups,
       allCohorts,
-      fsSubjects,
-      fsSections,
-      fsChapters,
-      fsMaterials,
+      mergedCatalog,
       fsLectures,
       fsTests,
       fsQuestions,
