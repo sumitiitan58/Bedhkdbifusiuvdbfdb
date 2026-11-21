@@ -19,7 +19,7 @@ export function Footer() {
               <span className="font-semibold text-[#0B1B3B] dark:text-white">
                 {BRAND_CONFIG.creatorHandle}
               </span>{' '}
-              — uniting weekly schedules, chapter PDFs &amp; concept videos, NTA CBT mocks, DPPs, and Gemini AI IQ analytics.
+              — uniting chapter-wise concise notes, PDFs &amp; concept videos, NTA CBT mock tests, DPPs, and Gemini AI IQ analytics.
             </p>
             <div className="flex flex-wrap gap-2 pt-1">
               {BRAND_CONFIG.socials.map((s) => (
@@ -71,13 +71,27 @@ export function Footer() {
             </ul>
           </div>
 
-          <div className="md:col-span-4 space-y-2">
+          <div className="md:col-span-4 space-y-2.5">
             <h3 className="font-display text-xs font-bold uppercase tracking-wider text-[#0B1B3B] dark:text-white">
               Classes &amp; Streams
             </h3>
-            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-              {allCohorts.map((c) => c.shortLabel).join(' · ')}
-            </p>
+            <div className="flex flex-wrap gap-x-2 gap-y-1.5 text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+              {allCohorts.map((c, idx) => (
+                <span key={c.id} className="inline-flex items-center gap-2">
+                  <Link
+                    to={`/materials?track=${encodeURIComponent(c.id)}`}
+                    className="hover:text-[#2563EB] dark:hover:text-sky-400 hover:underline transition-colors"
+                  >
+                    {c.shortLabel || c.label}
+                  </Link>
+                  {idx < allCohorts.length - 1 && (
+                    <span aria-hidden="true" className="text-slate-300 dark:text-slate-700">
+                      ·
+                    </span>
+                  )}
+                </span>
+              ))}
+            </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 pt-1">
               Portal: <span className="font-mono">{BRAND_CONFIG.websiteUrl}</span> · Official Handle:{' '}
               <span className="font-mono font-semibold text-[#F97316]">

@@ -8,8 +8,10 @@ import { PlatformDataProvider } from './context/PlatformDataContext';
 
 const HomePage = lazy(() => import('./pages/HomePage'));
 const MaterialsPage = lazy(() => import('./pages/MaterialsPage'));
+const MaterialDetailPage = lazy(() => import('./pages/MaterialDetailPage'));
 const LecturesPage = lazy(() => import('./pages/LecturesPage'));
 const CbtMocksPage = lazy(() => import('./pages/CbtMocksPage'));
+const CbtMockDetailPage = lazy(() => import('./pages/CbtMockDetailPage'));
 const DppPage = lazy(() => import('./pages/DppPage'));
 const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
@@ -28,8 +30,11 @@ export default function App() {
                 <Routes>
                   <Route path="/" element={<HomePage />} />
                   <Route path="/materials" element={<MaterialsPage />} />
+                  <Route path="/materials/:slug" element={<MaterialDetailPage />} />
+                  <Route path="/pyqs/:slug" element={<MaterialDetailPage />} />
                   <Route path="/lectures" element={<LecturesPage />} />
                   <Route path="/cbt-mocks" element={<CbtMocksPage />} />
+                  <Route path="/cbt-mocks/:slug" element={<CbtMockDetailPage />} />
                   <Route path="/dpp" element={<DppPage />} />
                   <Route path="/analytics" element={<AnalyticsPage />} />
                   <Route path="/profile" element={<ProfilePage />} />

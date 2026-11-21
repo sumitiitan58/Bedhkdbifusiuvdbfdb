@@ -10,7 +10,7 @@ import {
 } from './navigation.ts';
 import { STARTER_CLASS_GROUPS, STUDENT_COHORTS } from '../services/platformRegistry.ts';
 
-test('PUBLIC_NAV_ROUTES removes /lectures and exposes 6 clean links; MOBILE_BOTTOM_TABS includes /profile', () => {
+test('PUBLIC_NAV_ROUTES hides /admin from public nav and exposes 5 clean links; MOBILE_BOTTOM_TABS includes /profile', () => {
   const navPaths = PUBLIC_NAV_ROUTES.map((r) => r.path);
   assert.deepEqual(navPaths, [
     '/',
@@ -18,15 +18,16 @@ test('PUBLIC_NAV_ROUTES removes /lectures and exposes 6 clean links; MOBILE_BOTT
     '/cbt-mocks',
     '/dpp',
     '/analytics',
-    '/admin',
   ]);
   assert.equal(navPaths.includes('/lectures'), false);
+  assert.equal(navPaths.includes('/admin'), false);
   assert.deepEqual(
     MOBILE_BOTTOM_TABS.map((t) => t.path),
     ['/', '/materials', '/cbt-mocks', '/analytics', '/profile']
   );
   assert.ok(ALL_APP_ROUTES.some((r) => r.path === '/profile'));
   assert.ok(ALL_APP_ROUTES.some((r) => r.path === '/about'));
+  assert.ok(ALL_APP_ROUTES.some((r) => r.path === '/admin' && r.showInPublicNav === false));
 });
 
 test('isRouteActive matches exact root and nested module paths', () => {

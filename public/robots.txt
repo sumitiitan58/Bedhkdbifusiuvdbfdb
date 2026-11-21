@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /admin
 
-Sitemap: https://prepskm.in/sitemap.xml
+Sitemap: https://www.prepskm.in/sitemap.xml

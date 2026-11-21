@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
 import { BRAND_CONFIG } from '../assets/brand';
 
+import { CANONICAL_ORIGIN } from '../utils/seoHelpers';
+
 interface SeoHeadProps {
   title: string;
   description: string;
@@ -32,12 +34,9 @@ export function SeoHead({
 }: SeoHeadProps) {
   useEffect(() => {
     document.title = title;
-    const origin =
-      typeof window !== 'undefined' && window.location.origin.startsWith('http')
-        ? window.location.origin
-        : 'https://prepskm.in';
-    const canonicalUrl = `https://prepskm.in${canonicalPath === '/' ? '/' : canonicalPath}`;
-    const resolvedOgImage = ogImage ?? `${origin}${BRAND_CONFIG.ogImagePath}`;
+    const normalizedPath = canonicalPath.startsWith('/') ? canonicalPath : `/${canonicalPath}`;
+    const canonicalUrl = `${CANONICAL_ORIGIN}${normalizedPath === '/' ? '/' : normalizedPath}`;
+    const resolvedOgImage = ogImage ?? `${CANONICAL_ORIGIN}${BRAND_CONFIG.ogImagePath}`;
 
     upsertMeta('name', 'description', description);
     if (keywords) {

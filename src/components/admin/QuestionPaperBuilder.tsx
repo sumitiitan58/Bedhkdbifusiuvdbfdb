@@ -36,7 +36,7 @@ import {
 } from '../../services/firestoreService';
 import { requestGeminiPdfExtraction } from '../../services/geminiClient';
 import { getNextQuestionNumber, transitionQuestionType } from '../../utils/scoringEngine';
-import { EXAM_TYPES, getDefaultExamInstructions } from '../../utils/examPresets';
+import { getDefaultExamInstructions } from '../../utils/examPresets';
 import { generateCleanSlug } from '../../utils/seoHelpers';
 import { playAiSparkle, playClick, playSuccess } from '../../utils/soundEffects';
 import { ReusableButton } from '../ReusableButton';
@@ -78,6 +78,15 @@ function resolveSubjectFromRanges(qNum: number, ranges: SubjectRange[], fallback
     if (qNum >= r.startQ && qNum <= r.endQ) return r.subjectName;
   }
   return fallback;
+}
+
+function inferExamTypeFromCohort(label: string, stream: string): ExamType {
+  const combined = `${label} ${stream}`.toLowerCase();
+  if (combined.includes('neet')) return 'NEET UG';
+  if (combined.includes('advanced')) return 'JEE Advanced';
+  if (combined.includes('jee')) return 'JEE Main';
+  if (combined.includes('board') || combined.includes('cbse')) return 'Board Exam';
+  return 'Custom';
 }
 
 async function extractCroppedBlob(
@@ -742,31 +751,19 @@ export function QuestionPaperBuilder() {
             <select
               id="builder-cohort"
               value={cohortId}
-              onChange={(e) => setCohortId(e.target.value as StudentCohortId)}
-              className="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm"
-            >
-              {allCohorts.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label htmlFor="builder-exam-type" className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
-              Exam Pattern (Auto-Fills Instructions)
-            </label>
-            <select
-              id="builder-exam-type"
-              value={examType}
               onChange={(e) => {
-                const nextType = e.target.value as ExamType;
-                setExamType(nextType);
-                setExamCategory(nextType);
+                const nextCohortId = e.target.value as StudentCohortId;
+                setCohortId(nextCohortId);
+                const matched = allCohorts.find((c) => c.id === nextCohortId);
+                const inferredType = inferExamTypeFromCohort(
+                  matched?.label ?? nextCohortId,
+                  matched?.stream ?? ''
+                );
+                setExamType(inferredType);
+                setExamCategory(matched?.label ?? nextCohortId);
                 setInstructionsText(
                   getDefaultExamInstructions({
-                    examType: nextType,
+                    examType: inferredType,
                     durationMinutes,
                     positiveMarks,
                     negativeMarks,
@@ -777,25 +774,12 @@ export function QuestionPaperBuilder() {
               }}
               className="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm"
             >
-              {EXAM_TYPES.map((et) => (
-                <option key={et} value={et}>
-                  {et}
+              {allCohorts.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label}
                 </option>
               ))}
             </select>
-          </div>
-
-          <div>
-            <label htmlFor="builder-cat" className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
-              Exam Label / Series
-            </label>
-            <input
-              id="builder-cat"
-              type="text"
-              value={examCategory}
-              onChange={(e) => setExamCategory(e.target.value)}
-              className="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm"
-            />
           </div>
 
           <div>

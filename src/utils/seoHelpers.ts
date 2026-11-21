@@ -1,6 +1,6 @@
 import type { MockTestRecord, StudyMaterialRecord } from '../types';
 
-export const CANONICAL_ORIGIN = 'https://www.prepskm.in';
+export const CANONICAL_ORIGIN = 'https://prepskm.in';
 
 export function generateCleanSlug(input: string, fallbackPrefix = 'item'): string {
   const cleaned = input
@@ -26,13 +26,69 @@ export function getMockTestSlug(test: Pick<MockTestRecord, 'id' | 'slug' | 'titl
   return generateCleanSlug(test.title || test.id, test.id);
 }
 
-export function getMaterialRoutePath(material: Pick<StudyMaterialRecord, 'id' | 'slug' | 'seoSlug' | 'title' | 'sectionName' | 'resourceType'>): string {
+const DEFAULT_SUBJECT_SLUGS: Record<string, string> = {
+  'subj-physics': 'physics',
+  'subj-chemistry': 'chemistry',
+  'subj-maths': 'mathematics',
+  'subj-biology': 'biology',
+  'subj-science': 'science',
+};
+
+export function resolveSubjectSlug(subjectId?: string, subjectName?: string): string {
+  if (subjectName?.trim()) return generateCleanSlug(subjectName, 'subject');
+  if (subjectId && DEFAULT_SUBJECT_SLUGS[subjectId]) return DEFAULT_SUBJECT_SLUGS[subjectId];
+  return generateCleanSlug(subjectId || 'general', 'subject');
+}
+
+export function getHierarchicalMaterialPath(
+  material: Pick<StudyMaterialRecord, 'id' | 'slug' | 'seoSlug' | 'title' | 'sectionName' | 'resourceType' | 'subjectId' | 'cohorts'>,
+  options?: { subjectName?: string; cohortId?: string }
+): string {
+  const chapterSlug = getMaterialSlug(material);
+  const label = `${material.sectionName ?? ''} ${material.resourceType ?? ''}`.toLowerCase();
+  if (label.includes('pyq') || label.includes('previous year')) {
+    return `/pyqs/${chapterSlug}`;
+  }
+  const classSlug = generateCleanSlug(
+    options?.cohortId || material.cohorts?.[0] || 'jee-neet',
+    'class'
+  );
+  const subjectSlug = resolveSubjectSlug(material.subjectId, options?.subjectName);
+  return `/materials/${classSlug}/${subjectSlug}/${chapterSlug}`;
+}
+
+export function getMaterialRoutePath(
+  material: Pick<StudyMaterialRecord, 'id' | 'slug' | 'seoSlug' | 'title' | 'sectionName' | 'resourceType'> & {
+    subjectId?: string;
+    cohorts?: string[];
+  },
+  options?: { subjectName?: string; cohortId?: string }
+): string {
   const slug = getMaterialSlug(material);
   const label = `${material.sectionName ?? ''} ${material.resourceType ?? ''}`.toLowerCase();
   if (label.includes('pyq') || label.includes('previous year')) {
     return `/pyqs/${slug}`;
   }
+  if (options?.subjectName || options?.cohortId || material.subjectId || (material.cohorts && material.cohorts.length > 0)) {
+    const classSlug = generateCleanSlug(
+      options?.cohortId || material.cohorts?.[0] || 'jee-neet',
+      'class'
+    );
+    const subjectSlug = resolveSubjectSlug(material.subjectId, options?.subjectName);
+    return `/materials/${classSlug}/${subjectSlug}/${slug}`;
+  }
   return `/materials/${slug}`;
+}
+
+export function getHierarchicalMockTestPath(
+  test: Pick<MockTestRecord, 'id' | 'slug' | 'title' | 'cohortId' | 'examCategory' | 'destination'>
+): string {
+  const testSlug = getMockTestSlug(test);
+  const examSlug = generateCleanSlug(test.cohortId || test.examCategory || 'jee-neet', 'exam');
+  if (test.destination === 'dpp') {
+    return `/dpp/${examSlug}/${testSlug}`;
+  }
+  return `/cbt-mocks/${examSlug}/${testSlug}`;
 }
 
 export function buildMaterialSeoSummary(params: {

@@ -131,7 +131,7 @@ export function FullPdfViewer({
         const loadingTask = pdfjsLib.getDocument({ url });
         const doc = await loadingTask.promise;
         if (cancelled) {
-          void doc.destroy();
+          void doc.cleanup();
           return;
         }
         loadedDoc = doc;
@@ -152,7 +152,7 @@ export function FullPdfViewer({
     return () => {
       cancelled = true;
       if (loadedDoc) {
-        void loadedDoc.destroy();
+        void loadedDoc.cleanup();
       }
     };
   }, [url]);

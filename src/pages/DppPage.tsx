@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   CheckCircle2,
   Eye,
@@ -15,6 +15,7 @@ import { CbtExamRunner } from '../components/exam/CbtExamRunner';
 import { AttemptReviewModal } from '../components/analytics/AttemptReviewModal';
 import { useAuth } from '../context/AuthContext';
 import { usePlatformData } from '../context/PlatformDataContext';
+import { filterChaptersByCohort, filterSubjectsByCohort } from '../utils/catalogMerge';
 import { playClick } from '../utils/soundEffects';
 import type { MockTestRecord, StudentCohortId, TestAttemptRecord } from '../types';
 
@@ -22,21 +23,34 @@ export default function DppPage() {
   const { cohortId } = useAuth();
   const { allCohorts, subjects, chapters, mockTests, questions, attempts } = usePlatformData();
 
-  const [selectedCohort, setSelectedCohort] = useState<StudentCohortId | 'all'>('all');
+  const [selectedCohort, setSelectedCohort] = useState<StudentCohortId | 'all'>(cohortId || 'all');
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>('all');
   const [selectedChapterId, setSelectedChapterId] = useState<string>('all');
   const [activeDpp, setActiveDpp] = useState<MockTestRecord | null>(null);
   const [reviewAttempt, setReviewAttempt] = useState<TestAttemptRecord | null>(null);
+
+  useEffect(() => {
+    if (cohortId) {
+      setSelectedCohort(cohortId);
+      setSelectedSubjectId('all');
+      setSelectedChapterId('all');
+    }
+  }, [cohortId]);
+
+  const visibleSubjects = useMemo(
+    () => filterSubjectsByCohort(subjects, selectedCohort),
+    [subjects, selectedCohort]
+  );
 
   const subjectMap = useMemo(() => new Map(subjects.map((s) => [s.id, s.name])), [subjects]);
   const chapterMap = useMemo(() => new Map(chapters.map((c) => [c.id, c.name])), [chapters]);
 
   const availableChapters = useMemo(
     () =>
-      chapters.filter(
+      filterChaptersByCohort(chapters, selectedCohort).filter(
         (c) => selectedSubjectId === 'all' || c.subjectId === selectedSubjectId
       ),
-    [chapters, selectedSubjectId]
+    [chapters, selectedCohort, selectedSubjectId]
   );
 
   const publishedDpps = useMemo(
@@ -83,8 +97,8 @@ export default function DppPage() {
   return (
     <PageLayout>
       <SeoHead
-        title="Chapter-Wise DPP Practice — PREPSKM.IN"
-        description="Solve timed chapter-wise Daily Practice Problems (DPPs) with instant evaluation, optional negative marking, detailed solutions, and reattempt history."
+        title="Daily Practice Problems (DPP) for JEE & NEET - Prepskm"
+        description="Solve timed chapter-wise Daily Practice Problems (DPPs) with instant evaluation, +4/-1 marking, detailed solutions, and reattempt history on Prepskm."
         canonicalPath="/dpp"
       />
 
@@ -137,8 +151,8 @@ export default function DppPage() {
                 }}
                 className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm"
               >
-                <option value="all">All Subjects</option>
-                {subjects.map((s) => (
+                <option value="all">All Track Subjects ({visibleSubjects.length})</option>
+                {visibleSubjects.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
                   </option>

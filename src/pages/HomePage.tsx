@@ -6,8 +6,6 @@ import {
   BarChart3,
   BookOpen,
   CalendarCheck,
-  CalendarDays,
-  CheckCircle2,
   ChevronDown,
   ChevronUp,
   ClipboardCheck,
@@ -17,10 +15,8 @@ import {
   Info,
   Pause,
   Play,
-  Plus,
   RotateCcw,
   ShieldCheck,
-  Trash2,
   Upload,
   UserCircle2,
 } from 'lucide-react';
@@ -48,13 +44,9 @@ import { PLATFORM_MODULES } from '../services/platformRegistry';
 import { MANZIL_78_LECTURES, PLANNER_60_DAYS } from '../utils/plannerData';
 import { computeManzilAndWeightageStats } from '../utils/plannerStats';
 import { computeCumulativeAnalytics } from '../utils/scoringEngine';
-import {
-  computeWeeklyScheduleStats,
-  WEEK_DAY_LABELS,
-  WEEK_DAYS,
-} from '../utils/weeklySchedule';
+import { filterMaterialsByCohort, filterTestsByCohort } from '../utils/catalogMerge';
 import { playClick, playNav, playSuccess } from '../utils/soundEffects';
-import type { PlannerDayTask, StudentCohortId, UserProgressData, WeeklyDay } from '../types';
+import type { PlannerDayTask, StudentCohortId, UserProgressData } from '../types';
 
 const DIFFICULTY_COLORS: Record<string, string> = {
   Easy: '#10B981',
@@ -89,6 +81,7 @@ export default function HomePage() {
   const {
     firebaseUser,
     profile,
+    isAdmin,
     cohortId,
     isGuest,
     hasCompletedOnboarding,
@@ -99,27 +92,16 @@ export default function HomePage() {
   } = useAuth();
   const {
     allCohorts,
+    materials,
+    mockTests,
     progress,
     attempts,
     togglePlannerDay,
-    toggleWeeklyTask,
-    addWeeklyTask,
-    deleteWeeklyTask,
-    resetWeeklySchedule,
     logFocusMinutes,
     importBackupProgress,
   } = usePlatformData();
 
   const [pickedCohort, setPickedCohort] = useState<StudentCohortId>(cohortId);
-
-  // Weekly Schedule state
-  const [selectedDay, setSelectedDay] = useState<WeeklyDay | 'All'>('Mon');
-  const [showAddSchedule, setShowAddSchedule] = useState(false);
-  const [newTaskDay, setNewTaskDay] = useState<WeeklyDay>('Mon');
-  const [newTaskTime, setNewTaskTime] = useState('19:00 – 20:30');
-  const [newTaskSubject, setNewTaskSubject] = useState('Physics');
-  const [newTaskTopic, setNewTaskTopic] = useState('');
-  const [newTaskMinutes, setNewTaskMinutes] = useState(90);
 
   // Collapsible 60-Day Study Planner & Weightage Matrix (keeps Home airy & unbulky)
   const [plannerOpen, setPlannerOpen] = useState(false);
@@ -156,16 +138,21 @@ export default function HomePage() {
     [allCohorts, cohortId]
   );
 
-  const weeklyStats = useMemo(
-    () => computeWeeklyScheduleStats(progress.weeklySchedule ?? []),
-    [progress.weeklySchedule]
+  const cohortMaterialCount = useMemo(
+    () => filterMaterialsByCohort(materials, cohortId).length,
+    [materials, cohortId]
   );
 
-  const visibleWeeklyTasks = useMemo(() => {
-    const items = progress.weeklySchedule ?? [];
-    if (selectedDay === 'All') return items;
-    return items.filter((t) => t.day === selectedDay);
-  }, [progress.weeklySchedule, selectedDay]);
+  const cohortMockCount = useMemo(
+    () =>
+      filterTestsByCohort(mockTests, cohortId).filter((t) => t.destination !== 'DPP').length,
+    [mockTests, cohortId]
+  );
+
+  const visibleModules = useMemo(
+    () => PLATFORM_MODULES.filter((mod) => mod.id !== 'admin' || isAdmin),
+    [isAdmin]
+  );
 
   const analyticsSummary = useMemo(() => computeCumulativeAnalytics(attempts), [attempts]);
 
@@ -243,24 +230,6 @@ export default function HomePage() {
 
   const plannerPercent = Math.round((progress.plannerCompletedDays.length / 60) * 100);
 
-  const handleAddWeeklySubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newTaskTopic.trim()) return;
-    addWeeklyTask({
-      day: newTaskDay,
-      timeSlot: newTaskTime.trim() || '18:00 – 19:30',
-      subject: newTaskSubject.trim() || 'Physics',
-      topic: newTaskTopic.trim(),
-      durationMinutes: Math.max(15, Math.min(360, Number(newTaskMinutes) || 60)),
-      completed: false,
-      priority: 'High',
-    });
-    playSuccess();
-    setNewTaskTopic('');
-    setShowAddSchedule(false);
-    setSelectedDay(newTaskDay);
-  };
-
   const handleExportBackup = () => {
     playClick();
     const payload = {
@@ -304,13 +273,13 @@ export default function HomePage() {
   return (
     <PageLayout>
       <SeoHead
-        title="PREPSKM.IN — JEE, NEET & Class 9–12 Study Platform by @unfiltereddsumit"
-        description="Official PREPSKM.IN by @unfiltereddsumit — Free JEE Main, JEE Advanced, NEET UG & Class 9–12 Board chapter notes, concept videos, NTA CBT mock tests, DPPs & Gemini AI IQ analytics."
+        title="Prepskm - Free JEE & NEET Study Material, CBT Mocks & AI Prep"
+        description="Prepskm provides free chapter-wise notes, NCERT PYQs, daily practice problems (DPPs), and NTA-pattern CBT mock tests for JEE Main, JEE Advanced & NEET."
         canonicalPath="/"
-        keywords="PREPSKM, prepskm.in, unfiltereddsumit, JEE Main 2027, NEET UG, Class 11 JEE, Class 12 NEET, weekly study schedule, chapter notes, CBT mock tests, DPP"
+        keywords="Prepskm, prepskm.in, prepskm mock test, unfiltereddsumit, JEE Main 2027, NEET UG, Class 11 JEE, Class 12 JEE, Class 12 NEET, concise chapter notes, NTA CBT mock tests, DPP"
       />
 
-      {/* Sleek Compact Hero Section */}
+      {/* Clean Light Hero Section */}
       <section className="border-b border-slate-200/80 dark:border-slate-800/80 bg-gradient-to-b from-white via-[#F8FAFC] to-[#F1F5F9]/60 dark:from-[#0C1324] dark:via-[#090E1A] dark:to-[#090E1A]">
         <ResponsiveContainer className="py-6 sm:py-10">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-8 items-center">
@@ -325,12 +294,12 @@ export default function HomePage() {
               </p>
 
               <h1 className="font-display text-2xl sm:text-4xl font-extrabold tracking-tight text-[#0B1B3B] dark:text-white leading-[1.15] text-balance">
-                Smart weekly study plans, chapter notes &amp; NTA-grade CBT mocks.
+                Chapter-wise concise notes, DPPs &amp; NTA-grade CBT mocks.
               </h1>
 
               <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 max-w-xl leading-relaxed">
-                Pick your class track, study chapter PDFs &amp; videos, attempt proctored JEE/NEET
-                mocks, review past solutions, and let Gemini AI guide your Exam IQ.
+                Pick your class track, study verified chapter PDFs &amp; concise notes, attempt
+                NTA-pattern JEE/NEET CBT mock tests, review solutions, and track Exam IQ.
               </p>
 
               <div className="flex flex-wrap items-center gap-2 pt-0.5">
@@ -339,7 +308,7 @@ export default function HomePage() {
                   <ArrowRight className="w-4 h-4" />
                 </ReusableButton>
                 <ReusableButton variant="secondary" size="md" to="/materials">
-                  Chapters &amp; PDFs
+                  Chapters &amp; Notes
                 </ReusableButton>
                 <ReusableButton variant="ghost" size="sm" to="/about">
                   <Info className="w-4 h-4" />
@@ -347,22 +316,22 @@ export default function HomePage() {
                 </ReusableButton>
               </div>
 
-              {/* Compact 4-Stat Strip */}
+              {/* Clean 4-Stat Strip */}
               <div className="grid grid-cols-4 gap-2 pt-3 border-t border-slate-200/70 dark:border-slate-800">
                 <div className="p-2 rounded-xl bg-white/80 dark:bg-[#111A2E]/80 border border-slate-200/70 dark:border-slate-800">
                   <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 truncate">
-                    Weekly
+                    Notes &amp; PDFs
                   </p>
                   <p className="font-mono text-sm sm:text-base font-bold tabular-nums text-[#0B1B3B] dark:text-white">
-                    {weeklyStats.completedTasks}/{weeklyStats.totalTasks}
+                    {cohortMaterialCount}
                   </p>
                 </div>
                 <div className="p-2 rounded-xl bg-white/80 dark:bg-[#111A2E]/80 border border-slate-200/70 dark:border-slate-800">
                   <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 truncate">
-                    Hours
+                    CBT Mocks
                   </p>
                   <p className="font-mono text-sm sm:text-base font-bold tabular-nums text-[#2563EB] dark:text-sky-400">
-                    {weeklyStats.completedHours}h
+                    {cohortMockCount}
                   </p>
                 </div>
                 <div className="p-2 rounded-xl bg-white/80 dark:bg-[#111A2E]/80 border border-slate-200/70 dark:border-slate-800">
@@ -489,242 +458,7 @@ export default function HomePage() {
           </ReusableCard>
         </motion.section>
 
-        {/* Gemini AI IQ & Priority Mentor */}
-        <motion.section {...REVEAL_PROPS} aria-label="Gemini AI Study Mentor">
-          <GeminiMentorPanel
-            studentName={profile?.displayName ?? firebaseUser?.displayName ?? 'Student'}
-            cohortLabel={activeCohort?.label ?? 'Class 12 JEE'}
-            attemptsCount={attempts.length}
-            averageAccuracy={analyticsSummary.overallAccuracy}
-            averageIqScore={analyticsSummary.averageIqScore}
-            latestIqScore={analyticsSummary.latestIqScore}
-            paceSummary={paceTotals}
-            subjectPerformance={subjectPerfForAi}
-            weakChapters={weakChaptersForAi}
-            weeklyCompletionPercent={weeklyStats.completionPercent}
-            compact
-          />
-        </motion.section>
-
-        {/* Compact Weekly Study Schedule */}
-        <motion.section {...REVEAL_PROPS} aria-labelledby="weekly-schedule-heading" className="space-y-3">
-          <div className="flex flex-wrap items-end justify-between gap-2.5">
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-[#F97316]">
-                Monday – Sunday Routine
-              </p>
-              <h2
-                id="weekly-schedule-heading"
-                className="font-display text-lg sm:text-xl font-bold text-[#0B1B3B] dark:text-white flex items-center gap-1.5"
-              >
-                <CalendarDays className="w-5 h-5 text-[#2563EB] dark:text-sky-400" />
-                Weekly Study Schedule
-              </h2>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-xs font-bold tabular-nums text-[#10B981]">
-                {weeklyStats.completionPercent}% Done
-              </span>
-              <ReusableButton
-                variant="primary"
-                size="sm"
-                onClick={() => {
-                  playClick();
-                  setShowAddSchedule((v) => !v);
-                }}
-              >
-                <Plus className="w-3.5 h-3.5" />
-                Add Block
-              </ReusableButton>
-              <button
-                type="button"
-                aria-label="Reset weekly schedule template"
-                onClick={() => {
-                  playClick();
-                  resetWeeklySchedule();
-                }}
-                className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-[#0B1B3B] dark:hover:text-white"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-
-          {showAddSchedule && (
-            <ReusableCard padding="sm" className="border-[#2563EB]/40">
-              <form
-                onSubmit={handleAddWeeklySubmit}
-                className="grid grid-cols-2 sm:grid-cols-6 gap-2.5 items-end"
-              >
-                <select
-                  aria-label="Day of week"
-                  value={newTaskDay}
-                  onChange={(e) => setNewTaskDay(e.target.value as WeeklyDay)}
-                  className="px-2.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs"
-                >
-                  {WEEK_DAYS.map((d) => (
-                    <option key={d} value={d}>
-                      {WEEK_DAY_LABELS[d]}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  type="text"
-                  aria-label="Time slot"
-                  value={newTaskTime}
-                  onChange={(e) => setNewTaskTime(e.target.value)}
-                  placeholder="18:00–19:30"
-                  className="px-2.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs"
-                />
-                <select
-                  aria-label="Subject"
-                  value={newTaskSubject}
-                  onChange={(e) => setNewTaskSubject(e.target.value)}
-                  className="px-2.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs"
-                >
-                  <option value="Physics">Physics</option>
-                  <option value="Chemistry">Chemistry</option>
-                  <option value="Mathematics">Mathematics</option>
-                  <option value="Biology">Biology</option>
-                  <option value="CBT Mock">CBT Mock</option>
-                  <option value="Revision">Revision</option>
-                </select>
-                <input
-                  type="text"
-                  required
-                  aria-label="Study topic"
-                  value={newTaskTopic}
-                  onChange={(e) => setNewTaskTopic(e.target.value)}
-                  placeholder="Topic (e.g. Modern Physics PYQs)"
-                  className="col-span-2 px-2.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs"
-                />
-                <div className="flex gap-1.5 col-span-2 sm:col-span-1">
-                  <input
-                    type="number"
-                    min={15}
-                    max={360}
-                    aria-label="Minutes"
-                    value={newTaskMinutes}
-                    onChange={(e) => setNewTaskMinutes(Number(e.target.value))}
-                    className="w-16 px-2 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-mono"
-                  />
-                  <button
-                    type="submit"
-                    className="flex-1 px-3 py-2 rounded-xl text-xs font-semibold text-white bg-[#2563EB] hover:bg-blue-700"
-                  >
-                    Save
-                  </button>
-                </div>
-              </form>
-            </ReusableCard>
-          )}
-
-          {/* Compact Day Chips */}
-          <div className="flex flex-wrap gap-1.5">
-            <button
-              type="button"
-              onClick={() => {
-                playClick();
-                setSelectedDay('All');
-              }}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
-                selectedDay === 'All'
-                  ? 'bg-[#0B1B3B] text-white border-[#0B1B3B] dark:bg-[#2563EB] dark:border-[#2563EB]'
-                  : 'bg-white dark:bg-[#111A2E] text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800'
-              }`}
-            >
-              All ({weeklyStats.completedTasks}/{weeklyStats.totalTasks})
-            </button>
-            {WEEK_DAYS.map((day) => {
-              const c = weeklyStats.byDayCounts[day];
-              const active = selectedDay === day;
-              return (
-                <button
-                  key={day}
-                  type="button"
-                  onClick={() => {
-                    playClick();
-                    setSelectedDay(day);
-                  }}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
-                    active
-                      ? 'bg-[#0B1B3B] text-white border-[#0B1B3B] dark:bg-[#2563EB] dark:border-[#2563EB]'
-                      : 'bg-white dark:bg-[#111A2E] text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800'
-                  }`}
-                >
-                  {day} <span className="opacity-70 font-mono text-[11px]">{c.completed}/{c.total}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Compact Schedule Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-            {visibleWeeklyTasks.map((item) => (
-              <div
-                key={item.id}
-                className={`rounded-xl border p-3 flex flex-col justify-between gap-2 transition-all ${
-                  item.completed
-                    ? 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800'
-                    : 'bg-white dark:bg-[#111A2E] border-slate-200/90 dark:border-slate-800 hover:border-[#2563EB]/50'
-                }`}
-              >
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between gap-2 text-[11px] font-semibold">
-                    <span className="font-mono text-[#2563EB] dark:text-sky-400">
-                      {item.day} · {item.timeSlot}
-                    </span>
-                    <span className="text-[#F97316]">{item.subject}</span>
-                  </div>
-                  <h3
-                    className={`font-display text-xs sm:text-sm font-bold leading-snug ${
-                      item.completed
-                        ? 'line-through text-slate-500 dark:text-slate-400'
-                        : 'text-[#0B1B3B] dark:text-white'
-                    }`}
-                  >
-                    {item.topic}
-                  </h3>
-                </div>
-
-                <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!item.completed) playSuccess();
-                      else playClick();
-                      toggleWeeklyTask(item.id);
-                    }}
-                    aria-pressed={item.completed}
-                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-colors ${
-                      item.completed
-                        ? 'bg-[#10B981] text-white border-[#10B981]'
-                        : 'bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700'
-                    }`}
-                  >
-                    <CheckCircle2 className="w-3 h-3" />
-                    {item.completed ? 'Done' : 'Mark Done'}
-                  </button>
-                  <span className="text-[11px] font-mono text-slate-400">{item.durationMinutes}m</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      playClick();
-                      deleteWeeklyTask(item.id);
-                    }}
-                    aria-label={`Remove ${item.topic}`}
-                    className="p-1 rounded-lg text-slate-400 hover:text-rose-600"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </motion.section>
-
-        {/* Compact Workspaces Grid (2-col on mobile!) */}
+        {/* Quick Access Workspaces (Admin hidden unless admin is logged in) */}
         <motion.section {...REVEAL_PROPS} className="space-y-3">
           <div>
             <p className="text-[11px] font-bold uppercase tracking-wider text-[#2563EB] dark:text-sky-400">
@@ -736,7 +470,7 @@ export default function HomePage() {
           </div>
 
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3.5">
-            {PLATFORM_MODULES.map((mod) => {
+            {visibleModules.map((mod) => {
               const Icon = MODULE_ICONS[mod.id as keyof typeof MODULE_ICONS] ?? BookOpen;
               return (
                 <Link
@@ -769,6 +503,23 @@ export default function HomePage() {
               );
             })}
           </div>
+        </motion.section>
+
+        {/* Gemini AI IQ & Priority Mentor */}
+        <motion.section {...REVEAL_PROPS} aria-label="Gemini AI Study Mentor">
+          <GeminiMentorPanel
+            studentName={profile?.displayName ?? firebaseUser?.displayName ?? 'Student'}
+            cohortLabel={activeCohort?.label ?? 'Class 12 JEE'}
+            attemptsCount={attempts.length}
+            averageAccuracy={analyticsSummary.overallAccuracy}
+            averageIqScore={analyticsSummary.averageIqScore}
+            latestIqScore={analyticsSummary.latestIqScore}
+            paceSummary={paceTotals}
+            subjectPerformance={subjectPerfForAi}
+            weakChapters={weakChaptersForAi}
+            weeklyCompletionPercent={plannerPercent}
+            compact
+          />
         </motion.section>
 
         {/* Compact Focus Timer + Weightage + Expandable 60-Day Planner */}

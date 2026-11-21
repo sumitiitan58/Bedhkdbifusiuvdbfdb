@@ -54,18 +54,17 @@ export function ClassSubClassPicker({
                   onSelect(group.subClasses[0].id);
                 }
               }}
-              className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all duration-150 ${
+              className={`inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all duration-150 ${
                 isCurrentGroup
-                  ? 'bg-[#0B1B3B] dark:bg-[#2563EB] text-white border-[#0B1B3B] dark:border-[#2563EB]'
+                  ? 'bg-[#0B1B3B] dark:bg-[#2563EB] text-white border-[#0B1B3B] dark:border-[#2563EB] shadow-xs'
                   : hasSelectedChild
                     ? 'bg-orange-50 dark:bg-orange-950/30 text-[#0B1B3B] dark:text-white border-[#F97316]'
-                    : 'bg-white dark:bg-slate-900/70 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-[#2563EB] dark:hover:border-sky-400'
+                    : 'bg-white dark:bg-slate-900/70 text-slate-700 dark:text-slate-300 border-slate-200/80 dark:border-slate-700/80 hover:border-[#2563EB] dark:hover:border-sky-400'
               }`}
             >
-              <span>{group.name}</span>
-              {group.subClasses.length > 1 && (
-                <span className="ml-1 text-[10px] opacity-75">({group.subClasses.length})</span>
-              )}
+              {group.subClasses.length > 1
+                ? `${group.name} (${group.subClasses.length})`
+                : group.name}
             </button>
           );
         })}
@@ -74,7 +73,7 @@ export function ClassSubClassPicker({
       {/* Step 2: Compact 2-Column Mobile / 3-Column Desktop Sub-Classes */}
       {activeGroup && (
         <div
-          className={`grid gap-2 ${
+          className={`grid gap-2.5 ${
             compact
               ? 'grid-cols-2 sm:grid-cols-3'
               : 'grid-cols-2 sm:grid-cols-3'
@@ -91,10 +90,10 @@ export function ClassSubClassPicker({
                   onSelect(sub.id);
                 }}
                 aria-pressed={isSelected}
-                className={`group text-left p-2.5 sm:p-3 rounded-xl border transition-all duration-150 ${
+                className={`group text-left p-3 rounded-2xl border transition-all duration-150 hover:-translate-y-0.5 ${
                   isSelected
                     ? 'border-[#F97316] bg-orange-50/80 dark:bg-[#F97316]/12 shadow-xs'
-                    : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 hover:border-[#2563EB] dark:hover:border-sky-400'
+                    : 'border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900/60 hover:border-[#2563EB]/70 dark:hover:border-sky-400/70 hover:shadow-xs'
                 }`}
               >
                 <div className="flex items-center justify-between gap-1.5">

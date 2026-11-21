@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   BookOpen,
   CheckCircle2,
@@ -24,6 +25,7 @@ import {
   getEffectiveTestInstructions,
   getEffectiveTestSyllabus,
 } from '../utils/examPresets';
+import { getMockTestSlug } from '../utils/seoHelpers';
 import { playClick } from '../utils/soundEffects';
 import type { MockTestRecord, StudentCohortId, TestAttemptRecord } from '../types';
 
@@ -31,10 +33,14 @@ export default function CbtMocksPage() {
   const { cohortId } = useAuth();
   const { allCohorts, mockTests, questions, attempts } = usePlatformData();
 
-  const [filterCohort, setFilterCohort] = useState<StudentCohortId | 'all'>('all');
+  const [filterCohort, setFilterCohort] = useState<StudentCohortId | 'all'>(cohortId || 'all');
   const [activeTest, setActiveTest] = useState<MockTestRecord | null>(null);
   const [syllabusTest, setSyllabusTest] = useState<MockTestRecord | null>(null);
   const [reviewAttempt, setReviewAttempt] = useState<TestAttemptRecord | null>(null);
+
+  useEffect(() => {
+    if (cohortId) setFilterCohort(cohortId);
+  }, [cohortId]);
 
   const publishedCbts = useMemo(
     () =>
@@ -89,8 +95,8 @@ export default function CbtMocksPage() {
   return (
     <PageLayout>
       <SeoHead
-        title="NTA-Style CBT Mock Tests for JEE, NEET & Boards — PREPSKM.IN"
-        description="Attempt authentic NTA-style Computer Based Mock Tests for JEE Main, JEE Advanced, NEET UG, and Class 9–12 Boards with syllabus viewer, exam-specific instructions, room-exit integrity guard, and graphical score reports."
+        title="NTA CBT Mock Test Engine - Prepskm"
+        description="Attempt free NTA-pattern JEE Main, JEE Advanced & NEET CBT mock tests with +4/-1 marking and AI analysis."
         canonicalPath="/cbt-mocks"
       />
 
@@ -169,7 +175,12 @@ export default function CbtMocksPage() {
                     </div>
 
                     <h2 className="font-display text-lg font-bold text-[#0B1B3B] dark:text-white leading-snug">
-                      {t.title}
+                      <Link
+                        to={`/cbt-mocks/${getMockTestSlug(t)}`}
+                        className="hover:text-[#2563EB] dark:hover:text-sky-400 transition-colors"
+                      >
+                        {t.title}
+                      </Link>
                     </h2>
 
                     <div className="grid grid-cols-3 gap-2 pt-1 text-xs">

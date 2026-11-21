@@ -4,6 +4,15 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import express from 'express';
 import { GoogleGenAI, Type } from '@google/genai';
+import {
+  CANONICAL_ORIGIN,
+  buildSitemapXml,
+  getMaterialRoutePath,
+  getMockTestSlug,
+  type SitemapUrlEntry,
+} from './src/utils/seoHelpers';
+import { JEE_CONCISE_MATERIALS } from './src/data/jeeConciseNotesCatalog';
+import { STARTER_MATERIALS, STARTER_TESTS } from './src/services/starterCatalog';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -57,6 +66,140 @@ async function createApp() {
   // Health check
   app.get('/api/health', (_req, res) => {
     res.json({ ok: true, service: 'prepskm-api', aiConfigured: Boolean(process.env.GEMINI_API_KEY) });
+  });
+
+  // Dynamic XML Sitemap (static pages + 82 JEE Concise Notes + starter catalog + live Firestore published docs)
+  app.get('/sitemap.xml', async (_req, res) => {
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const toIsoDate = (val: unknown): string =>
+      typeof val === 'string' && val.length >= 10 ? val.slice(0, 10) : todayIso;
+
+    const entries: SitemapUrlEntry[] = [
+      { loc: `${CANONICAL_ORIGIN}/`, lastmod: todayIso, changefreq: 'daily', priority: '1.0' },
+      { loc: `${CANONICAL_ORIGIN}/cbt-mocks`, lastmod: todayIso, changefreq: 'daily', priority: '0.95' },
+      { loc: `${CANONICAL_ORIGIN}/materials`, lastmod: todayIso, changefreq: 'daily', priority: '0.95' },
+      { loc: `${CANONICAL_ORIGIN}/dpp`, lastmod: todayIso, changefreq: 'daily', priority: '0.9' },
+      { loc: `${CANONICAL_ORIGIN}/analytics`, lastmod: todayIso, changefreq: 'weekly', priority: '0.75' },
+      { loc: `${CANONICAL_ORIGIN}/about`, lastmod: todayIso, changefreq: 'monthly', priority: '0.6' },
+    ];
+
+    // 1. Official 82 JEE Concise Notes + Starter Materials
+    for (const mat of [...JEE_CONCISE_MATERIALS, ...STARTER_MATERIALS]) {
+      if (mat.isPublished === false) continue;
+      const routePath = getMaterialRoutePath(mat);
+      entries.push({
+        loc: `${CANONICAL_ORIGIN}${routePath}`,
+        lastmod: toIsoDate(mat.updatedAt),
+        changefreq: 'weekly',
+        priority: '0.85',
+      });
+    }
+
+    // 2. Starter CBT Mocks
+    for (const test of STARTER_TESTS) {
+      if (test.isPublished === false || test.destination === 'DPP') continue;
+      const slug = getMockTestSlug(test);
+      entries.push({
+        loc: `${CANONICAL_ORIGIN}/cbt-mocks/${slug}`,
+        lastmod: toIsoDate(test.updatedAt ?? test.createdAtIso),
+        changefreq: 'weekly',
+        priority: '0.9',
+      });
+    }
+
+    // 3. Dynamically query published materials & CBT mocks from Firestore REST API (non-blocking fallback)
+    try {
+      const fbConfigPath = path.resolve(__dirname, 'firebase-applet-config.json');
+      if (fs.existsSync(fbConfigPath)) {
+        const fbConfig = JSON.parse(fs.readFileSync(fbConfigPath, 'utf-8')) as {
+          projectId?: string;
+          firestoreDatabaseId?: string;
+        };
+        if (fbConfig.projectId) {
+          const dbId = fbConfig.firestoreDatabaseId || '(default)';
+          const base = `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(
+            fbConfig.projectId
+          )}/databases/${encodeURIComponent(dbId)}/documents`;
+
+          const fetchCollection = async (col: string) => {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 2500);
+            try {
+              const resp = await fetch(`${base}/${col}?pageSize=300`, { signal: controller.signal });
+              if (!resp.ok) return [];
+              const data = (await resp.json()) as {
+                documents?: Array<{
+                  name?: string;
+                  updateTime?: string;
+                  fields?: Record<string, { stringValue?: string; booleanValue?: boolean }>;
+                }>;
+              };
+              return data.documents ?? [];
+            } catch {
+              return [];
+            } finally {
+              clearTimeout(timer);
+            }
+          };
+
+          const [fsMaterials, fsTests] = await Promise.all([
+            fetchCollection('materials'),
+            fetchCollection('mockTests'),
+          ]);
+
+          for (const doc of fsMaterials) {
+            const f = doc.fields ?? {};
+            if (f.isPublished?.booleanValue === false) continue;
+            const id = doc.name?.split('/').pop() ?? '';
+            const title = f.title?.stringValue ?? '';
+            if (!id && !title) continue;
+            const routePath = getMaterialRoutePath({
+              id,
+              title,
+              slug: f.slug?.stringValue,
+              seoSlug: f.seoSlug?.stringValue,
+              sectionName: f.sectionName?.stringValue ?? '',
+              resourceType: (f.resourceType?.stringValue as 'PDF' | 'VIDEO' | 'BOTH' | undefined) ?? 'PDF',
+            });
+            const lastmod = toIsoDate(f.updatedAt?.stringValue || doc.updateTime);
+            entries.push({
+              loc: `${CANONICAL_ORIGIN}${routePath}`,
+              lastmod,
+              changefreq: 'weekly',
+              priority: '0.85',
+            });
+          }
+
+          for (const doc of fsTests) {
+            const f = doc.fields ?? {};
+            if (f.isPublished?.booleanValue === false) continue;
+            if (f.destination?.stringValue === 'DPP') continue;
+            const id = doc.name?.split('/').pop() ?? '';
+            const title = f.title?.stringValue ?? '';
+            if (!id && !title) continue;
+            const slug = getMockTestSlug({
+              id,
+              title,
+              slug: f.slug?.stringValue,
+            });
+            const lastmod = toIsoDate(f.updatedAt?.stringValue || doc.updateTime);
+            entries.push({
+              loc: `${CANONICAL_ORIGIN}/cbt-mocks/${slug}`,
+              lastmod,
+              changefreq: 'weekly',
+              priority: '0.9',
+            });
+          }
+        }
+      }
+    } catch {
+      // Fall back gracefully to catalog sitemap entries
+    }
+
+    const xml = buildSitemapXml(entries);
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=300');
+    res.status(200).send(xml);
   });
 
   // 1. Gemini AI IQ, Priority ("Kya Jaruri Hai / Kya Nahi") & Strategy Mentor

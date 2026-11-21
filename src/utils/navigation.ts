@@ -5,7 +5,7 @@ export const PUBLIC_NAV_ROUTES: NavRouteItem[] = [
   {
     path: '/',
     label: 'Home',
-    shortDescription: 'Weekly schedule, 60-day planner & cohorts',
+    shortDescription: 'Class tracks, chapter notes, CBT mocks & AI mentor',
     showInPublicNav: true,
   },
   {
@@ -32,12 +32,6 @@ export const PUBLIC_NAV_ROUTES: NavRouteItem[] = [
     shortDescription: 'Performance graphs, past solutions & Gemini AI IQ',
     showInPublicNav: true,
   },
-  {
-    path: '/admin',
-    label: 'Admin',
-    shortDescription: 'Protected faculty & administrator content console',
-    showInPublicNav: true,
-  },
 ];
 
 export const MOBILE_BOTTOM_TABS: { path: RoutePath; label: string }[] = [
@@ -60,6 +54,12 @@ export const ALL_APP_ROUTES: NavRouteItem[] = [
     path: '/about',
     label: 'About',
     shortDescription: 'About PREPSKM.IN, @unfiltereddsumit, SEO & FAQs',
+    showInPublicNav: false,
+  },
+  {
+    path: '/admin',
+    label: 'Admin',
+    shortDescription: 'Protected faculty & administrator content console',
     showInPublicNav: false,
   },
 ];

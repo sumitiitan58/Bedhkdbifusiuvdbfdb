@@ -91,7 +91,7 @@ export function PdfDirectCropCanvas({
         const arrayBuffer = await sourceFile.arrayBuffer();
         const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
         if (cancelled) {
-          void pdfDoc.destroy();
+          void pdfDoc.cleanup();
           return;
         }
 
@@ -122,7 +122,7 @@ export function PdfDirectCropCanvas({
           }
         }
 
-        void pdfDoc.destroy();
+        void pdfDoc.cleanup();
         if (!cancelled) {
           setLoading(false);
           setLoadingProgress('');

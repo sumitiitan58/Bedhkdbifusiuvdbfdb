@@ -126,9 +126,12 @@ service cloud.firestore {
 
     function isValidMaterial(data, materialId) {
       return data.keys().hasAll(['id', 'title', 'subjectId', 'chapterId', 'sectionName', 'resourceType', 'cohorts', 'fileUrl', 'createdAt', 'updatedAt']) &&
-        data.keys().hasOnly(['id', 'title', 'subjectId', 'chapterId', 'sectionName', 'resourceType', 'mediaType', 'cohorts', 'fileUrl', 'thumbnailUrl', 'attachments', 'storagePath', 'fileName', 'fileSizeBytes', 'mimeType', 'durationMinutes', 'seoSlug', 'seoKeywords', 'description', 'uploadedBy', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['id', 'title', 'slug', 'seoSlug', 'seoKeywords', 'seoDescription', 'isPublished', 'subjectId', 'chapterId', 'sectionName', 'resourceType', 'mediaType', 'cohorts', 'fileUrl', 'thumbnailUrl', 'attachments', 'storagePath', 'fileName', 'fileSizeBytes', 'mimeType', 'durationMinutes', 'description', 'uploadedBy', 'createdAt', 'updatedAt']) &&
         data.id == materialId &&
         data.title is string && data.title.size() >= 1 && data.title.size() <= 200 &&
+        (!('slug' in data) || (data.slug is string && data.slug.size() <= 140)) &&
+        (!('seoDescription' in data) || (data.seoDescription is string && data.seoDescription.size() <= 400)) &&
+        (!('isPublished' in data) || data.isPublished is bool) &&
         isValidId(data.subjectId) &&
         isValidId(data.chapterId) &&
         data.sectionName is string && data.sectionName.size() >= 1 && data.sectionName.size() <= 80 &&
@@ -174,9 +177,12 @@ service cloud.firestore {
 
     function isValidMockTest(data, testId) {
       return data.keys().hasAll(['id', 'title', 'destination', 'cohortId', 'examCategory', 'totalQuestions', 'totalMarks', 'durationMinutes', 'positiveMarks', 'negativeMarks', 'negativeMarkingEnabled', 'showSolutionsAfterSubmit', 'status', 'createdAt', 'updatedAt']) &&
-        data.keys().hasOnly(['id', 'title', 'destination', 'cohortId', 'examCategory', 'examType', 'syllabus', 'instructions', 'subjectId', 'chapterId', 'subjectRanges', 'totalQuestions', 'totalMarks', 'durationMinutes', 'positiveMarks', 'negativeMarks', 'negativeMarkingEnabled', 'showSolutionsAfterSubmit', 'status', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['id', 'title', 'slug', 'seoDescription', 'isPublished', 'destination', 'cohortId', 'examCategory', 'examType', 'syllabus', 'instructions', 'subjectId', 'chapterId', 'subjectRanges', 'totalQuestions', 'totalMarks', 'durationMinutes', 'positiveMarks', 'negativeMarks', 'negativeMarkingEnabled', 'showSolutionsAfterSubmit', 'status', 'createdAt', 'updatedAt']) &&
         data.id == testId &&
         data.title is string && data.title.size() >= 1 && data.title.size() <= 200 &&
+        (!('slug' in data) || (data.slug is string && data.slug.size() <= 140)) &&
+        (!('seoDescription' in data) || (data.seoDescription is string && data.seoDescription.size() <= 400)) &&
+        (!('isPublished' in data) || data.isPublished is bool) &&
         data.destination in ['cbt-mock', 'dpp'] &&
         isValidCohortId(data.cohortId) &&
         data.examCategory is string && data.examCategory.size() >= 1 && data.examCategory.size() <= 80 &&

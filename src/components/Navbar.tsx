@@ -26,6 +26,18 @@ export function Navbar() {
     firebaseUser?.displayName?.split(' ')[0] ||
     'Profile';
 
+  const navItems = isAdmin
+    ? [
+        ...PUBLIC_NAV_ROUTES,
+        {
+          path: '/admin' as const,
+          label: 'Admin',
+          shortDescription: 'Protected faculty & administrator content console',
+          showInPublicNav: false,
+        },
+      ]
+    : PUBLIC_NAV_ROUTES;
+
   const handleToggleSound = () => {
     const next = !soundOn;
     setSoundEnabled(next);
@@ -49,12 +61,12 @@ export function Navbar() {
           <BrandLogo variant="navbar" />
         </Link>
 
-        {/* Zone 2: Desktop Navigation Links (Home, Materials, CBT Mocks, DPP, Analytics, Admin) */}
+        {/* Zone 2: Desktop Navigation Links (Admin visible ONLY when admin is signed in) */}
         <nav
           aria-label="Primary navigation"
           className="hidden lg:flex items-center gap-6 text-sm font-medium"
         >
-          {PUBLIC_NAV_ROUTES.map((item) => {
+          {navItems.map((item) => {
             const active = isRouteActive(location.pathname, item.path);
             const isAdminLink = item.path === '/admin';
             return (
@@ -143,7 +155,7 @@ export function Navbar() {
         </div>
       </div>
 
-      {/* Responsive Mobile Menu Drawer (Extra routes like DPP, Admin, About + Google Login) */}
+      {/* Responsive Mobile Menu Drawer */}
       <AnimatePresence>
         {mobileMenuOpen && (
           <motion.nav
@@ -156,7 +168,7 @@ export function Navbar() {
           >
             <div className="px-3 py-2.5 space-y-1">
               <div className="grid grid-cols-2 gap-1.5">
-                {PUBLIC_NAV_ROUTES.map((item) => {
+                {navItems.map((item) => {
                   const active = isRouteActive(location.pathname, item.path);
                   const isAdminLink = item.path === '/admin';
                   return (
@@ -179,7 +191,7 @@ export function Navbar() {
                         {isAdminLink && <ShieldCheck className="w-3.5 h-3.5" />}
                         {item.label}
                       </span>
-                      {isAdminLink && isAdmin && <span className="text-[10px]">✓</span>}
+                      {isAdminLink && <span className="text-[10px]">✓</span>}
                     </Link>
                   );
                 })}
