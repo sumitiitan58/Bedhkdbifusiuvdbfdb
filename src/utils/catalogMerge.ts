@@ -16,6 +16,10 @@ import {
   FULL_MOCK_TEST_1_QUESTIONS,
   FULL_MOCK_TEST_1_RECORD,
 } from '../data/fullMockTest1Catalog';
+import {
+  ADDITIONAL_FULL_MOCK_QUESTIONS,
+  ADDITIONAL_FULL_MOCK_TESTS,
+} from '../data/fullMockTestsCatalog';
 import { STARTER_CLASS_GROUPS } from '../services/platformRegistry';
 
 function normalizeName(str: string): string {
@@ -250,8 +254,14 @@ export function mergeOfficialMockTests(params: {
   mockTests: MockTestRecord[];
   questions: TestQuestionRecord[];
 } {
-  const officialTests: MockTestRecord[] = [FULL_MOCK_TEST_1_RECORD];
-  const officialQuestions: TestQuestionRecord[] = FULL_MOCK_TEST_1_QUESTIONS;
+  const officialTests: MockTestRecord[] = [
+    FULL_MOCK_TEST_1_RECORD,
+    ...ADDITIONAL_FULL_MOCK_TESTS,
+  ];
+  const officialQuestions: TestQuestionRecord[] = [
+    ...FULL_MOCK_TEST_1_QUESTIONS,
+    ...ADDITIONAL_FULL_MOCK_QUESTIONS,
+  ];
 
   const existingTestIds = new Set(params.mockTests.map((t) => t.id));
   const missingOfficialTests = officialTests.filter((t) => !existingTestIds.has(t.id));

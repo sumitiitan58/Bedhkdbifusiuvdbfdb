@@ -12,6 +12,10 @@ import {
   FULL_MOCK_TEST_1_QUESTIONS,
   FULL_MOCK_TEST_1_RECORD,
 } from '../data/fullMockTest1Catalog';
+import {
+  ADDITIONAL_FULL_MOCK_QUESTIONS,
+  ADDITIONAL_FULL_MOCK_TESTS,
+} from '../data/fullMockTestsCatalog';
 
 const ALL_COHORTS = [
   'class-9',
@@ -45,6 +49,7 @@ export const STARTER_SUBJECTS: SubjectRecord[] = [
   { id: 'subj-chemistry', name: 'Chemistry', code: 'CHEM', order: 2, cohorts: [...ALL_COHORTS] },
   { id: 'subj-mathematics', name: 'Mathematics', code: 'MATH', order: 3, cohorts: ['class-9', 'class-10', ...JEE_COHORTS] },
   { id: 'subj-biology', name: 'Biology', code: 'BIO', order: 4, cohorts: [...NEET_COHORTS] },
+  { id: 'subj-english', name: 'English', code: 'ENG', order: 5, cohorts: ['class-12-board'] },
 ];
 
 export const STARTER_SECTIONS: SectionRecord[] = [
@@ -163,6 +168,15 @@ export const STARTER_CHAPTERS: ChapterRecord[] = [
     order: 1,
     cohorts: [...NEET_COHORTS],
     weightageMarks: 16,
+    difficulty: 'Moderate',
+  },
+  {
+    id: 'chap-eng-board-section-b',
+    subjectId: 'subj-english',
+    name: 'Section B — Descriptive Writing & Literature Solutions',
+    order: 1,
+    cohorts: ['class-12-board'],
+    weightageMarks: 50,
     difficulty: 'Moderate',
   },
 ];
@@ -312,6 +326,26 @@ export const STARTER_MATERIALS: StudyMaterialRecord[] = [
     description: 'DNA replication fork, transcription unit, genetic code properties, and Lac Operon NCERT assertion bank.',
     createdAtIso: '2026-11-17T08:00:00.000Z',
   },
+  {
+    id: 'mat-eng-board-section-b-solutions',
+    title: 'Class 12 Board English — Section B Descriptive Type Solutions (Set A | Code 26/XII/711)',
+    subjectId: 'subj-english',
+    chapterId: 'chap-eng-board-section-b',
+    sectionName: 'Previous Year Questions (PYQs)',
+    resourceType: 'Previous Year Questions (PYQs)',
+    mediaType: 'pdf',
+    cohorts: ['class-12-board'],
+    fileUrl: '/assets/aistudio/Section_B_-_Descriptive_Type_Solutions__1__8a0e07a6.pdf',
+    fileName: 'Section_B_Descriptive_Type_Solutions_Set_A.pdf',
+    mimeType: 'application/pdf',
+    slug: 'class-12-board-english-section-b-descriptive-solutions',
+    seoSlug: 'class-12-board-english-section-b-descriptive-solutions',
+    seoKeywords: 'class 12 board english, section b descriptive solutions, essay letter writing prose poetry',
+    description:
+      'Complete Section B Descriptive Type Solutions (Set A, Code 26/XII/711) covering Essay Writing, Prose & Poetry Explanations, Letter/Application Writing, Short & Long Answers, and Unseen Passage.',
+    isPublished: true,
+    createdAtIso: '2026-11-21T08:19:00.000Z',
+  },
 ];
 
 export const STARTER_LECTURES: VideoLectureRecord[] = [
@@ -367,6 +401,7 @@ export const STARTER_LECTURES: VideoLectureRecord[] = [
 
 export const STARTER_TESTS: MockTestRecord[] = [
   FULL_MOCK_TEST_1_RECORD,
+  ...ADDITIONAL_FULL_MOCK_TESTS,
   {
     id: 'cbt-jee-main-starter-1',
     title: 'JEE Main 2027 Pattern — Full PCM Mini CBT Mock #01',
@@ -461,6 +496,7 @@ export const STARTER_TESTS: MockTestRecord[] = [
 
 export const STARTER_QUESTIONS: TestQuestionRecord[] = [
   ...FULL_MOCK_TEST_1_QUESTIONS,
+  ...ADDITIONAL_FULL_MOCK_QUESTIONS,
   // JEE Main CBT Mock #01 Questions
   {
     id: 'q-cbt1-1',

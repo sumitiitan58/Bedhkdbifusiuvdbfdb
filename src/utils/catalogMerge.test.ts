@@ -13,6 +13,23 @@ import {
   FULL_MOCK_TEST_1_RECORD,
 } from '../data/fullMockTest1Catalog';
 import {
+  ADDITIONAL_FULL_MOCK_QUESTIONS,
+  ADDITIONAL_FULL_MOCK_TESTS,
+  FULL_MOCK_TEST_2_ID,
+  FULL_MOCK_TEST_2_QUESTIONS,
+  FULL_MOCK_TEST_2_RECORD,
+  FULL_MOCK_TEST_3_ID,
+  FULL_MOCK_TEST_3_QUESTIONS,
+  FULL_MOCK_TEST_3_RECORD,
+  FULL_MOCK_TEST_4_ID,
+  FULL_MOCK_TEST_4_QUESTIONS,
+  FULL_MOCK_TEST_4_RECORD,
+  FULL_MOCK_TEST_5_ID,
+  FULL_MOCK_TEST_5_QUESTIONS,
+  FULL_MOCK_TEST_5_RECORD,
+} from '../data/fullMockTestsCatalog';
+import { STARTER_MATERIALS } from '../services/starterCatalog';
+import {
   filterChaptersByCohort,
   filterMaterialsByCohort,
   filterSubjectsByCohort,
@@ -331,7 +348,132 @@ test('Full Mock Test 1 has 75 verified questions, 150 cropped PNGs on disk, and 
   });
 });
 
-test('mergeOfficialMockTests prepends Full Mock Test 1 alongside Firestore tests without duplication', () => {
+test('Full Mock Tests 2–5 have 240 verified questions, 480 real PDF-cropped PNGs on disk, and target 12th JEE & Dropper JEE', () => {
+  const suites = [
+    {
+      record: FULL_MOCK_TEST_2_RECORD,
+      expectedId: FULL_MOCK_TEST_2_ID,
+      questions: FULL_MOCK_TEST_2_QUESTIONS,
+      folder: 'full-mock-test-2',
+      totalQ: 15,
+      totalMarks: 60,
+      duration: 45,
+      phy: 5,
+      chem: 5,
+      math: 5,
+      mcqs: 15,
+      numericals: 0,
+    },
+    {
+      record: FULL_MOCK_TEST_3_RECORD,
+      expectedId: FULL_MOCK_TEST_3_ID,
+      questions: FULL_MOCK_TEST_3_QUESTIONS,
+      folder: 'full-mock-test-3',
+      totalQ: 75,
+      totalMarks: 300,
+      duration: 180,
+      phy: 25,
+      chem: 25,
+      math: 25,
+      mcqs: 60,
+      numericals: 15,
+    },
+    {
+      record: FULL_MOCK_TEST_4_RECORD,
+      expectedId: FULL_MOCK_TEST_4_ID,
+      questions: FULL_MOCK_TEST_4_QUESTIONS,
+      folder: 'full-mock-test-4',
+      totalQ: 75,
+      totalMarks: 300,
+      duration: 180,
+      phy: 25,
+      chem: 25,
+      math: 25,
+      mcqs: 60,
+      numericals: 15,
+    },
+    {
+      record: FULL_MOCK_TEST_5_RECORD,
+      expectedId: FULL_MOCK_TEST_5_ID,
+      questions: FULL_MOCK_TEST_5_QUESTIONS,
+      folder: 'full-mock-test-5',
+      totalQ: 75,
+      totalMarks: 300,
+      duration: 180,
+      phy: 25,
+      chem: 25,
+      math: 25,
+      mcqs: 60,
+      numericals: 15,
+    },
+  ];
+
+  assert.equal(ADDITIONAL_FULL_MOCK_TESTS.length, 4);
+  assert.equal(ADDITIONAL_FULL_MOCK_QUESTIONS.length, 240);
+
+  const pngSig = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+
+  for (const s of suites) {
+    assert.equal(s.record.id, s.expectedId);
+    assert.equal(s.record.totalQuestions, s.totalQ);
+    assert.equal(s.record.totalMarks, s.totalMarks);
+    assert.equal(s.record.durationMinutes, s.duration);
+    assert.equal(s.record.positiveMarks, 4);
+    assert.equal(s.record.negativeMarks, 1);
+    assert.equal(s.record.negativeMarkingEnabled, true);
+    assert.equal(s.record.status, 'published');
+
+    assert.deepEqual(getTestCohortIds(s.record), ['class-12-jee', 'jee-dropper']);
+    assert.equal(testMatchesCohort(s.record, 'class-12-jee'), true);
+    assert.equal(testMatchesCohort(s.record, 'jee-dropper'), true);
+    assert.equal(testMatchesCohort(s.record, 'class-12-neet'), false);
+    assert.equal(testMatchesCohort(s.record, 'class-11-jee'), false);
+
+    assert.equal(s.questions.length, s.totalQ);
+    assert.equal(s.questions.filter((q) => q.subjectName === 'Physics').length, s.phy);
+    assert.equal(s.questions.filter((q) => q.subjectName === 'Chemistry').length, s.chem);
+    assert.equal(s.questions.filter((q) => q.subjectName === 'Mathematics').length, s.math);
+    assert.equal(s.questions.filter((q) => q.questionType === 'single-mcq').length, s.mcqs);
+    assert.equal(s.questions.filter((q) => q.questionType === 'integer').length, s.numericals);
+
+    const seenIds = new Set<string>();
+    s.questions.forEach((q, idx) => {
+      assert.equal(q.questionNumber, idx + 1);
+      assert.equal(q.testId, s.expectedId);
+      assert.equal(seenIds.has(q.id), false, `Duplicate question id: ${q.id}`);
+      seenIds.add(q.id);
+
+      if (q.questionType === 'single-mcq') {
+        assert.equal(q.optionTexts?.length, 4, `${s.folder} Q${q.questionNumber} needs 4 options`);
+        assert.equal(q.correctOptionIndices?.length, 1);
+        const ans = q.correctOptionIndices![0];
+        assert.ok(ans >= 0 && ans <= 3);
+      } else {
+        assert.ok(q.numericalAnswer && q.numericalAnswer.trim().length > 0);
+      }
+
+      assert.ok(q.questionImageUrl?.startsWith(`/assets/mocks/${s.folder}/q`));
+      assert.ok(q.solutionImageUrl?.startsWith(`/assets/mocks/${s.folder}/s`));
+
+      const qPath = path.join(process.cwd(), 'public', q.questionImageUrl!);
+      const sPath = path.join(process.cwd(), 'public', q.solutionImageUrl!);
+      assert.equal(fs.existsSync(qPath), true, `Missing question PNG: ${qPath}`);
+      assert.equal(fs.existsSync(sPath), true, `Missing solution PNG: ${sPath}`);
+      assert.ok(fs.readFileSync(qPath).subarray(0, 4).equals(pngSig), `Invalid PNG header: ${qPath}`);
+      assert.ok(fs.readFileSync(sPath).subarray(0, 4).equals(pngSig), `Invalid PNG header: ${sPath}`);
+    });
+  }
+
+  // Verify Class 12 Board Section B Descriptive Solutions PDF exists on disk
+  const boardMat = STARTER_MATERIALS.find((m) => m.id === 'mat-eng-board-section-b-solutions');
+  assert.ok(boardMat, 'Missing Class 12 Board English Section B Descriptive Solutions material');
+  assert.deepEqual(boardMat!.cohorts, ['class-12-board']);
+  const boardPdfPath = path.join(process.cwd(), 'public', boardMat!.fileUrl);
+  assert.equal(fs.existsSync(boardPdfPath), true, `Missing Board PDF: ${boardPdfPath}`);
+  assert.equal(fs.readFileSync(boardPdfPath).subarray(0, 5).toString('utf8'), '%PDF-');
+});
+
+test('mergeOfficialMockTests prepends Full Mock Tests 1–5 alongside Firestore tests without duplication', () => {
   const customTest: MockTestRecord = {
     id: 'custom-admin-test-1',
     title: 'Admin Custom Test',
@@ -349,18 +491,36 @@ test('mergeOfficialMockTests prepends Full Mock Test 1 alongside Firestore tests
   };
 
   const mergedOnce = mergeOfficialMockTests({ mockTests: [customTest], questions: [] });
-  assert.equal(mergedOnce.mockTests.length, 2);
-  assert.equal(mergedOnce.mockTests[0].id, FULL_MOCK_TEST_1_ID);
-  assert.equal(mergedOnce.questions.length, 75);
+  assert.equal(mergedOnce.mockTests.length, 6);
+  assert.deepEqual(
+    mergedOnce.mockTests.slice(0, 5).map((t) => t.id),
+    [
+      FULL_MOCK_TEST_1_ID,
+      FULL_MOCK_TEST_2_ID,
+      FULL_MOCK_TEST_3_ID,
+      FULL_MOCK_TEST_4_ID,
+      FULL_MOCK_TEST_5_ID,
+    ]
+  );
+  assert.equal(mergedOnce.questions.length, 315);
 
-  // Calling again does not duplicate Full Mock Test 1 or its 75 questions
+  // Calling again does not duplicate any of Full Mock Tests 1–5 or their 315 questions
   const mergedTwice = mergeOfficialMockTests(mergedOnce);
-  assert.equal(mergedTwice.mockTests.length, 2);
-  assert.equal(mergedTwice.questions.length, 75);
+  assert.equal(mergedTwice.mockTests.length, 6);
+  assert.equal(mergedTwice.questions.length, 315);
 
-  // Both 12th JEE and Dropper JEE filters return Full Mock Test 1
-  assert.ok(filterTestsByCohort(mergedOnce.mockTests, 'class-12-jee').some((t) => t.id === FULL_MOCK_TEST_1_ID));
-  assert.ok(filterTestsByCohort(mergedOnce.mockTests, 'jee-dropper').some((t) => t.id === FULL_MOCK_TEST_1_ID));
-  assert.equal(filterTestsByCohort(mergedOnce.mockTests, 'class-12-neet').some((t) => t.id === FULL_MOCK_TEST_1_ID), false);
+  // Both 12th JEE and Dropper JEE filters return all 5 Full Mock Tests; NEET returns none
+  const expectedIds = [
+    FULL_MOCK_TEST_1_ID,
+    FULL_MOCK_TEST_2_ID,
+    FULL_MOCK_TEST_3_ID,
+    FULL_MOCK_TEST_4_ID,
+    FULL_MOCK_TEST_5_ID,
+  ];
+  for (const id of expectedIds) {
+    assert.ok(filterTestsByCohort(mergedOnce.mockTests, 'class-12-jee').some((t) => t.id === id));
+    assert.ok(filterTestsByCohort(mergedOnce.mockTests, 'jee-dropper').some((t) => t.id === id));
+    assert.equal(filterTestsByCohort(mergedOnce.mockTests, 'class-12-neet').some((t) => t.id === id), false);
+  }
 });
 
