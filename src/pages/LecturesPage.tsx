@@ -3,8 +3,9 @@ import {
   CalendarDays,
   CheckCircle2,
   Clock,
-  ExternalLink,
+  Download,
   Film,
+  Maximize2,
   Play,
   PlayCircle,
   Search,
@@ -15,6 +16,8 @@ import { ResponsiveContainer } from '../components/ResponsiveContainer';
 import { ReusableCard } from '../components/ReusableCard';
 import { ReusableButton } from '../components/ReusableButton';
 import { SeoHead } from '../components/SeoHead';
+import { FullPageMediaReader } from '../components/materials/FullPageMediaReader';
+import { useDownloadGate } from '../context/DownloadGateContext';
 import { usePlatformData } from '../context/PlatformDataContext';
 import { resolveAssetUrl } from '../utils/instantUpload';
 import { computeWeeklyScheduleStats, WEEK_DAY_LABELS } from '../utils/weeklySchedule';
@@ -47,10 +50,12 @@ export default function LecturesPage() {
     updateLectureWatchPosition,
   } = usePlatformData();
 
+  const { requestPdfDownload } = useDownloadGate();
   const [activeTab, setActiveTab] = useState<'library' | 'schedule'>('library');
   const [selectedLecture, setSelectedLecture] = useState<VideoLectureRecord | null>(
     () => lectures[0] ?? null
   );
+  const [fullPageTheaterOpen, setFullPageTheaterOpen] = useState(false);
   const [resolvedVideoUrl, setResolvedVideoUrl] = useState<string>('');
   const [libSubjectId, setLibSubjectId] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -238,22 +243,35 @@ export default function LecturesPage() {
                         {selectedLecture.title}
                       </h2>
                     </div>
-                    <ReusableButton
-                      variant={activePlayerWatch?.watched ? 'secondary' : 'primary'}
-                      size="sm"
-                      onClick={() => {
-                        playSuccess();
-                        updateLectureWatchPosition(
-                          selectedLecture.id,
-                          selectedLecture.durationMinutes * 60,
-                          selectedLecture.durationMinutes * 60,
-                          !activePlayerWatch?.watched
-                        );
-                      }}
-                    >
-                      <CheckCircle2 className="w-4 h-4" />
-                      {activePlayerWatch?.watched ? 'Watched' : 'Mark Watched'}
-                    </ReusableButton>
+                    <div className="flex items-center gap-2">
+                      <ReusableButton
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => {
+                          playClick();
+                          setFullPageTheaterOpen(true);
+                        }}
+                      >
+                        <Maximize2 className="w-3.5 h-3.5" />
+                        Full Page
+                      </ReusableButton>
+                      <ReusableButton
+                        variant={activePlayerWatch?.watched ? 'secondary' : 'primary'}
+                        size="sm"
+                        onClick={() => {
+                          playSuccess();
+                          updateLectureWatchPosition(
+                            selectedLecture.id,
+                            selectedLecture.durationMinutes * 60,
+                            selectedLecture.durationMinutes * 60,
+                            !activePlayerWatch?.watched
+                          );
+                        }}
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        {activePlayerWatch?.watched ? 'Watched' : 'Mark Watched'}
+                      </ReusableButton>
+                    </div>
                   </div>
 
                   <div className="aspect-video rounded-xl overflow-hidden bg-slate-950 border border-slate-800">
@@ -319,15 +337,20 @@ export default function LecturesPage() {
                         </span>
                       )}
                       {selectedLecture.notesUrl && (
-                        <a
-                          href={selectedLecture.notesUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void requestPdfDownload({
+                              url: selectedLecture.notesUrl!,
+                              fileName: `${selectedLecture.title}-Notes.pdf`,
+                              title: `${selectedLecture.title} Notes`,
+                            })
+                          }
                           className="inline-flex items-center gap-1 font-semibold text-[#F97316] hover:underline"
                         >
-                          <ExternalLink className="w-3.5 h-3.5" />
+                          <Download className="w-3.5 h-3.5" />
                           Lecture Notes PDF
-                        </a>
+                        </button>
                       )}
                     </div>
                   </div>
@@ -498,6 +521,23 @@ export default function LecturesPage() {
           </div>
         )}
       </ResponsiveContainer>
+
+      {fullPageTheaterOpen && selectedLecture && (
+        <FullPageMediaReader
+          item={{
+            id: selectedLecture.id,
+            title: selectedLecture.title,
+            sectionName: `Lecture #${selectedLecture.lectureNumber} · ${subjectMap.get(selectedLecture.subjectId) ?? 'Course'}`,
+            description: selectedLecture.description,
+            url: resolvedVideoUrl || selectedLecture.videoUrl,
+            thumbnailUrl: selectedLecture.thumbnailUrl,
+            mediaKind: 'video',
+            youtubeId: activeYoutubeId,
+            resumeSeconds: activePlayerWatch?.lastPositionSeconds,
+          }}
+          onClose={() => setFullPageTheaterOpen(false)}
+        />
+      )}
     </PageLayout>
   );
 }

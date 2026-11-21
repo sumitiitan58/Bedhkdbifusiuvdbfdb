@@ -42,7 +42,11 @@ import {
   STARTER_TESTS,
 } from '../services/starterCatalog';
 import { flattenClassGroupsToCohorts, STARTER_CLASS_GROUPS } from '../services/platformRegistry';
-import { mergeClassGroups, mergeOfficialJeeCatalog } from '../utils/catalogMerge';
+import {
+  mergeClassGroups,
+  mergeOfficialJeeCatalog,
+  mergeOfficialMockTests,
+} from '../utils/catalogMerge';
 import { DEFAULT_IQ_CONFIG } from '../utils/scoringEngine';
 import { createDefaultWeeklySchedule } from '../utils/weeklySchedule';
 
@@ -406,6 +410,15 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
     [fsSubjects, fsSections, fsChapters, fsMaterials]
   );
 
+  const mergedMocks = useMemo(
+    () =>
+      mergeOfficialMockTests({
+        mockTests: fsTests.length > 0 ? fsTests : STARTER_TESTS,
+        questions: fsQuestions.length > 0 ? fsQuestions : STARTER_QUESTIONS,
+      }),
+    [fsTests, fsQuestions]
+  );
+
   const value = useMemo<PlatformDataContextValue>(
     () => ({
       classGroups,
@@ -415,8 +428,8 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
       chapters: mergedCatalog.chapters,
       materials: mergedCatalog.materials,
       lectures: fsLectures.length > 0 ? fsLectures : STARTER_LECTURES,
-      mockTests: fsTests.length > 0 ? fsTests : STARTER_TESTS,
-      questions: fsQuestions.length > 0 ? fsQuestions : STARTER_QUESTIONS,
+      mockTests: mergedMocks.mockTests,
+      questions: mergedMocks.questions,
       iqConfig,
       isUsingStarterCatalog,
       progress,
@@ -438,9 +451,8 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
       classGroups,
       allCohorts,
       mergedCatalog,
+      mergedMocks,
       fsLectures,
-      fsTests,
-      fsQuestions,
       iqConfig,
       isUsingStarterCatalog,
       progress,

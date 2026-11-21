@@ -360,44 +360,49 @@ export function AttemptReviewModal({ attempt, questions, onClose }: AttemptRevie
                         </div>
                       </div>
 
-                      {q.questionText && (
+                      {q.questionText && !q.questionImageUrl?.startsWith('/assets/mocks/') && (
                         <p className="text-xs sm:text-sm text-slate-900 dark:text-slate-100 leading-relaxed">
                           {q.questionText}
                         </p>
                       )}
                       {q.questionImageUrl && (
-                        <img
-                          src={q.questionImageUrl}
-                          alt={`Question ${q.questionNumber}`}
-                          className="max-h-52 rounded-lg border border-slate-200 bg-white object-contain"
-                        />
-                      )}
-
-                      {q.questionType !== 'integer' && q.optionTexts && q.optionTexts.some(Boolean) && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs">
-                          {q.optionTexts.map((txt, idx) => {
-                            const isOfficial = (q.correctOptionIndices ?? []).includes(idx);
-                            const isPicked =
-                              (ans?.type === 'single-mcq' && ans.selectedIndex === idx) ||
-                              (ans?.type === 'multi-mcq' && ans.selectedIndices.includes(idx));
-                            return (
-                              <div
-                                key={idx}
-                                className={`px-2.5 py-1.5 rounded-lg border flex items-center gap-2 ${
-                                  isOfficial
-                                    ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200 font-semibold'
-                                    : isPicked
-                                      ? 'border-rose-400 bg-rose-50 dark:bg-rose-950/40 text-rose-900 dark:text-rose-200'
-                                      : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 text-slate-700 dark:text-slate-300'
-                                }`}
-                              >
-                                <span className="font-mono font-bold">{LETTERS[idx]}.</span>
-                                <span className="truncate">{txt}</span>
-                              </div>
-                            );
-                          })}
+                        <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white p-2 inline-block max-w-full">
+                          <img
+                            src={q.questionImageUrl}
+                            alt={`Question ${q.questionNumber}`}
+                            className="w-full max-w-[740px] h-auto object-contain"
+                          />
                         </div>
                       )}
+
+                      {q.questionType !== 'integer' &&
+                        !q.questionImageUrl?.startsWith('/assets/mocks/') &&
+                        q.optionTexts &&
+                        q.optionTexts.some(Boolean) && (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs">
+                            {q.optionTexts.map((txt, idx) => {
+                              const isOfficial = (q.correctOptionIndices ?? []).includes(idx);
+                              const isPicked =
+                                (ans?.type === 'single-mcq' && ans.selectedIndex === idx) ||
+                                (ans?.type === 'multi-mcq' && ans.selectedIndices.includes(idx));
+                              return (
+                                <div
+                                  key={idx}
+                                  className={`px-2.5 py-1.5 rounded-lg border flex items-center gap-2 ${
+                                    isOfficial
+                                      ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200 font-semibold'
+                                      : isPicked
+                                        ? 'border-rose-400 bg-rose-50 dark:bg-rose-950/40 text-rose-900 dark:text-rose-200'
+                                        : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 text-slate-700 dark:text-slate-300'
+                                  }`}
+                                >
+                                  <span className="font-mono font-bold">{LETTERS[idx]}.</span>
+                                  <span className="truncate">{txt}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
 
                       <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-200/70 dark:border-slate-800 text-xs">
                         <div className="flex flex-wrap gap-3">
@@ -431,17 +436,19 @@ export function AttemptReviewModal({ attempt, questions, onClose }: AttemptRevie
                           <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
                             Official Solution
                           </p>
-                          {q.solutionText && (
+                          {q.solutionText && !q.solutionImageUrl?.startsWith('/assets/mocks/') && (
                             <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
                               {q.solutionText}
                             </p>
                           )}
                           {q.solutionImageUrl && (
-                            <img
-                              src={q.solutionImageUrl}
-                              alt={`Solution for Q${q.questionNumber}`}
-                              className="max-h-48 rounded border border-slate-200 bg-white object-contain"
-                            />
+                            <div className="rounded-lg bg-white p-1 border border-slate-200/80 dark:border-slate-700 inline-block max-w-full">
+                              <img
+                                src={q.solutionImageUrl}
+                                alt={`Solution for Q${q.questionNumber}`}
+                                className="w-full max-w-[680px] h-auto object-contain"
+                              />
+                            </div>
                           )}
                         </div>
                       )}

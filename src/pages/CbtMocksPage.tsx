@@ -26,6 +26,7 @@ import {
   getEffectiveTestSyllabus,
 } from '../utils/examPresets';
 import { getHierarchicalMockTestPath } from '../utils/seoHelpers';
+import { getTestCohortIds, testMatchesCohort } from '../utils/catalogMerge';
 import { playClick } from '../utils/soundEffects';
 import type { MockTestRecord, StudentCohortId, TestAttemptRecord } from '../types';
 
@@ -47,7 +48,7 @@ export default function CbtMocksPage() {
       mockTests.filter((t) => {
         if (t.destination !== 'cbt-mock') return false;
         if (t.status !== 'published') return false;
-        if (filterCohort !== 'all' && t.cohortId !== filterCohort) return false;
+        if (filterCohort !== 'all' && !testMatchesCohort(t, filterCohort)) return false;
         return true;
       }),
     [filterCohort, mockTests]
@@ -158,8 +159,9 @@ export default function CbtMocksPage() {
                 testAttempts.length > 0
                   ? testAttempts.reduce((best, cur) => (cur.score > best.score ? cur : best))
                   : null;
-              const cohortLabel =
-                allCohorts.find((c) => c.id === t.cohortId)?.shortLabel ?? t.cohortId;
+              const cohortLabel = getTestCohortIds(t)
+                .map((id) => allCohorts.find((c) => c.id === id)?.shortLabel ?? id)
+                .join(' · ');
 
               return (
                 <ReusableCard

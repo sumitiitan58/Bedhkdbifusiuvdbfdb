@@ -14,6 +14,7 @@ import { ReusableButton } from '../components/ReusableButton';
 import { SeoHead } from '../components/SeoHead';
 import { CbtExamRunner } from '../components/exam/CbtExamRunner';
 import { AttemptReviewModal } from '../components/analytics/AttemptReviewModal';
+import { NativeBannerAd } from '../components/ads/NativeBannerAd';
 import { useAuth } from '../context/AuthContext';
 import { usePlatformData } from '../context/PlatformDataContext';
 import { filterChaptersByCohort, filterSubjectsByCohort } from '../utils/catalogMerge';
@@ -328,6 +329,7 @@ export default function DppPage() {
             </div>
           </ReusableCard>
         )}
+        <NativeBannerAd />
       </ResponsiveContainer>
 
       {reviewAttempt && (

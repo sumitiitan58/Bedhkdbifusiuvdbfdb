@@ -7,7 +7,6 @@ import {
   BookOpen,
   ChevronRight,
   Download,
-  ExternalLink,
   Eye,
   FileText,
   Film,
@@ -16,16 +15,17 @@ import {
   Paperclip,
   Play,
   Search,
-  Sparkles,
-  X,
 } from 'lucide-react';
 import { PageLayout } from '../layouts/PageLayout';
 import { ResponsiveContainer } from '../components/ResponsiveContainer';
 import { ReusableCard } from '../components/ReusableCard';
 import { ReusableButton } from '../components/ReusableButton';
 import { SeoHead } from '../components/SeoHead';
-import { FullPdfViewer } from '../components/materials/FullPdfViewer';
+import { FullPageMediaReader } from '../components/materials/FullPageMediaReader';
+import { NativeBannerAd } from '../components/ads/NativeBannerAd';
+import { GuestDownloadBadge } from '../components/monetization/GuestDownloadBadge';
 import { useAuth } from '../context/AuthContext';
+import { useDownloadGate } from '../context/DownloadGateContext';
 import { usePlatformData } from '../context/PlatformDataContext';
 import { resolveAssetUrl } from '../utils/instantUpload';
 import {
@@ -83,6 +83,7 @@ function isVideoMaterial(mat: StudyMaterialRecord): boolean {
 
 export default function MaterialsPage() {
   const { cohortId } = useAuth();
+  const { requestPdfDownload } = useDownloadGate();
   const {
     allCohorts,
     subjects,
@@ -264,20 +265,18 @@ export default function MaterialsPage() {
   const handleDownloadDocument = async (
     rawUrl: string,
     suggestedName?: string,
-    materialId?: string
+    materialId?: string,
+    displayTitle?: string
   ) => {
-    playClick();
-    if (materialId) recordMaterialView(materialId);
-    const resolved = (await resolveAssetUrl(rawUrl)) || rawUrl;
-    if (!resolved) return;
-    const link = document.createElement('a');
-    link.href = resolved;
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
-    link.download = suggestedName || 'PREPSKM-Study-Material.pdf';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    await requestPdfDownload({
+      url: rawUrl,
+      fileName: suggestedName || 'PREPSKM-Study-Material.pdf',
+      title: displayTitle || suggestedName || 'Study Material PDF',
+      materialId,
+      onApproved: () => {
+        if (materialId) recordMaterialView(materialId);
+      },
+    });
   };
 
   const activeSubjectName = activeChapter
@@ -340,10 +339,13 @@ export default function MaterialsPage() {
                 Back to All Chapters
               </button>
 
-              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                {activeSubjectName} · Weightage: {activeChapter.weightageMarks} Marks ·{' '}
-                {activeChapter.difficulty}
-              </span>
+              <div className="flex flex-wrap items-center gap-3">
+                <GuestDownloadBadge />
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  {activeSubjectName} · Weightage: {activeChapter.weightageMarks} Marks ·{' '}
+                  {activeChapter.difficulty}
+                </span>
+              </div>
             </div>
 
             <ReusableCard className="space-y-4">
@@ -578,7 +580,8 @@ export default function MaterialsPage() {
                                       void handleDownloadDocument(
                                         att.fileUrl,
                                         att.fileName || `${att.title}.pdf`,
-                                        mat.id
+                                        mat.id,
+                                        att.title
                                       )
                                     }
                                     className="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-50 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-700 text-[#0B1B3B] dark:text-slate-200 hover:border-[#2563EB] hover:text-[#2563EB] dark:hover:text-sky-400 transition-colors text-left"
@@ -604,7 +607,7 @@ export default function MaterialsPage() {
                           onClick={() => handleOpenPreview(mat)}
                         >
                           {isVid ? <Play className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                          {isVid ? 'Watch Video' : 'Open Preview'}
+                          {isVid ? 'Watch Video' : 'Open Book Preview'}
                         </ReusableButton>
 
                         {/* Download button ONLY for PDFs/Documents/Images — NEVER for Videos */}
@@ -615,7 +618,8 @@ export default function MaterialsPage() {
                               void handleDownloadDocument(
                                 mat.fileUrl,
                                 mat.fileName || `${mat.title}.pdf`,
-                                mat.id
+                                mat.id,
+                                mat.title
                               )
                             }
                             aria-label={`Download PDF ${mat.title}`}
@@ -647,8 +651,11 @@ export default function MaterialsPage() {
                   Select a chapter to explore admin-curated Short Notes, Concept Videos with thumbnails, Formula Sheets, and PYQs.
                 </p>
               </div>
-              <div className="flex items-center gap-4 text-xs font-semibold tabular-nums text-slate-600 dark:text-slate-400">
+              <div className="flex flex-wrap md:flex-nowrap items-center gap-2.5 text-xs font-semibold tabular-nums text-slate-600 dark:text-slate-400 shrink-0 whitespace-nowrap">
+                <GuestDownloadBadge />
+                <span aria-hidden="true" className="text-slate-300 dark:text-slate-700">·</span>
                 <span>{filteredChapters.length} Chapters</span>
+                <span aria-hidden="true" className="text-slate-300 dark:text-slate-700">·</span>
                 <span>{cohortMaterials.length} Resources</span>
               </div>
             </div>
@@ -866,157 +873,35 @@ export default function MaterialsPage() {
             )}
           </>
         )}
+        {/* Non-intrusive Native Banner Ad below the Notes/Chapter list */}
+        <NativeBannerAd />
       </ResponsiveContainer>
 
-      {/* Inline PDF / Image / Video Preview Modal */}
+      {/* Full-Page Book PDF Reader / Full-Page Video Theater (No boxed popup modal) */}
       {previewMaterial && (
-        <div
-          className="fixed inset-0 z-50 bg-slate-950/75 flex items-center justify-center p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-label={`Preview ${previewMaterial.title}`}
-        >
-          <div className="w-full max-w-4xl max-h-[92vh] bg-white dark:bg-[#111A2E] rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden shadow-2xl">
-            <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-4">
-              <div className="min-w-0">
-                <p className="text-xs font-semibold text-[#F97316] flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  {previewMaterial.sectionName}
-                </p>
-                <h2 className="font-display text-base sm:text-lg font-bold text-[#0B1B3B] dark:text-white truncate">
-                  {previewMaterial.title}
-                </h2>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                {!isVideoMaterial(previewMaterial) && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        void handleDownloadDocument(
-                          previewMaterial.fileUrl,
-                          previewMaterial.fileName || `${previewMaterial.title}.pdf`,
-                          previewMaterial.id
-                        )
-                      }
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#2563EB] hover:bg-[#1D4ED8] text-white transition-colors"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      Download PDF
-                    </button>
-                    {resolvedPreviewUrl && !previewMaterial.fileUrl.startsWith('prepskm-blob://') && (
-                      <a
-                        href={resolvedPreviewUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#0B1B3B] text-white"
-                      >
-                        <ExternalLink className="w-3.5 h-3.5" />
-                        Open Tab
-                      </a>
-                    )}
-                  </>
-                )}
-                <button
-                  type="button"
-                  aria-label="Close preview"
-                  onClick={() => setPreviewMaterial(null)}
-                  className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-
-            <div className="flex-1 bg-slate-100 dark:bg-slate-950 p-4 overflow-auto space-y-4">
-              {isVideoMaterial(previewMaterial) ? (
-                <div className="aspect-video w-full rounded-xl overflow-hidden bg-black">
-                  {activeYoutubeId ? (
-                    <iframe
-                      title={previewMaterial.title}
-                      src={`https://www.youtube.com/embed/${activeYoutubeId}`}
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                      className="w-full h-full"
-                    />
-                  ) : (
-                    <video
-                      src={resolvedPreviewUrl || previewMaterial.fileUrl}
-                      poster={previewMaterial.thumbnailUrl}
-                      controls
-                      controlsList="nodownload"
-                      disablePictureInPicture
-                      onContextMenu={(e) => e.preventDefault()}
-                      autoPlay
-                      className="w-full h-full"
-                    />
-                  )}
-                </div>
-              ) : previewMaterial.mediaType === 'image' ||
-                previewMaterial.mimeType?.startsWith('image/') ? (
-                <img
-                  src={resolvedPreviewUrl || previewMaterial.fileUrl}
-                  alt={previewMaterial.title}
-                  className="max-h-[70vh] mx-auto rounded-lg object-contain"
-                />
-              ) : (
-                <FullPdfViewer
-                  url={resolvedPreviewUrl || previewMaterial.fileUrl}
-                  title={previewMaterial.title}
-                  fileName={previewMaterial.fileName}
-                  heightClassName="h-[68vh]"
-                />
-              )}
-
-              {previewMaterial.description && (
-                <p className="text-sm text-slate-700 dark:text-slate-300">
-                  {previewMaterial.description}
-                </p>
-              )}
-
-              {/* Attached PDFs / Study Notes for Video (Downloadable) */}
-              {previewMaterial.attachments && previewMaterial.attachments.length > 0 && (
-                <div className="p-3.5 rounded-xl bg-white dark:bg-[#111A2E] border border-slate-200 dark:border-slate-800 space-y-2.5">
-                  <p className="text-xs font-bold uppercase tracking-wider text-[#F97316] flex items-center gap-1.5">
-                    <Paperclip className="w-3.5 h-3.5" />
-                    Attached PDFs &amp; Class Notes ({previewMaterial.attachments.length})
-                  </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {previewMaterial.attachments.map((att) => (
-                      <div
-                        key={att.id}
-                        className="flex items-center justify-between gap-2 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-900/60"
-                      >
-                        <div className="min-w-0">
-                          <p className="text-xs font-bold text-[#0B1B3B] dark:text-white truncate">
-                            {att.title}
-                          </p>
-                          <p className="text-[11px] text-slate-500 truncate">
-                            {att.fileName || 'PDF Document'}
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            void handleDownloadDocument(
-                              att.fileUrl,
-                              att.fileName || `${att.title}.pdf`,
-                              previewMaterial.id
-                            )
-                          }
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-[#2563EB] hover:bg-[#1D4ED8] text-white shrink-0"
-                        >
-                          <Download className="w-3.5 h-3.5" />
-                          Download PDF
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+        <FullPageMediaReader
+          item={{
+            id: previewMaterial.id,
+            title: previewMaterial.title,
+            sectionName: previewMaterial.sectionName,
+            description: previewMaterial.description,
+            url: resolvedPreviewUrl || previewMaterial.fileUrl,
+            fileName: previewMaterial.fileName,
+            thumbnailUrl: previewMaterial.thumbnailUrl,
+            mediaKind: isVideoMaterial(previewMaterial)
+              ? 'video'
+              : previewMaterial.mediaType === 'image' ||
+                  previewMaterial.mimeType?.startsWith('image/')
+                ? 'image'
+                : 'pdf',
+            youtubeId: activeYoutubeId,
+            attachments: previewMaterial.attachments,
+          }}
+          isBookmarked={bookmarkSet.has(previewMaterial.id)}
+          onToggleBookmark={() => toggleMaterialBookmark(previewMaterial.id)}
+          onClose={() => setPreviewMaterial(null)}
+          onDownloadApproved={() => recordMaterialView(previewMaterial.id)}
+        />
       )}
     </PageLayout>
   );

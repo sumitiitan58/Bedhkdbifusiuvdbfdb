@@ -8,6 +8,10 @@ import type {
   VideoLectureRecord,
 } from '../types';
 import { getDefaultExamInstructions } from '../utils/examPresets';
+import {
+  FULL_MOCK_TEST_1_QUESTIONS,
+  FULL_MOCK_TEST_1_RECORD,
+} from '../data/fullMockTest1Catalog';
 
 const ALL_COHORTS = [
   'class-9',
@@ -362,6 +366,7 @@ export const STARTER_LECTURES: VideoLectureRecord[] = [
 ];
 
 export const STARTER_TESTS: MockTestRecord[] = [
+  FULL_MOCK_TEST_1_RECORD,
   {
     id: 'cbt-jee-main-starter-1',
     title: 'JEE Main 2027 Pattern — Full PCM Mini CBT Mock #01',
@@ -455,6 +460,7 @@ export const STARTER_TESTS: MockTestRecord[] = [
 ];
 
 export const STARTER_QUESTIONS: TestQuestionRecord[] = [
+  ...FULL_MOCK_TEST_1_QUESTIONS,
   // JEE Main CBT Mock #01 Questions
   {
     id: 'q-cbt1-1',

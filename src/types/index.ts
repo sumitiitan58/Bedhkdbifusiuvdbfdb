@@ -202,6 +202,7 @@ export interface MockTestRecord {
   isPublished?: boolean;
   destination: TestDestination;
   cohortId: StudentCohortId;
+  cohortIds?: StudentCohortId[];
   examCategory: string;
   examType?: ExamType;
   syllabus?: TestSyllabusItem[];

@@ -4,7 +4,9 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { LoadingScreen } from './components/LoadingScreen';
 import { ThemeProvider } from './context/ThemeProvider';
 import { AuthProvider } from './context/AuthContext';
+import { DownloadGateProvider } from './context/DownloadGateContext';
 import { PlatformDataProvider } from './context/PlatformDataContext';
+import { DownloadGateModal } from './components/monetization/DownloadGateModal';
 
 const HomePage = lazy(() => import('./pages/HomePage'));
 const MaterialsPage = lazy(() => import('./pages/MaterialsPage'));
@@ -24,33 +26,36 @@ export default function App() {
     <ErrorBoundary>
       <ThemeProvider>
         <AuthProvider>
-          <PlatformDataProvider>
-            <BrowserRouter>
-              <Suspense fallback={<LoadingScreen fullScreen message="Loading PREPSKM.IN workspace..." />}>
-                <Routes>
-                  <Route path="/" element={<HomePage />} />
-                  <Route path="/materials" element={<MaterialsPage />} />
-                  <Route
-                    path="/materials/:classSlug/:subjectSlug/:chapterSlug"
-                    element={<MaterialDetailPage />}
-                  />
-                  <Route path="/materials/:slug" element={<MaterialDetailPage />} />
-                  <Route path="/pyqs/:slug" element={<MaterialDetailPage />} />
-                  <Route path="/lectures" element={<LecturesPage />} />
-                  <Route path="/cbt-mocks" element={<CbtMocksPage />} />
-                  <Route path="/cbt-mocks/:examSlug/:testSlug" element={<CbtMockDetailPage />} />
-                  <Route path="/cbt-mocks/:slug" element={<CbtMockDetailPage />} />
-                  <Route path="/dpp" element={<DppPage />} />
-                  <Route path="/dpp/:classSlug/:chapterSlug" element={<CbtMockDetailPage />} />
-                  <Route path="/analytics" element={<AnalyticsPage />} />
-                  <Route path="/profile" element={<ProfilePage />} />
-                  <Route path="/about" element={<AboutPage />} />
-                  <Route path="/admin" element={<AdminPage />} />
-                  <Route path="*" element={<NotFoundPage />} />
-                </Routes>
-              </Suspense>
-            </BrowserRouter>
-          </PlatformDataProvider>
+          <DownloadGateProvider>
+            <PlatformDataProvider>
+              <BrowserRouter>
+                <Suspense fallback={<LoadingScreen fullScreen message="Loading PREPSKM.IN workspace..." />}>
+                  <Routes>
+                    <Route path="/" element={<HomePage />} />
+                    <Route path="/materials" element={<MaterialsPage />} />
+                    <Route
+                      path="/materials/:classSlug/:subjectSlug/:chapterSlug"
+                      element={<MaterialDetailPage />}
+                    />
+                    <Route path="/materials/:slug" element={<MaterialDetailPage />} />
+                    <Route path="/pyqs/:slug" element={<MaterialDetailPage />} />
+                    <Route path="/lectures" element={<LecturesPage />} />
+                    <Route path="/cbt-mocks" element={<CbtMocksPage />} />
+                    <Route path="/cbt-mocks/:examSlug/:testSlug" element={<CbtMockDetailPage />} />
+                    <Route path="/cbt-mocks/:slug" element={<CbtMockDetailPage />} />
+                    <Route path="/dpp" element={<DppPage />} />
+                    <Route path="/dpp/:classSlug/:chapterSlug" element={<CbtMockDetailPage />} />
+                    <Route path="/analytics" element={<AnalyticsPage />} />
+                    <Route path="/profile" element={<ProfilePage />} />
+                    <Route path="/about" element={<AboutPage />} />
+                    <Route path="/admin" element={<AdminPage />} />
+                    <Route path="*" element={<NotFoundPage />} />
+                  </Routes>
+                </Suspense>
+                <DownloadGateModal />
+              </BrowserRouter>
+            </PlatformDataProvider>
+          </DownloadGateProvider>
         </AuthProvider>
       </ThemeProvider>
     </ErrorBoundary>

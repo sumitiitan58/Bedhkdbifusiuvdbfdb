@@ -27,6 +27,7 @@ import {
   getHierarchicalMockTestPath,
   getMockTestSlug,
 } from '../utils/seoHelpers';
+import { getTestCohortIds } from '../utils/catalogMerge';
 import { playClick } from '../utils/soundEffects';
 
 export default function CbtMockDetailPage() {
@@ -88,7 +89,9 @@ export default function CbtMockDetailPage() {
   const parentRoute = isDpp ? '/dpp' : '/cbt-mocks';
   const parentLabel = isDpp ? 'Chapter-Wise DPPs' : 'CBT Mock Tests';
   const canonicalPath = getHierarchicalMockTestPath(test);
-  const cohortLabel = allCohorts.find((c) => c.id === test.cohortId)?.label ?? test.cohortId;
+  const cohortLabel = getTestCohortIds(test)
+    .map((id) => allCohorts.find((c) => c.id === id)?.label ?? id)
+    .join(' · ');
   const syllabus = getEffectiveTestSyllabus(test, linkedQuestions);
   const instructions = getEffectiveTestInstructions(test);
   const totalQuestions = linkedQuestions.length || test.totalQuestions;

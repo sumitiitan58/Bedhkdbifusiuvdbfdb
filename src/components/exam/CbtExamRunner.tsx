@@ -957,13 +957,15 @@ export function CbtExamRunner({ test, questions, onExit }: CbtExamRunnerProps) {
 
                   <div className="mt-3 space-y-3">
                     {q.questionImageUrl && (
-                      <img
-                        src={q.questionImageUrl}
-                        alt={`Question ${q.questionNumber}`}
-                        className="max-h-72 rounded-xl border border-slate-200 dark:border-slate-700 bg-white object-contain"
-                      />
+                      <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white p-2 overflow-x-auto">
+                        <img
+                          src={q.questionImageUrl}
+                          alt={`Question ${q.questionNumber}`}
+                          className="w-full max-w-[740px] h-auto object-contain"
+                        />
+                      </div>
                     )}
-                    {q.questionText && (
+                    {q.questionText && !q.questionImageUrl?.startsWith('/assets/mocks/') && (
                       <p className="text-sm sm:text-base text-slate-800 dark:text-slate-200 whitespace-pre-line">
                         {q.questionText}
                       </p>
@@ -984,18 +986,20 @@ export function CbtExamRunner({ test, questions, onExit }: CbtExamRunnerProps) {
 
                     {(q.solutionImageUrl || q.solutionText) && (
                       <div className="mt-2 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800">
-                        <p className="text-xs font-bold uppercase tracking-wide text-[#0B1B3B] dark:text-sky-400 mb-1.5">
+                        <p className="text-xs font-bold uppercase tracking-wide text-[#0B1B3B] dark:text-sky-400 mb-2">
                           Detailed Solution
                         </p>
                         {q.solutionImageUrl && (
-                          <img
-                            src={q.solutionImageUrl}
-                            alt={`Solution for Question ${q.questionNumber}`}
-                            className="max-h-72 rounded-lg bg-white object-contain mb-2"
-                          />
+                          <div className="rounded-xl bg-white p-1.5 border border-slate-200/80 dark:border-slate-700 inline-block max-w-full">
+                            <img
+                              src={q.solutionImageUrl}
+                              alt={`Solution for Question ${q.questionNumber}`}
+                              className="w-full max-w-[680px] h-auto object-contain"
+                            />
+                          </div>
                         )}
-                        {q.solutionText && (
-                          <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-line">
+                        {q.solutionText && !q.solutionImageUrl?.startsWith('/assets/mocks/') && (
+                          <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-line mt-2">
                             {q.solutionText}
                           </p>
                         )}
@@ -1237,15 +1241,15 @@ export function CbtExamRunner({ test, questions, onExit }: CbtExamRunnerProps) {
 
           <div className="space-y-4">
             {currentQ.questionImageUrl && (
-              <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white p-2 overflow-x-auto">
+              <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white p-2.5 sm:p-3 overflow-x-auto">
                 <img
                   src={currentQ.questionImageUrl}
                   alt={`Question ${currentQ.questionNumber}`}
-                  className="max-h-[380px] w-auto object-contain mx-auto"
+                  className="w-full max-w-[740px] h-auto object-contain mx-auto"
                 />
               </div>
             )}
-            {currentQ.questionText && (
+            {currentQ.questionText && !currentQ.questionImageUrl?.startsWith('/assets/mocks/') && (
               <div className="text-base leading-relaxed text-slate-900 dark:text-slate-100 whitespace-pre-line">
                 {currentQ.questionText}
               </div>
@@ -1280,57 +1284,103 @@ export function CbtExamRunner({ test, questions, onExit }: CbtExamRunnerProps) {
                   One or more options may be correct. Select all matching options.
                 </p>
               )}
-              {OPTION_LETTERS.map((letter, idx) => {
-                const optText = currentQ.optionTexts?.[idx];
-                const optImg = currentQ.optionImageUrls?.[idx];
-                const isSelected =
-                  currentQ.questionType === 'single-mcq'
-                    ? currentAnswer?.type === 'single-mcq' && currentAnswer.selectedIndex === idx
-                    : currentAnswer?.type === 'multi-mcq' &&
-                      currentAnswer.selectedIndices.includes(idx);
+              {currentQ.questionImageUrl?.startsWith('/assets/mocks/') ? (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    Select Correct Option
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    {OPTION_LETTERS.map((letter, idx) => {
+                      const isSelected =
+                        currentQ.questionType === 'single-mcq'
+                          ? currentAnswer?.type === 'single-mcq' && currentAnswer.selectedIndex === idx
+                          : currentAnswer?.type === 'multi-mcq' &&
+                            currentAnswer.selectedIndices.includes(idx);
 
-                return (
-                  <button
-                    key={letter}
-                    type="button"
-                    aria-pressed={isSelected}
-                    onClick={() =>
-                      currentQ.questionType === 'single-mcq'
-                        ? handleSelectSingle(currentQ, idx)
-                        : handleToggleMulti(currentQ, idx)
-                    }
-                    className={`w-full text-left p-3.5 rounded-xl border transition-all flex items-start gap-3.5 ${
-                      isSelected
-                        ? 'border-[#2563EB] bg-blue-50/70 dark:border-sky-400 dark:bg-blue-950/40'
-                        : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-white dark:bg-slate-900/40'
-                    }`}
-                  >
-                    <span
-                      className={`w-7 h-7 rounded-lg flex items-center justify-center font-mono text-xs font-bold shrink-0 mt-0.5 ${
+                      return (
+                        <button
+                          key={letter}
+                          type="button"
+                          aria-pressed={isSelected}
+                          onClick={() =>
+                            currentQ.questionType === 'single-mcq'
+                              ? handleSelectSingle(currentQ, idx)
+                              : handleToggleMulti(currentQ, idx)
+                          }
+                          className={`px-4 py-3 rounded-xl border font-semibold transition-all flex items-center justify-center gap-2.5 ${
+                            isSelected
+                              ? 'border-[#2563EB] bg-blue-50 text-[#0B1B3B] dark:border-sky-400 dark:bg-blue-950/60 dark:text-white shadow-xs'
+                              : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-700 dark:text-slate-200'
+                          }`}
+                        >
+                          <span
+                            className={`w-7 h-7 rounded-lg flex items-center justify-center font-mono text-xs font-bold shrink-0 ${
+                              isSelected
+                                ? 'bg-[#2563EB] text-white'
+                                : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                            }`}
+                          >
+                            {letter}
+                          </span>
+                          <span className="text-sm">Option {letter}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                OPTION_LETTERS.map((letter, idx) => {
+                  const optText = currentQ.optionTexts?.[idx];
+                  const optImg = currentQ.optionImageUrls?.[idx];
+                  const isSelected =
+                    currentQ.questionType === 'single-mcq'
+                      ? currentAnswer?.type === 'single-mcq' && currentAnswer.selectedIndex === idx
+                      : currentAnswer?.type === 'multi-mcq' &&
+                        currentAnswer.selectedIndices.includes(idx);
+
+                  return (
+                    <button
+                      key={letter}
+                      type="button"
+                      aria-pressed={isSelected}
+                      onClick={() =>
+                        currentQ.questionType === 'single-mcq'
+                          ? handleSelectSingle(currentQ, idx)
+                          : handleToggleMulti(currentQ, idx)
+                      }
+                      className={`w-full text-left p-3.5 rounded-xl border transition-all flex items-start gap-3.5 ${
                         isSelected
-                          ? 'bg-[#2563EB] text-white'
-                          : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                          ? 'border-[#2563EB] bg-blue-50/70 dark:border-sky-400 dark:bg-blue-950/40'
+                          : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-white dark:bg-slate-900/40'
                       }`}
                     >
-                      {letter}
-                    </span>
-                    <div className="flex-1 min-w-0 space-y-2">
-                      {optImg && (
-                        <img
-                          src={optImg}
-                          alt={`Option ${letter}`}
-                          className="max-h-28 rounded-lg bg-white object-contain border border-slate-200"
-                        />
-                      )}
-                      {optText && (
-                        <span className="block text-sm sm:text-base text-slate-800 dark:text-slate-100">
-                          {optText}
-                        </span>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
+                      <span
+                        className={`w-7 h-7 rounded-lg flex items-center justify-center font-mono text-xs font-bold shrink-0 mt-0.5 ${
+                          isSelected
+                            ? 'bg-[#2563EB] text-white'
+                            : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                        }`}
+                      >
+                        {letter}
+                      </span>
+                      <div className="flex-1 min-w-0 space-y-2">
+                        {optImg && (
+                          <img
+                            src={optImg}
+                            alt={`Option ${letter}`}
+                            className="max-h-28 rounded-lg bg-white object-contain border border-slate-200"
+                          />
+                        )}
+                        {optText && (
+                          <span className="block text-sm sm:text-base text-slate-800 dark:text-slate-100">
+                            {optText}
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })
+              )}
             </div>
           )}
 

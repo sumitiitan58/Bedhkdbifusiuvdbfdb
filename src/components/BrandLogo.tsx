@@ -44,7 +44,7 @@ export function BrandLogo({ variant = 'navbar', className = '' }: BrandLogoProps
   if (variant === 'footer') {
     return (
       <div className={`inline-flex items-center gap-3 ${className}`}>
-        <div className="h-12 w-12 rounded-xl bg-white/95 dark:bg-slate-900 border border-slate-200/80 dark:border-slate-700/80 p-1.5 flex items-center justify-center shrink-0">
+        <div className="h-12 w-12 rounded-xl bg-white dark:bg-white/95 border border-slate-200/80 dark:border-slate-700/80 p-1 flex items-center justify-center shrink-0 shadow-xs">
           {!imgFailed ? (
             <img
               src={BRAND_CONFIG.logoPath}
@@ -74,7 +74,7 @@ export function BrandLogo({ variant = 'navbar', className = '' }: BrandLogoProps
   // Navbar variant — crisp transparent emblem + legible brand wordmark
   return (
     <span className={`inline-flex items-center gap-2.5 whitespace-nowrap shrink-0 ${className}`}>
-      <span className="h-10 w-10 rounded-xl bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-700/80 p-1 flex items-center justify-center shrink-0 shadow-xs">
+      <span className="h-10 w-10 rounded-xl bg-white dark:bg-white/95 border border-slate-200/80 dark:border-slate-700/80 p-1 flex items-center justify-center shrink-0 shadow-xs">
         {!imgFailed ? (
           <img
             src={BRAND_CONFIG.logoPath}

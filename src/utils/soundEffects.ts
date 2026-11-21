@@ -115,3 +115,102 @@ export function playWarning(): void {
   playTone(880, 720, 0.12, 0.075, 'sawtooth', 0);
   playTone(880, 620, 0.15, 0.08, 'sawtooth', 0.14);
 }
+
+/** Synthesize filtered noise burst for authentic paper rustle & book sounds */
+function playNoiseSweep(
+  filterFreqStart: number,
+  filterFreqMid: number,
+  filterFreqEnd: number,
+  durationSec: number,
+  gainPeak: number,
+  q = 1.4,
+  delaySec = 0
+): void {
+  if (!isSoundEnabled()) return;
+  const ctx = getAudioContext();
+  if (!ctx) return;
+
+  try {
+    const sampleRate = ctx.sampleRate;
+    const frameCount = Math.max(1, Math.floor(sampleRate * durationSec));
+    const buffer = ctx.createBuffer(1, frameCount, sampleRate);
+    const data = buffer.getChannelData(0);
+
+    // Pink-tinted soft paper noise
+    let b0 = 0;
+    let b1 = 0;
+    let b2 = 0;
+    for (let i = 0; i < frameCount; i++) {
+      const white = Math.random() * 2 - 1;
+      b0 = 0.997 * b0 + white * 0.029;
+      b1 = 0.985 * b1 + white * 0.032;
+      b2 = 0.950 * b2 + white * 0.048;
+      data[i] = (b0 + b1 + b2 + white * 0.18) * 0.9;
+    }
+
+    const now = ctx.currentTime + delaySec;
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.Q.setValueAtTime(q, now);
+    filter.frequency.setValueAtTime(filterFreqStart, now);
+    filter.frequency.exponentialRampToValueAtTime(filterFreqMid, now + durationSec * 0.42);
+    filter.frequency.exponentialRampToValueAtTime(filterFreqEnd, now + durationSec);
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.linearRampToValueAtTime(gainPeak, now + durationSec * 0.18);
+    gain.gain.exponentialRampToValueAtTime(gainPeak * 0.65, now + durationSec * 0.65);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + durationSec);
+
+    source.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+
+    source.start(now);
+    source.stop(now + durationSec + 0.02);
+  } catch {
+    // ignore audio errors in restricted environments
+  }
+}
+
+/** Realistic paper page-turning SFX for the full-page book PDF reader */
+export function playPageFlip(direction: 'next' | 'prev' = 'next'): void {
+  if (direction === 'next') {
+    // Crisp upward paper lift + sweeping turn + soft page settle
+    playNoiseSweep(950, 2650, 720, 0.24, 0.16, 1.35, 0);
+    playTone(210, 115, 0.075, 0.028, 'sine', 0.17);
+  } else {
+    // Slightly warmer reverse page rustle + settle
+    playNoiseSweep(1250, 2100, 620, 0.23, 0.15, 1.4, 0);
+    playTone(185, 105, 0.075, 0.026, 'sine', 0.16);
+  }
+}
+
+/** Hardcover book opening swoosh & soft leaf rustle */
+export function playBookOpen(): void {
+  playNoiseSweep(520, 1750, 880, 0.3, 0.14, 1.1, 0);
+  playTone(320, 480, 0.11, 0.022, 'sine', 0.04);
+  playTone(480, 640, 0.12, 0.018, 'triangle', 0.1);
+}
+
+/** Gentle hardcover book closing thump */
+export function playBookClose(): void {
+  playNoiseSweep(1100, 620, 320, 0.16, 0.11, 1.2, 0);
+  playTone(190, 78, 0.11, 0.045, 'sine', 0.06);
+}
+
+/** Subtle cinema reveal chime when entering full-page video theater */
+export function playTheaterOpen(): void {
+  playTone(392, 440, 0.12, 0.025, 'sine', 0);
+  playTone(523.25, 587.33, 0.14, 0.024, 'triangle', 0.055);
+  playTone(783.99, 783.99, 0.18, 0.02, 'sine', 0.12);
+}
+
+/** Delicate mechanical lens tick for zoom in/out controls */
+export function playZoomTick(zoomIn: boolean): void {
+  playTone(zoomIn ? 620 : 520, zoomIn ? 840 : 390, 0.045, 0.022, 'triangle', 0);
+}
+

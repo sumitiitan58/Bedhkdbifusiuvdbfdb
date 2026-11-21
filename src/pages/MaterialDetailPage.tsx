@@ -17,6 +17,9 @@ import { ReusableCard } from '../components/ReusableCard';
 import { ReusableButton } from '../components/ReusableButton';
 import { SeoHead } from '../components/SeoHead';
 import { FullPdfViewer } from '../components/materials/FullPdfViewer';
+import { NativeBannerAd } from '../components/ads/NativeBannerAd';
+import { GuestDownloadBadge } from '../components/monetization/GuestDownloadBadge';
+import { useDownloadGate } from '../context/DownloadGateContext';
 import { usePlatformData } from '../context/PlatformDataContext';
 import { resolveAssetUrl } from '../utils/instantUpload';
 import {
@@ -36,6 +39,7 @@ export default function MaterialDetailPage() {
     chapterSlug?: string;
   }>();
 
+  const { requestPdfDownload } = useDownloadGate();
   const {
     allCohorts,
     subjects,
@@ -264,7 +268,10 @@ export default function MaterialDetailPage() {
             All {primaryCohortLabel} Chapters
           </Link>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <span className="hidden sm:inline-flex">
+              <GuestDownloadBadge />
+            </span>
             <button
               type="button"
               onClick={() => {
@@ -280,14 +287,22 @@ export default function MaterialDetailPage() {
               {isBookmarked ? <BookmarkCheck className="w-4 h-4" /> : <Bookmark className="w-4 h-4" />}
               {isBookmarked ? 'Bookmarked' : 'Bookmark'}
             </button>
-            <a
-              href={resolvedUrl || material.fileUrl}
-              download={material.fileName || `${material.title}.pdf`}
+            <button
+              type="button"
+              onClick={() =>
+                void requestPdfDownload({
+                  url: resolvedUrl || material.fileUrl,
+                  fileName: material.fileName || `${material.title}.pdf`,
+                  title: material.title,
+                  materialId: material.id,
+                  onApproved: () => recordMaterialView(material.id),
+                })
+              }
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-[#2563EB] hover:bg-[#1D4ED8] text-white transition-colors"
             >
               <Download className="w-4 h-4" />
               Download PDF
-            </a>
+            </button>
           </div>
         </div>
 
@@ -337,8 +352,11 @@ export default function MaterialDetailPage() {
           <FullPdfViewer
             url={resolvedUrl || material.fileUrl}
             title={material.title}
+            subtitle={`${subjectName} · ${sectionLabel}`}
             fileName={material.fileName}
+            materialId={material.id}
             heightClassName="h-[74vh]"
+            onDownloadApproved={() => recordMaterialView(material.id)}
           />
         )}
 
@@ -418,6 +436,7 @@ export default function MaterialDetailPage() {
             </div>
           </section>
         )}
+        <NativeBannerAd />
       </ResponsiveContainer>
     </PageLayout>
   );

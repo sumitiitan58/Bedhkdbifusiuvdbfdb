@@ -5,12 +5,17 @@ import type {
   SectionRecord,
   StudyMaterialRecord,
   SubjectRecord,
+  TestQuestionRecord,
 } from '../types';
 import {
   CONCISE_NOTES_SECTION,
   JEE_CONCISE_CHAPTERS,
   JEE_CONCISE_MATERIALS,
 } from '../data/jeeConciseNotesCatalog';
+import {
+  FULL_MOCK_TEST_1_QUESTIONS,
+  FULL_MOCK_TEST_1_RECORD,
+} from '../data/fullMockTest1Catalog';
 import { STARTER_CLASS_GROUPS } from '../services/platformRegistry';
 
 function normalizeName(str: string): string {
@@ -204,10 +209,62 @@ export function filterMaterialsByCohort(
   return materials.filter((m) => Array.isArray(m.cohorts) && m.cohorts.includes(selectedCohort));
 }
 
+export function getTestCohortIds(
+  test: Pick<MockTestRecord, 'cohortId' | 'cohortIds'>
+): string[] {
+  const seen = new Set<string>();
+  if (test.cohortId) seen.add(test.cohortId);
+  if (Array.isArray(test.cohortIds)) {
+    for (const id of test.cohortIds) {
+      if (id) seen.add(id);
+    }
+  }
+  return Array.from(seen);
+}
+
+export function testMatchesCohort(
+  test: Pick<MockTestRecord, 'cohortId' | 'cohortIds'>,
+  selectedCohort: string
+): boolean {
+  if (!selectedCohort || selectedCohort === 'all') return true;
+  return getTestCohortIds(test).includes(selectedCohort);
+}
+
 export function filterTestsByCohort(
   tests: MockTestRecord[],
   selectedCohort: string
 ): MockTestRecord[] {
   if (!selectedCohort || selectedCohort === 'all') return tests;
-  return tests.filter((t) => t.cohortId === selectedCohort);
+  return tests.filter((t) => testMatchesCohort(t, selectedCohort));
+}
+
+/**
+ * Non-destructively merges Firestore/starter mock tests & questions with
+ * official built-in full-syllabus cropped mock tests (e.g. Full Mock Test 1)
+ * so they remain available for both 12th JEE and Dropper JEE students.
+ */
+export function mergeOfficialMockTests(params: {
+  mockTests: MockTestRecord[];
+  questions: TestQuestionRecord[];
+}): {
+  mockTests: MockTestRecord[];
+  questions: TestQuestionRecord[];
+} {
+  const officialTests: MockTestRecord[] = [FULL_MOCK_TEST_1_RECORD];
+  const officialQuestions: TestQuestionRecord[] = FULL_MOCK_TEST_1_QUESTIONS;
+
+  const existingTestIds = new Set(params.mockTests.map((t) => t.id));
+  const missingOfficialTests = officialTests.filter((t) => !existingTestIds.has(t.id));
+  const mergedTests = [...missingOfficialTests, ...params.mockTests];
+
+  const existingQuestionIds = new Set(params.questions.map((q) => q.id));
+  const missingOfficialQuestions = officialQuestions.filter(
+    (q) => !existingQuestionIds.has(q.id)
+  );
+  const mergedQuestions = [...missingOfficialQuestions, ...params.questions];
+
+  return {
+    mockTests: mergedTests,
+    questions: mergedQuestions,
+  };
 }
