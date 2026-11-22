@@ -73,6 +73,45 @@ const NEET_TESTS = [
       'Attempt NEET (UG) Full Mock Test 05 (Statement & Assertion Mix) free online in NTA CBT format on PREPSKM.IN — 180 compulsory MCQs across Physics, Chemistry, Botany & Zoology, 720 marks, 180 minutes, +4/-1 marking with step-by-step solutions.',
     createdAtIso: '2026-11-21T10:05:00.000Z',
   },
+  {
+    num: 6,
+    id: 'cbt-neet-full-mock-test-6',
+    slug: 'neet-ug-full-mock-test-06-balanced-grand-test',
+    assetFolder: 'neet-mock-test-6',
+    prefix: 'neet6',
+    pdfRelPath: 'public/assets/aistudio/NEET_UG_Mock_Test_06_93317060.pdf',
+    title: 'NEET (UG) Full Mock Test 06 — Balanced Grand Test',
+    subtitle: 'Balanced Grand Test',
+    seoDescription:
+      'Attempt NEET (UG) Full Mock Test 06 (Balanced Grand Test) free online in NTA CBT format on PREPSKM.IN — 180 compulsory MCQs across Physics, Chemistry, Botany & Zoology, 720 marks, 180 minutes, +4/-1 marking with step-by-step solutions.',
+    createdAtIso: '2026-11-22T10:06:00.000Z',
+  },
+  {
+    num: 7,
+    id: 'cbt-neet-full-mock-test-7',
+    slug: 'neet-ug-full-mock-test-07-speed-accuracy-drill',
+    assetFolder: 'neet-mock-test-7',
+    prefix: 'neet7',
+    pdfRelPath: 'public/assets/aistudio/NEET_UG_Mock_Test_07_483c046e.pdf',
+    title: 'NEET (UG) Full Mock Test 07 — Speed & Accuracy Drill',
+    subtitle: 'Speed & Accuracy Drill',
+    seoDescription:
+      'Attempt NEET (UG) Full Mock Test 07 (Speed & Accuracy Drill) free online in NTA CBT format on PREPSKM.IN — 180 compulsory MCQs across Physics, Chemistry, Botany & Zoology, 720 marks, 180 minutes, +4/-1 marking with step-by-step solutions.',
+    createdAtIso: '2026-11-22T10:07:00.000Z',
+  },
+  {
+    num: 8,
+    id: 'cbt-neet-full-mock-test-8',
+    slug: 'neet-ug-full-mock-test-08-pyq-pattern-comprehensive',
+    assetFolder: 'neet-mock-test-8',
+    prefix: 'neet8',
+    pdfRelPath: 'public/assets/aistudio/NEET_UG_Mock_Test_08_401f6a65.pdf',
+    title: 'NEET (UG) Full Mock Test 08 — PYQ-Pattern Comprehensive',
+    subtitle: 'PYQ-Pattern Comprehensive',
+    seoDescription:
+      'Attempt NEET (UG) Full Mock Test 08 (PYQ-Pattern Comprehensive) free online in NTA CBT format on PREPSKM.IN — 180 compulsory MCQs across Physics, Chemistry, Botany & Zoology, 720 marks, 180 minutes, +4/-1 marking with step-by-step solutions.',
+    createdAtIso: '2026-11-22T10:08:00.000Z',
+  },
 ];
 
 // --- Minimal zero-dependency PNG encoder (RGB8) ---
@@ -698,7 +737,7 @@ function buildCatalogFile(results) {
     lines.push(`  seoDescription: ${JSON.stringify(cfg.seoDescription)},`);
     lines.push(`  destination: 'cbt-mock',`);
     lines.push(`  cohortId: 'class-12-neet',`);
-    lines.push(`  cohortIds: ['class-11-neet', 'class-12-neet', 'neet-dropper'],`);
+    lines.push(`  cohortIds: ['class-12-neet', 'neet-dropper'],`);
     lines.push(`  examCategory: 'NEET (UG) Full Syllabus Mock Test (NTA Pattern)',`);
     lines.push(`  examType: 'NEET UG',`);
     lines.push(`  syllabus: ${JSON.stringify(syllabus, null, 2).replace(/\n/g, '\n  ')},`);
@@ -779,7 +818,7 @@ async function main() {
   buildCatalogFile(results);
   fs.rmSync(TMP_DIR, { recursive: true, force: true });
   fs.rmSync('/tmp/neet_probe', { recursive: true, force: true });
-  console.log('\nAll 5 NEET (UG) Mock Tests cropped & cataloged cleanly!');
+  console.log(`\nAll ${results.length} NEET (UG) Mock Tests cropped & cataloged cleanly!`);
   process.exit(0);
 }
 
