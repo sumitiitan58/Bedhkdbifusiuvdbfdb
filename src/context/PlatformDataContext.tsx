@@ -415,8 +415,11 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
       mergeOfficialMockTests({
         mockTests: fsTests.length > 0 ? fsTests : STARTER_TESTS,
         questions: fsQuestions.length > 0 ? fsQuestions : STARTER_QUESTIONS,
+        starterTests: STARTER_TESTS,
+        starterQuestions: STARTER_QUESTIONS,
+        subjectIdMap: mergedCatalog.subjectIdMap,
       }),
-    [fsTests, fsQuestions]
+    [fsTests, fsQuestions, mergedCatalog.subjectIdMap]
   );
 
   const value = useMemo<PlatformDataContextValue>(

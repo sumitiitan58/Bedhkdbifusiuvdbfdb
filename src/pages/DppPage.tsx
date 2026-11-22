@@ -20,6 +20,7 @@ import { usePlatformData } from '../context/PlatformDataContext';
 import {
   filterChaptersByCohort,
   filterSubjectsByCohort,
+  getTestCohortIds,
   testMatchesCohort,
 } from '../utils/catalogMerge';
 import { getHierarchicalMockTestPath } from '../utils/seoHelpers';
@@ -51,6 +52,10 @@ export default function DppPage() {
 
   const subjectMap = useMemo(() => new Map(subjects.map((s) => [s.id, s.name])), [subjects]);
   const chapterMap = useMemo(() => new Map(chapters.map((c) => [c.id, c.name])), [chapters]);
+  const cohortLabelMap = useMemo(
+    () => new Map(allCohorts.map((c) => [c.id, c.shortLabel])),
+    [allCohorts]
+  );
 
   const availableChapters = useMemo(
     () =>
@@ -132,7 +137,11 @@ export default function DppPage() {
               <select
                 id="dpp-cohort"
                 value={selectedCohort}
-                onChange={(e) => setSelectedCohort(e.target.value as StudentCohortId | 'all')}
+                onChange={(e) => {
+                  setSelectedCohort(e.target.value as StudentCohortId | 'all');
+                  setSelectedSubjectId('all');
+                  setSelectedChapterId('all');
+                }}
                 className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm"
               >
                 <option value="all">All Classes</option>
@@ -216,8 +225,17 @@ export default function DppPage() {
               const qCount = questions.filter((q) => q.testId === dpp.id).length;
               const prevAttempts = dppAttempts.filter((a) => a.testId === dpp.id);
               const latest = prevAttempts[prevAttempts.length - 1];
-              const subName = dpp.subjectId ? subjectMap.get(dpp.subjectId) : dpp.examCategory;
-              const chName = dpp.chapterId ? chapterMap.get(dpp.chapterId) : 'Mixed Practice';
+              const subName =
+                (dpp.subjectId && subjectMap.get(dpp.subjectId)) ||
+                dpp.syllabus?.[0]?.subject ||
+                dpp.examCategory;
+              const chName =
+                (dpp.chapterId && chapterMap.get(dpp.chapterId)) ||
+                dpp.syllabus?.[0]?.chapters?.[0] ||
+                'Mixed Practice';
+              const targetCohortText = getTestCohortIds(dpp)
+                .map((cid) => cohortLabelMap.get(cid) ?? cid)
+                .join(' · ');
 
               return (
                 <ReusableCard
@@ -227,9 +245,9 @@ export default function DppPage() {
                   className="flex flex-col justify-between gap-3.5"
                 >
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between text-xs font-semibold">
-                      <span className="text-sky-700 dark:text-sky-400">{subName}</span>
-                      <span className="text-slate-500 dark:text-slate-400 truncate max-w-[60%] text-right">
+                    <div className="flex items-center justify-between gap-2 text-xs font-semibold">
+                      <span className="text-sky-700 dark:text-sky-400 shrink-0">{subName}</span>
+                      <span className="text-slate-500 dark:text-slate-400 truncate max-w-[65%] text-right">
                         {chName}
                       </span>
                     </div>
@@ -253,6 +271,14 @@ export default function DppPage() {
                           ? `+${dpp.positiveMarks} / -${dpp.negativeMarks}`
                           : `+${dpp.positiveMarks} (No Neg)`}
                       </span>
+                      {targetCohortText && (
+                        <>
+                          <span>·</span>
+                          <span className="font-medium text-slate-500 dark:text-slate-400">
+                            {targetCohortText}
+                          </span>
+                        </>
+                      )}
                     </div>
 
                     {latest && (

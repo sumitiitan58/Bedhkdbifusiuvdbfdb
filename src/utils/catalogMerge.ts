@@ -20,6 +20,14 @@ import {
   ADDITIONAL_FULL_MOCK_QUESTIONS,
   ADDITIONAL_FULL_MOCK_TESTS,
 } from '../data/fullMockTestsCatalog';
+import {
+  NEET_FULL_MOCK_QUESTIONS,
+  NEET_FULL_MOCK_TESTS,
+} from '../data/neetMockTestsCatalog';
+import {
+  DPP_UNITS_DIMENSIONS_75_QUESTIONS,
+  DPP_UNITS_DIMENSIONS_75_RECORD,
+} from '../data/dppUnitsDimensionsCatalog';
 import { STARTER_CLASS_GROUPS } from '../services/platformRegistry';
 
 function normalizeName(str: string): string {
@@ -181,6 +189,7 @@ export function mergeOfficialJeeCatalog(params: {
     sections: mergedSections,
     chapters: mergedChapters,
     materials: mergedMaterials,
+    subjectIdMap,
   };
 }
 
@@ -243,33 +252,82 @@ export function filterTestsByCohort(
 }
 
 /**
- * Non-destructively merges Firestore/starter mock tests & questions with
- * official built-in full-syllabus cropped mock tests (e.g. Full Mock Test 1)
- * so they remain available for both 12th JEE and Dropper JEE students.
+ * Non-destructively merges Firestore/cached mock tests & questions with:
+ * - Official built-in full-syllabus JEE & NEET cropped mock tests
+ * - Official built-in chapter DPPs (including the 75Q Units & Dimensions JEE Physics DPP)
+ * - Any newly added starter DPPs from starterCatalog.ts (destination === 'dpp')
+ *
+ * Existing Firestore/admin-edited tests and user progress are never overwritten or wiped.
  */
 export function mergeOfficialMockTests(params: {
   mockTests: MockTestRecord[];
   questions: TestQuestionRecord[];
+  starterTests?: MockTestRecord[];
+  starterQuestions?: TestQuestionRecord[];
+  subjectIdMap?: Map<string, string>;
 }): {
   mockTests: MockTestRecord[];
   questions: TestQuestionRecord[];
 } {
-  const officialTests: MockTestRecord[] = [
+  const starterDpps = (params.starterTests ?? []).filter((t) => t.destination === 'dpp');
+  const starterDppIds = new Set(starterDpps.map((t) => t.id));
+  const starterDppQuestions = (params.starterQuestions ?? []).filter((q) =>
+    starterDppIds.has(q.testId)
+  );
+
+  // Deduplicate candidate official + starter DPP records while preserving deterministic order
+  const candidateTests: MockTestRecord[] = [];
+  const seenCandidateTestIds = new Set<string>();
+  const rawCandidateTests: MockTestRecord[] = [
     FULL_MOCK_TEST_1_RECORD,
     ...ADDITIONAL_FULL_MOCK_TESTS,
+    ...NEET_FULL_MOCK_TESTS,
+    DPP_UNITS_DIMENSIONS_75_RECORD,
+    ...starterDpps,
   ];
-  const officialQuestions: TestQuestionRecord[] = [
+  for (const t of rawCandidateTests) {
+    if (!seenCandidateTestIds.has(t.id)) {
+      seenCandidateTestIds.add(t.id);
+      candidateTests.push(t);
+    }
+  }
+
+  const candidateQuestions: TestQuestionRecord[] = [];
+  const seenCandidateQIds = new Set<string>();
+  const rawCandidateQuestions: TestQuestionRecord[] = [
     ...FULL_MOCK_TEST_1_QUESTIONS,
     ...ADDITIONAL_FULL_MOCK_QUESTIONS,
+    ...NEET_FULL_MOCK_QUESTIONS,
+    ...DPP_UNITS_DIMENSIONS_75_QUESTIONS,
+    ...starterDppQuestions,
   ];
+  for (const q of rawCandidateQuestions) {
+    if (!seenCandidateQIds.has(q.id)) {
+      seenCandidateQIds.add(q.id);
+      candidateQuestions.push(q);
+    }
+  }
+
+  const remapSubjectId = (test: MockTestRecord): MockTestRecord => {
+    if (!test.subjectId || !params.subjectIdMap) return test;
+    const mapped = params.subjectIdMap.get(test.subjectId);
+    return mapped && mapped !== test.subjectId ? { ...test, subjectId: mapped } : test;
+  };
 
   const existingTestIds = new Set(params.mockTests.map((t) => t.id));
-  const missingOfficialTests = officialTests.filter((t) => !existingTestIds.has(t.id));
+  const missingOfficialTests = candidateTests
+    .filter((t) => !existingTestIds.has(t.id))
+    .map(remapSubjectId);
   const mergedTests = [...missingOfficialTests, ...params.mockTests];
 
+  const missingTestIdSet = new Set(missingOfficialTests.map((t) => t.id));
   const existingQuestionIds = new Set(params.questions.map((q) => q.id));
-  const missingOfficialQuestions = officialQuestions.filter(
-    (q) => !existingQuestionIds.has(q.id)
+  const testIdsWithQuestions = new Set(params.questions.map((q) => q.testId));
+
+  const missingOfficialQuestions = candidateQuestions.filter(
+    (q) =>
+      !existingQuestionIds.has(q.id) &&
+      (missingTestIdSet.has(q.testId) || !testIdsWithQuestions.has(q.testId))
   );
   const mergedQuestions = [...missingOfficialQuestions, ...params.questions];
 

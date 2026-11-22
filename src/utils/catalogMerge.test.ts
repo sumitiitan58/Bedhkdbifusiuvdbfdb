@@ -473,7 +473,7 @@ test('Full Mock Tests 2–5 have 240 verified questions, 480 real PDF-cropped PN
   assert.equal(fs.readFileSync(boardPdfPath).subarray(0, 5).toString('utf8'), '%PDF-');
 });
 
-test('mergeOfficialMockTests prepends Full Mock Tests 1–5 alongside Firestore tests without duplication', () => {
+test('mergeOfficialMockTests prepends official JEE/NEET mocks and 75Q DPP alongside Firestore tests without duplication', () => {
   const customTest: MockTestRecord = {
     id: 'custom-admin-test-1',
     title: 'Admin Custom Test',
@@ -491,7 +491,8 @@ test('mergeOfficialMockTests prepends Full Mock Tests 1–5 alongside Firestore 
   };
 
   const mergedOnce = mergeOfficialMockTests({ mockTests: [customTest], questions: [] });
-  assert.equal(mergedOnce.mockTests.length, 6);
+  // 5 JEE Full Mocks + 5 NEET Full Mocks + 1 Units & Dimensions 75Q DPP + 1 custom admin test = 12
+  assert.equal(mergedOnce.mockTests.length, 12);
   assert.deepEqual(
     mergedOnce.mockTests.slice(0, 5).map((t) => t.id),
     [
@@ -502,14 +503,15 @@ test('mergeOfficialMockTests prepends Full Mock Tests 1–5 alongside Firestore 
       FULL_MOCK_TEST_5_ID,
     ]
   );
-  assert.equal(mergedOnce.questions.length, 315);
+  // 315 JEE questions + 900 NEET questions + 75 Units & Dimensions DPP questions = 1290
+  assert.equal(mergedOnce.questions.length, 1290);
 
-  // Calling again does not duplicate any of Full Mock Tests 1–5 or their 315 questions
+  // Calling again does not duplicate any official test or question
   const mergedTwice = mergeOfficialMockTests(mergedOnce);
-  assert.equal(mergedTwice.mockTests.length, 6);
-  assert.equal(mergedTwice.questions.length, 315);
+  assert.equal(mergedTwice.mockTests.length, 12);
+  assert.equal(mergedTwice.questions.length, 1290);
 
-  // Both 12th JEE and Dropper JEE filters return all 5 Full Mock Tests; NEET returns none
+  // Both 12th JEE and Dropper JEE filters return all 5 JEE Full Mock Tests; NEET returns none of them
   const expectedIds = [
     FULL_MOCK_TEST_1_ID,
     FULL_MOCK_TEST_2_ID,
@@ -522,5 +524,83 @@ test('mergeOfficialMockTests prepends Full Mock Tests 1–5 alongside Firestore 
     assert.ok(filterTestsByCohort(mergedOnce.mockTests, 'jee-dropper').some((t) => t.id === id));
     assert.equal(filterTestsByCohort(mergedOnce.mockTests, 'class-12-neet').some((t) => t.id === id), false);
   }
+
+  // Units & Dimensions 75Q DPP matches All Classes, Class 11 JEE, and JEE Dropper
+  const dppId = 'dpp-phy-units-dimensions-75';
+  assert.ok(filterTestsByCohort(mergedOnce.mockTests, 'all').some((t) => t.id === dppId));
+  assert.ok(filterTestsByCohort(mergedOnce.mockTests, 'class-11-jee').some((t) => t.id === dppId));
+  assert.ok(filterTestsByCohort(mergedOnce.mockTests, 'jee-dropper').some((t) => t.id === dppId));
+  assert.equal(filterTestsByCohort(mergedOnce.mockTests, 'class-12-neet').some((t) => t.id === dppId), false);
+  assert.equal(mergedOnce.questions.filter((q) => q.testId === dppId).length, 75);
 });
+
+test('mergeOfficialMockTests auto-merges newly added starter DPPs and remaps custom Firestore subjectIds', () => {
+  const existingFirestoreTest: MockTestRecord = {
+    id: 'fs-existing-mock',
+    title: 'Existing Firestore CBT Mock',
+    destination: 'cbt-mock',
+    cohortId: 'class-12-jee',
+    examCategory: 'JEE Main',
+    totalQuestions: 1,
+    totalMarks: 4,
+    durationMinutes: 15,
+    positiveMarks: 4,
+    negativeMarks: 1,
+    negativeMarkingEnabled: true,
+    showSolutionsAfterSubmit: true,
+    status: 'published',
+  };
+
+  const newStarterDpp: MockTestRecord = {
+    id: 'dpp-phy-new-kinematics-01',
+    title: 'Kinematics — Starter DPP #01',
+    destination: 'dpp',
+    cohortId: 'class-11-jee',
+    cohortIds: ['class-11-jee', 'jee-dropper'],
+    subjectId: 'subj-physics',
+    chapterId: 'chap-jee-phy-02',
+    examCategory: 'Chapter-Wise DPP',
+    totalQuestions: 1,
+    totalMarks: 4,
+    durationMinutes: 10,
+    positiveMarks: 4,
+    negativeMarks: 1,
+    negativeMarkingEnabled: true,
+    showSolutionsAfterSubmit: true,
+    status: 'published',
+  };
+
+  const subjectIdMap = new Map<string, string>([['subj-physics', 'custom-fs-physics']]);
+
+  const merged = mergeOfficialMockTests({
+    mockTests: [existingFirestoreTest],
+    questions: [],
+    starterTests: [newStarterDpp],
+    starterQuestions: [
+      {
+        id: 'q-kin-1',
+        testId: newStarterDpp.id,
+        questionNumber: 1,
+        subjectName: 'Physics',
+        questionType: 'single-mcq',
+        questionText: 'Sample kinematics question',
+        optionTexts: ['A', 'B', 'C', 'D'],
+        correctOptionIndices: [0],
+        positiveMarks: 4,
+        negativeMarks: 1,
+        testStatus: 'published',
+      },
+    ],
+    subjectIdMap,
+  });
+
+  const mergedNewDpp = merged.mockTests.find((t) => t.id === newStarterDpp.id);
+  const mergedUnitsDpp = merged.mockTests.find((t) => t.id === 'dpp-phy-units-dimensions-75');
+  assert.ok(mergedNewDpp, 'Newly added starter DPP should auto-merge into existing catalog');
+  assert.equal(mergedNewDpp!.subjectId, 'custom-fs-physics');
+  assert.ok(mergedUnitsDpp, 'Built-in 75Q Units & Dimensions DPP should always be present');
+  assert.equal(mergedUnitsDpp!.subjectId, 'custom-fs-physics');
+  assert.equal(merged.questions.filter((q) => q.testId === newStarterDpp.id).length, 1);
+});
+
 
