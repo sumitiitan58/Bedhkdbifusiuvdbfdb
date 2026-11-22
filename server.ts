@@ -21,6 +21,10 @@ import {
   JEE_CONCISE_MATERIALS,
 } from './src/data/jeeConciseNotesCatalog';
 import {
+  PCMB_FORMULA_CHAPTERS,
+  PCMB_FORMULA_MATERIALS,
+} from './src/data/pcmbFormulaSheetsCatalog';
+import {
   STARTER_CHAPTERS,
   STARTER_MATERIALS,
   STARTER_SUBJECTS,
@@ -34,8 +38,16 @@ const __dirname = path.dirname(__filename);
 const GEMINI_MODEL = 'gemini-4-hydrogen';
 
 const ALL_STATIC_COHORTS = flattenClassGroupsToCohorts(STARTER_CLASS_GROUPS);
-const ALL_STATIC_MATERIALS = [...JEE_CONCISE_MATERIALS, ...STARTER_MATERIALS];
-const ALL_STATIC_CHAPTERS = [...JEE_CONCISE_CHAPTERS, ...STARTER_CHAPTERS];
+const ALL_STATIC_MATERIALS = [
+  ...PCMB_FORMULA_MATERIALS,
+  ...JEE_CONCISE_MATERIALS,
+  ...STARTER_MATERIALS,
+];
+const ALL_STATIC_CHAPTERS = [
+  ...PCMB_FORMULA_CHAPTERS,
+  ...JEE_CONCISE_CHAPTERS,
+  ...STARTER_CHAPTERS,
+];
 
 function escapeHtml(str: string): string {
   return str

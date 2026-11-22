@@ -8,6 +8,11 @@ import {
   JEE_CONCISE_MATERIALS,
 } from '../data/jeeConciseNotesCatalog';
 import {
+  FORMULA_SHEETS_SECTION,
+  PCMB_FORMULA_CHAPTERS,
+  PCMB_FORMULA_MATERIALS,
+} from '../data/pcmbFormulaSheetsCatalog';
+import {
   FULL_MOCK_TEST_1_ID,
   FULL_MOCK_TEST_1_QUESTIONS,
   FULL_MOCK_TEST_1_RECORD,
@@ -602,5 +607,107 @@ test('mergeOfficialMockTests auto-merges newly added starter DPPs and remaps cus
   assert.equal(mergedUnitsDpp!.subjectId, 'custom-fs-physics');
   assert.equal(merged.questions.filter((q) => q.testId === newStarterDpp.id).length, 1);
 });
+
+test('PCMB Formula Sheets catalog contains all 99 verified PDFs on disk with strict JEE/NEET branch & class isolation', () => {
+  assert.equal(PCMB_FORMULA_MATERIALS.length, 99);
+  assert.equal(PCMB_FORMULA_CHAPTERS.length, 33); // 8 Master + 1 Experimental Physics + 24 Biology
+
+  const seenIds = new Set<string>();
+  const seenSlugs = new Set<string>();
+  const seenFiles = new Set<string>();
+
+  for (const mat of PCMB_FORMULA_MATERIALS) {
+    assert.equal(mat.sectionName, FORMULA_SHEETS_SECTION.name);
+    assert.equal(mat.resourceType, 'Formula Sheets');
+    assert.equal(mat.isPublished, true);
+    assert.equal(seenIds.has(mat.id), false, `Duplicate formula sheet id: ${mat.id}`);
+    seenIds.add(mat.id);
+    assert.ok(mat.slug && mat.slug.length > 5);
+    assert.equal(seenSlugs.has(mat.slug), false, `Duplicate formula sheet slug: ${mat.slug}`);
+    seenSlugs.add(mat.slug);
+    assert.equal(seenFiles.has(mat.fileUrl), false, `Duplicate formula sheet fileUrl: ${mat.fileUrl}`);
+    seenFiles.add(mat.fileUrl);
+
+    const diskPath = path.join(process.cwd(), 'public', mat.fileUrl);
+    assert.equal(fs.existsSync(diskPath), true, `Missing Formula Sheet PDF on disk: ${diskPath}`);
+    const header = fs.readFileSync(diskPath).subarray(0, 5).toString('utf8');
+    assert.equal(header, '%PDF-', `Invalid PDF header for ${diskPath}`);
+    const size = fs.statSync(diskPath).size;
+    assert.equal(mat.fileSizeBytes, size, `File size mismatch for ${mat.fileUrl}`);
+  }
+
+  // Exact subject distribution: 29 Physics + 21 Chemistry + 23 Maths + 26 Biology = 99
+  assert.equal(PCMB_FORMULA_MATERIALS.filter((m) => m.subjectId === 'subj-physics').length, 29);
+  assert.equal(PCMB_FORMULA_MATERIALS.filter((m) => m.subjectId === 'subj-chemistry').length, 21);
+  assert.equal(PCMB_FORMULA_MATERIALS.filter((m) => m.subjectId === 'subj-mathematics').length, 23);
+  assert.equal(PCMB_FORMULA_MATERIALS.filter((m) => m.subjectId === 'subj-biology').length, 26);
+
+  // Strict cohort counts & branch isolation
+  const jee11 = filterMaterialsByCohort(PCMB_FORMULA_MATERIALS, 'class-11-jee');
+  const jee12 = filterMaterialsByCohort(PCMB_FORMULA_MATERIALS, 'class-12-jee');
+  const jeeDrop = filterMaterialsByCohort(PCMB_FORMULA_MATERIALS, 'jee-dropper');
+  const neet11 = filterMaterialsByCohort(PCMB_FORMULA_MATERIALS, 'class-11-neet');
+  const neet12 = filterMaterialsByCohort(PCMB_FORMULA_MATERIALS, 'class-12-neet');
+  const neetDrop = filterMaterialsByCohort(PCMB_FORMULA_MATERIALS, 'neet-dropper');
+
+  // 11th JEE: 14 Phy + 10 Chem + 12 Math = 36 (0 Bio)
+  assert.equal(jee11.length, 36);
+  assert.equal(jee11.filter((m) => m.subjectId === 'subj-biology').length, 0);
+
+  // 12th JEE: 15 Phy + 11 Chem + 11 Math = 37 (0 Bio)
+  assert.equal(jee12.length, 37);
+  assert.equal(jee12.filter((m) => m.subjectId === 'subj-biology').length, 0);
+
+  // JEE Dropper: 29 Phy + 21 Chem + 23 Math = 73 (0 Bio)
+  assert.equal(jeeDrop.length, 73);
+  assert.equal(jeeDrop.filter((m) => m.subjectId === 'subj-biology').length, 0);
+
+  // 11th NEET: 14 Phy + 10 Chem + 15 Bio = 39 (0 Math)
+  assert.equal(neet11.length, 39);
+  assert.equal(neet11.filter((m) => m.subjectId === 'subj-mathematics').length, 0);
+
+  // 12th NEET: 15 Phy + 11 Chem + 11 Bio = 37 (0 Math)
+  assert.equal(neet12.length, 37);
+  assert.equal(neet12.filter((m) => m.subjectId === 'subj-mathematics').length, 0);
+
+  // NEET Dropper: 29 Phy + 21 Chem + 26 Bio = 76 (0 Math)
+  assert.equal(neetDrop.length, 76);
+  assert.equal(neetDrop.filter((m) => m.subjectId === 'subj-mathematics').length, 0);
+
+  // Verify mergeOfficialJeeCatalog auto-merges Formula Sheets, remaps custom subject IDs, and keeps JEE Concise Notes out of NEET
+  const merged = mergeOfficialJeeCatalog({
+    subjects: [
+      { id: 'custom-phy', name: 'Physics', code: 'PHY', order: 1, cohorts: ['class-11-jee'] },
+      { id: 'custom-bio', name: 'Biology', code: 'BIO', order: 4, cohorts: ['class-12-neet'] },
+    ],
+    sections: [
+      {
+        id: 'sec-formula-sheets',
+        name: 'Formula Sheets',
+        slug: 'formula-sheets',
+        order: 3,
+        scope: 'subjects',
+        subjectIds: ['custom-phy'],
+      },
+    ],
+    chapters: [],
+    materials: [],
+  });
+
+  const formulaSec = merged.sections.find((s) => s.slug === 'formula-sheets');
+  assert.ok(formulaSec, 'Formula Sheets section should exist');
+  assert.ok(formulaSec!.subjectIds?.includes('custom-phy'));
+  assert.ok(formulaSec!.subjectIds?.includes('custom-bio'));
+  assert.ok(formulaSec!.subjectIds?.includes('subj-chemistry'));
+  assert.ok(formulaSec!.subjectIds?.includes('subj-mathematics'));
+
+  const mergedNeet11Mats = filterMaterialsByCohort(merged.materials, 'class-11-neet');
+  // Every NEET 11 material in merged catalog is a Formula Sheet; zero Concise Notes leak into NEET
+  assert.equal(mergedNeet11Mats.filter((m) => m.sectionName === 'Concise Notes').length, 0);
+  assert.equal(mergedNeet11Mats.filter((m) => m.sectionName === 'Formula Sheets').length, 39);
+  assert.equal(mergedNeet11Mats.filter((m) => m.subjectId === 'custom-bio').length, 15);
+  assert.equal(mergedNeet11Mats.filter((m) => m.subjectId === 'custom-phy').length, 14);
+});
+
 
 

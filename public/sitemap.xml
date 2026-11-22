@@ -2,662 +2,1256 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://prepskm.in/</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
     <loc>https://prepskm.in/cbt-mocks</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.95</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.95</priority>
   </url>
   <url>
     <loc>https://prepskm.in/dpp</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://prepskm.in/analytics</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.75</priority>
   </url>
   <url>
     <loc>https://prepskm.in/about</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://prepskm.in/materials/class-11-jee/physics/physics-class-11-class-11-physics-complete-master-formula-sheet-all-13-chapters-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-jee/physics/physics-class-11-units-dimensions-and-error-analysis-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-jee/physics/physics-class-11-kinematics-1d-projectile-and-relative-motion-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-jee/physics/physics-class-11-laws-of-motion-friction-and-circular-dynamics-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-jee/physics/physics-class-11-work-energy-power-and-vertical-circle-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-jee/physics/physics-class-11-centre-of-mass-momentum-and-collisions-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-jee/physics/physics-class-11-rotational-motion-and-moment-of-inertia-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-jee/physics/physics-class-11-gravitation-satellites-and-kepler-laws-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-jee/physics/physics-class-11-mechanical-properties-of-solids-and-fluids-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-jee/physics/physics-class-11-thermal-properties-expansion-and-heat-transfer-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-jee/physics/physics-class-11-kinetic-theory-of-gases-ktg-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-jee/physics/physics-class-11-thermodynamics-and-heat-engines-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-jee/physics/physics-class-11-oscillations-and-simple-harmonic-motion-shm-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-jee/physics/physics-class-11-mechanical-waves-string-waves-and-sound-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-12-jee/physics/physics-class-12-class-12-physics-complete-master-formula-sheet-all-14-chapters-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-12-jee/physics/physics-class-12-electrostatics-and-gauss-law-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-12-jee/physics/physics-class-12-potential-capacitors-and-dielectrics-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-12-jee/physics/physics-class-12-current-electricity-and-electrical-instruments-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-12-jee/physics/physics-class-12-moving-charges-and-magnetism-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-12-jee/physics/physics-class-12-magnetism-and-matter-bar-magnet-and-materials-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-12-jee/physics/physics-class-12-electromagnetic-induction-emi-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-12-jee/physics/physics-class-12-alternating-current-ac-and-transformers-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-12-jee/physics/physics-class-12-electromagnetic-waves-emw-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-12-jee/physics/physics-class-12-ray-optics-and-optical-instruments-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-12-jee/physics/physics-class-12-wave-optics-ydse-diffraction-and-polarisation-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-12-jee/physics/physics-class-12-dual-nature-of-radiation-and-matter-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-12-jee/physics/physics-class-12-atoms-nuclei-and-radioactivity-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-12-jee/physics/physics-class-12-semiconductors-diodes-and-logic-gates-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-12-jee/physics/physics-class-12-experimental-physics-and-practical-skills-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-jee/chemistry/chemistry-class-11-class-11-chemistry-complete-master-formula-sheet-all-9-chapters-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-jee/chemistry/chemistry-class-11-mole-concept-and-stoichiometry-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-jee/chemistry/chemistry-class-11-atomic-structure-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-jee/chemistry/chemistry-class-11-periodic-table-and-periodicity-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-jee/chemistry/chemistry-class-11-chemical-bonding-vsepr-and-mot-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-jee/chemistry/chemistry-class-11-thermodynamics-and-thermochemistry-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-jee/chemistry/chemistry-class-11-chemical-and-ionic-equilibrium-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-jee/chemistry/chemistry-class-11-redox-reactions-and-volumetric-analysis-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-jee/chemistry/chemistry-class-11-general-organic-chemistry-goc-and-isomerism-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-jee/chemistry/chemistry-class-11-hydrocarbons-alkanes-alkenes-alkynes-and-benzene-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-12-jee/chemistry/chemistry-class-12-class-12-chemistry-complete-master-formula-sheet-all-10-chapters-formula-shee</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-12-jee/chemistry/chemistry-class-12-solutions-and-colligative-properties-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-12-jee/chemistry/chemistry-class-12-electrochemistry-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-12-jee/chemistry/chemistry-class-12-chemical-kinetics-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-12-jee/chemistry/chemistry-class-12-d-and-f-block-elements-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-12-jee/chemistry/chemistry-class-12-coordination-compounds-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-12-jee/chemistry/chemistry-class-12-haloalkanes-and-haloarenes-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-12-jee/chemistry/chemistry-class-12-alcohols-phenols-and-ethers-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-12-jee/chemistry/chemistry-class-12-aldehydes-ketones-and-carboxylic-acids-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-12-jee/chemistry/chemistry-class-12-amines-and-diazonium-salts-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-12-jee/chemistry/chemistry-class-12-biomolecules-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-jee/mathematics/mathematics-class-11-class-11-mathematics-complete-master-formula-sheet-all-11-chapters-formula</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-jee/mathematics/mathematics-class-11-sets-relations-and-functions-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-jee/mathematics/mathematics-class-11-complex-numbers-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-jee/mathematics/mathematics-class-11-quadratic-equations-and-expressions-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-jee/mathematics/mathematics-class-11-sequences-and-series-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-jee/mathematics/mathematics-class-11-permutations-and-combinations-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-jee/mathematics/mathematics-class-11-binomial-theorem-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-jee/mathematics/mathematics-class-11-straight-lines-and-pair-of-lines-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-jee/mathematics/mathematics-class-11-circles-and-family-of-circles-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-jee/mathematics/mathematics-class-11-conic-sections-parabola-ellipse-and-hyperbola-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-jee/mathematics/mathematics-class-11-trigonometry-and-trigonometric-equations-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-jee/mathematics/mathematics-class-11-statistics-and-probability-basics-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-12-jee/mathematics/mathematics-class-12-class-12-mathematics-complete-master-formula-sheet-all-10-chapters-formula</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-12-jee/mathematics/mathematics-class-12-matrices-and-determinants-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-12-jee/mathematics/mathematics-class-12-inverse-trigonometric-functions-itf-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-12-jee/mathematics/mathematics-class-12-limits-continuity-and-differentiability-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-12-jee/mathematics/mathematics-class-12-application-of-derivatives-aod-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-12-jee/mathematics/mathematics-class-12-indefinite-integration-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-12-jee/mathematics/mathematics-class-12-definite-integration-and-area-under-curves-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-12-jee/mathematics/mathematics-class-12-differential-equations-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-12-jee/mathematics/mathematics-class-12-vector-algebra-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-12-jee/mathematics/mathematics-class-12-3d-geometry-lines-and-planes-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-12-jee/mathematics/mathematics-class-12-probability-bayes-theorem-and-distributions-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-neet/biology/biology-class-11-class-11-biology-complete-master-formula-and-fact-sheet-all-14-chapters-formula</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-neet/biology/biology-class-11-biological-classification-and-the-living-world-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-neet/biology/biology-class-11-plant-kingdom-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-neet/biology/biology-class-11-animal-kingdom-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-neet/biology/biology-class-11-morphology-and-anatomy-of-flowering-plants-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-neet/biology/biology-class-11-cell-structure-and-cell-cycle-division-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-neet/biology/biology-class-11-biomolecules-and-enzymes-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-neet/biology/biology-class-11-photosynthesis-in-higher-plants-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-neet/biology/biology-class-11-respiration-in-plants-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-neet/biology/biology-class-11-plant-growth-and-regulators-pgrs-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-neet/biology/biology-class-11-breathing-and-exchange-of-gases-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-neet/biology/biology-class-11-body-fluids-and-circulation-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-neet/biology/biology-class-11-excretory-products-and-their-elimination-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-neet/biology/biology-class-11-locomotion-and-movement-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-11-neet/biology/biology-class-11-neural-control-and-chemical-coordination-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-12-neet/biology/biology-class-12-class-12-biology-complete-master-formula-and-fact-sheet-all-10-chapters-formula</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-12-neet/biology/biology-class-12-sexual-reproduction-in-flowering-plants-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-12-neet/biology/biology-class-12-human-reproduction-and-reproductive-health-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-12-neet/biology/biology-class-12-principles-of-inheritance-and-variation-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-12-neet/biology/biology-class-12-molecular-basis-of-inheritance-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-12-neet/biology/biology-class-12-evolution-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-12-neet/biology/biology-class-12-human-health-and-disease-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-12-neet/biology/biology-class-12-microbes-in-human-welfare-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-12-neet/biology/biology-class-12-biotechnology-principles-and-applications-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-12-neet/biology/biology-class-12-organisms-and-populations-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://prepskm.in/materials/class-12-neet/biology/biology-class-12-ecosystem-and-biodiversity-conservation-formula-sheet-formula-sheet</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
     <loc>https://prepskm.in/materials/class-11-jee/mathematics/mathematics-sets-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-11-jee/mathematics/mathematics-relations-and-functions-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-11-jee/mathematics/mathematics-trigonometry-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-11-jee/mathematics/mathematics-quadratic-equations-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-11-jee/mathematics/mathematics-sequence-and-series-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-11-jee/mathematics/mathematics-permutations-and-combinations-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-11-jee/mathematics/mathematics-binomial-theorem-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-11-jee/mathematics/mathematics-complex-numbers-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-11-jee/mathematics/mathematics-straight-lines-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-11-jee/mathematics/mathematics-circles-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-11-jee/mathematics/mathematics-parabola-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-11-jee/mathematics/mathematics-ellipse-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-11-jee/mathematics/mathematics-hyperbola-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-11-jee/mathematics/mathematics-statistics-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-12-jee/mathematics/mathematics-inverse-trigonometric-functions-itf-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-12-jee/mathematics/mathematics-matrices-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-12-jee/mathematics/mathematics-determinants-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-12-jee/mathematics/mathematics-limits-continuity-and-differentiability-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-12-jee/mathematics/mathematics-methods-of-differentiation-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-12-jee/mathematics/mathematics-applications-of-derivatives-aod-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-12-jee/mathematics/mathematics-indefinite-integration-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-12-jee/mathematics/mathematics-definite-integration-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-12-jee/mathematics/mathematics-area-under-curves-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-12-jee/mathematics/mathematics-differential-equations-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-12-jee/mathematics/mathematics-vector-algebra-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-12-jee/mathematics/mathematics-3d-geometry-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-12-jee/mathematics/mathematics-probability-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-11-jee/physics/physics-units-dimensions-and-errors-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-11-jee/physics/physics-kinematics-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-11-jee/physics/physics-laws-of-motion-and-friction-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-11-jee/physics/physics-work-energy-and-power-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-11-jee/physics/physics-com-momentum-and-collisions-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-11-jee/physics/physics-rotational-motion-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-11-jee/physics/physics-gravitation-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-11-jee/physics/physics-elasticity-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-11-jee/physics/physics-fluid-mechanics-and-surface-tension-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-11-jee/physics/physics-thermal-physics-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-11-jee/physics/physics-ktg-and-thermodynamics-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-11-jee/physics/physics-simple-harmonic-motion-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-11-jee/physics/physics-waves-and-sound-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-12-jee/physics/physics-electrostatics-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-12-jee/physics/physics-capacitors-and-dielectrics-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-12-jee/physics/physics-current-electricity-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-12-jee/physics/physics-moving-charges-and-magnetism-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-12-jee/physics/physics-magnetism-and-matter-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-12-jee/physics/physics-electromagnetic-induction-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-12-jee/physics/physics-alternating-current-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-12-jee/physics/physics-electromagnetic-waves-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-12-jee/physics/physics-ray-optics-and-optical-instruments-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-12-jee/physics/physics-wave-optics-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-12-jee/physics/physics-dual-nature-of-radiation-and-matter-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-12-jee/physics/physics-atoms-and-x-rays-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-12-jee/physics/physics-nuclei-and-radioactivity-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-12-jee/physics/physics-semiconductors-and-logic-gates-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-11-jee/chemistry/chemistry-mole-concept-and-stoichiometry-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-11-jee/chemistry/chemistry-atomic-structure-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-11-jee/chemistry/chemistry-thermodynamics-and-thermochemistry-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-11-jee/chemistry/chemistry-chemical-equilibrium-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-11-jee/chemistry/chemistry-ionic-equilibrium-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-11-jee/chemistry/chemistry-redox-and-volumetric-analysis-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-12-jee/chemistry/chemistry-solutions-and-colligative-properties-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-12-jee/chemistry/chemistry-electrochemistry-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-12-jee/chemistry/chemistry-chemical-kinetics-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-12-jee/chemistry/chemistry-solid-state-and-surface-chemistry-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-11-jee/chemistry/chemistry-periodic-table-and-periodicity-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-11-jee/chemistry/chemistry-chemical-bonding-and-molecular-structure-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-11-jee/chemistry/chemistry-hydrogen-s-block-and-metallurgy-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-11-jee/chemistry/chemistry-p-block-elements-groups-13-18-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-12-jee/chemistry/chemistry-d-and-f-block-elements-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-12-jee/chemistry/chemistry-coordination-compounds-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-12-jee/chemistry/chemistry-qualitative-salt-analysis-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-11-jee/chemistry/chemistry-gaseous-state-and-environmental-chemistry-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-11-jee/chemistry/chemistry-iupac-and-isomerism-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-11-jee/chemistry/chemistry-general-organic-chemistry-goc-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-11-jee/chemistry/chemistry-stereochemistry-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-11-jee/chemistry/chemistry-hydrocarbons-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-12-jee/chemistry/chemistry-haloalkanes-and-haloarenes-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-12-jee/chemistry/chemistry-alcohols-phenols-and-ethers-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-12-jee/chemistry/chemistry-aldehydes-ketones-and-carboxylic-acids-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-12-jee/chemistry/chemistry-amines-and-diazonium-salts-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-12-jee/chemistry/chemistry-biomolecules-and-polymers-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-12-jee/chemistry/chemistry-practical-organic-chemistry-poc-jee-concise-notes</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-12-board/physics/electrostatics-gauss-law-short-notes-pdf</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-12-board/physics/gauss-law-electric-flux-concept-video</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-9/physics/kinematics-newton-laws-formula-sheet</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/pyqs/chemical-bonding-jee-neet-pyq-pack</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-11-board/chemistry/vsepr-shapes-dipole-moment-video</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/pyqs/definite-integration-king-property-pyqs</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/materials/class-10/biology/molecular-basis-inheritance-ncert-diagram-bank</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/pyqs/class-12-board-english-section-b-descriptive-solutions</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://prepskm.in/cbt-mocks/class-12-jee/full-mock-test-1-jee-main-2027</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
-    <priority>0.95</priority>
+    <priority>0.9</priority>
   </url>
   <url>
     <loc>https://prepskm.in/cbt-mocks/class-12-jee/full-mock-test-2-jee-main-full-pattern</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
-    <priority>0.95</priority>
+    <priority>0.9</priority>
   </url>
   <url>
     <loc>https://prepskm.in/cbt-mocks/class-12-jee/full-mock-test-3-jee-main-2027</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
-    <priority>0.95</priority>
+    <priority>0.9</priority>
   </url>
   <url>
     <loc>https://prepskm.in/cbt-mocks/class-12-jee/full-mock-test-4-jee-main-2027</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
-    <priority>0.95</priority>
+    <priority>0.9</priority>
   </url>
   <url>
     <loc>https://prepskm.in/cbt-mocks/class-12-jee/full-mock-test-5-jee-main-2027</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
-    <priority>0.95</priority>
+    <priority>0.9</priority>
   </url>
   <url>
     <loc>https://prepskm.in/cbt-mocks/class-12-neet/neet-ug-full-mock-test-01-ncert-foundation</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
-    <priority>0.95</priority>
+    <priority>0.9</priority>
   </url>
   <url>
     <loc>https://prepskm.in/cbt-mocks/class-12-neet/neet-ug-full-mock-test-02-conceptual-numerical</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
-    <priority>0.95</priority>
+    <priority>0.9</priority>
   </url>
   <url>
     <loc>https://prepskm.in/cbt-mocks/class-12-neet/neet-ug-full-mock-test-03-high-yield-ncert-lines</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
-    <priority>0.95</priority>
+    <priority>0.9</priority>
   </url>
   <url>
     <loc>https://prepskm.in/cbt-mocks/class-12-neet/neet-ug-full-mock-test-04-application-reasoning</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
-    <priority>0.95</priority>
+    <priority>0.9</priority>
   </url>
   <url>
     <loc>https://prepskm.in/cbt-mocks/class-12-neet/neet-ug-full-mock-test-05-statement-assertion-mix</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
-    <priority>0.95</priority>
+    <priority>0.9</priority>
   </url>
   <url>
     <loc>https://prepskm.in/cbt-mocks/class-12-jee/jee-main-2027-pattern-full-pcm-mini-cbt-mock-01</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://prepskm.in/cbt-mocks/class-12-neet/neet-ug-2027-pattern-pcb-high-yield-mini-cbt-mock-01</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://prepskm.in/dpp/class-12-jee/electrostatics-and-gauss-law-chapter-dpp-01</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://prepskm.in/dpp/class-11-jee/units-and-dimensions-jee-main-advanced-dpp-75-questions</loc>
-    <lastmod>2026-11-21</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <changefreq>weekly</changefreq>
-    <priority>0.9</priority>
+    <priority>0.8</priority>
   </url>
 </urlset>

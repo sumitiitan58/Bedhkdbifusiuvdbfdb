@@ -83,8 +83,8 @@ export const STARTER_SECTIONS: SectionRecord[] = [
     slug: 'formula-sheets',
     order: 3,
     scope: 'subjects',
-    subjectIds: ['subj-physics', 'subj-chemistry', 'subj-mathematics'],
-    description: 'Rapid-recall formula compendiums for Physics, Chemistry & Mathematics',
+    subjectIds: ['subj-physics', 'subj-chemistry', 'subj-mathematics', 'subj-biology'],
+    description: 'Rapid-recall formula compendiums for Physics, Chemistry, Mathematics (JEE) & Biology (NEET)',
   },
   {
     id: 'sec-pyqs',

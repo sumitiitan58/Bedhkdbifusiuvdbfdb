@@ -13,6 +13,12 @@ import {
   JEE_CONCISE_MATERIALS,
 } from '../data/jeeConciseNotesCatalog';
 import {
+  FORMULA_SHEETS_SECTION,
+  PCMB_FORMULA_CHAPTER_COHORT_EXPANSIONS,
+  PCMB_FORMULA_CHAPTERS,
+  PCMB_FORMULA_MATERIALS,
+} from '../data/pcmbFormulaSheetsCatalog';
+import {
   FULL_MOCK_TEST_1_QUESTIONS,
   FULL_MOCK_TEST_1_RECORD,
 } from '../data/fullMockTest1Catalog';
@@ -41,7 +47,7 @@ function ensureCohorts(existing: string[], required: string[]): string[] {
 }
 
 /**
- * Ensures Class 11 JEE, Class 12 JEE, and JEE Dropper always exist alongside
+ * Ensures Class 11/12 JEE & NEET plus JEE/NEET Droppers always exist alongside
  * any custom Class Groups created by the Admin in Firestore.
  */
 export function mergeClassGroups(
@@ -58,8 +64,15 @@ export function mergeClassGroups(
     for (const sc of g.subClasses) existingSubIds.add(sc.id);
   }
 
-  // Only ensure required JEE cohorts exist if missing from Firestore
-  const requiredSubIds = new Set(['class-11-jee', 'class-12-jee', 'jee-dropper']);
+  // Ensure core JEE & NEET cohorts exist if missing from Firestore
+  const requiredSubIds = new Set([
+    'class-11-jee',
+    'class-12-jee',
+    'jee-dropper',
+    'class-11-neet',
+    'class-12-neet',
+    'neet-dropper',
+  ]);
   for (const sg of starterGroups) {
     const missingRequired = sg.subClasses.filter(
       (sc) => requiredSubIds.has(sc.id) && !existingSubIds.has(sc.id)
@@ -83,9 +96,12 @@ export function mergeClassGroups(
 
 /**
  * Non-destructively merges Firestore subjects, sections, chapters, and materials
- * with the official 82-chapter JEE Concise Notes catalog.
- * If the admin recreated Physics / Chemistry / Mathematics under custom subject IDs,
- * official JEE chapters & notes automatically remap to those subject IDs so nothing duplicates.
+ * with the official 82-chapter JEE Concise Notes catalog AND the 99-PDF PCMB Formula Sheets catalog.
+ * - Physics & Chemistry: shared across JEE & NEET (11th, 12th, Dropper)
+ * - Mathematics: strictly JEE only (11th JEE, 12th JEE, JEE Dropper)
+ * - Biology: strictly NEET only (11th NEET, 12th NEET, NEET Dropper)
+ * If the admin recreated subjects under custom subject IDs, official chapters & PDFs
+ * automatically remap to those subject IDs so nothing duplicates.
  */
 export function mergeOfficialJeeCatalog(params: {
   subjects: SubjectRecord[];
@@ -94,22 +110,66 @@ export function mergeOfficialJeeCatalog(params: {
   materials: StudyMaterialRecord[];
 }) {
   const officialSubjectDefs: Array<{
-    id: 'subj-physics' | 'subj-chemistry' | 'subj-mathematics';
+    id: 'subj-physics' | 'subj-chemistry' | 'subj-mathematics' | 'subj-biology';
     name: string;
     code: string;
     order: number;
     aliases: string[];
+    requiredCohorts: string[];
   }> = [
-    { id: 'subj-physics', name: 'Physics', code: 'PHY', order: 1, aliases: ['physics', 'phy'] },
-    { id: 'subj-chemistry', name: 'Chemistry', code: 'CHEM', order: 2, aliases: ['chemistry', 'chem'] },
-    { id: 'subj-mathematics', name: 'Mathematics', code: 'MATH', order: 3, aliases: ['mathematics', 'maths', 'math'] },
+    {
+      id: 'subj-physics',
+      name: 'Physics',
+      code: 'PHY',
+      order: 1,
+      aliases: ['physics', 'phy'],
+      requiredCohorts: [
+        'class-11-jee',
+        'class-12-jee',
+        'jee-dropper',
+        'class-11-neet',
+        'class-12-neet',
+        'neet-dropper',
+      ],
+    },
+    {
+      id: 'subj-chemistry',
+      name: 'Chemistry',
+      code: 'CHEM',
+      order: 2,
+      aliases: ['chemistry', 'chem'],
+      requiredCohorts: [
+        'class-11-jee',
+        'class-12-jee',
+        'jee-dropper',
+        'class-11-neet',
+        'class-12-neet',
+        'neet-dropper',
+      ],
+    },
+    {
+      id: 'subj-mathematics',
+      name: 'Mathematics',
+      code: 'MATH',
+      order: 3,
+      aliases: ['mathematics', 'maths', 'math'],
+      requiredCohorts: ['class-11-jee', 'class-12-jee', 'jee-dropper'],
+    },
+    {
+      id: 'subj-biology',
+      name: 'Biology',
+      code: 'BIO',
+      order: 4,
+      aliases: ['biology', 'bio'],
+      requiredCohorts: ['class-11-neet', 'class-12-neet', 'neet-dropper'],
+    },
   ];
 
   const mergedSubjects = params.subjects.map((s) => ({ ...s, cohorts: [...s.cohorts] }));
   const subjectIdMap = new Map<string, string>();
 
   for (const def of officialSubjectDefs) {
-    let matched =
+    const matched =
       mergedSubjects.find((s) => s.id === def.id) ??
       mergedSubjects.find((s) => {
         const norm = normalizeName(s.name);
@@ -117,7 +177,7 @@ export function mergeOfficialJeeCatalog(params: {
       });
 
     if (matched) {
-      matched.cohorts = ensureCohorts(matched.cohorts, ['class-11-jee', 'class-12-jee', 'jee-dropper']);
+      matched.cohorts = ensureCohorts(matched.cohorts, def.requiredCohorts);
       subjectIdMap.set(def.id, matched.id);
     } else {
       const created: SubjectRecord = {
@@ -125,7 +185,7 @@ export function mergeOfficialJeeCatalog(params: {
         name: def.name,
         code: def.code,
         order: def.order,
-        cohorts: ['class-11-jee', 'class-12-jee', 'jee-dropper'],
+        cohorts: [...def.requiredCohorts],
       };
       mergedSubjects.push(created);
       subjectIdMap.set(def.id, def.id);
@@ -134,34 +194,71 @@ export function mergeOfficialJeeCatalog(params: {
 
   mergedSubjects.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
-  // Merge Concise Notes section
-  const mergedSections = params.sections.map((s) => ({ ...s }));
+  // Merge Concise Notes section (JEE PCM)
+  const mergedSections: SectionRecord[] = params.sections.map((s) => ({
+    ...s,
+    subjectIds: s.subjectIds ? [...s.subjectIds] : undefined,
+    chapterIds: s.chapterIds ? [...s.chapterIds] : undefined,
+  }));
   const hasConciseSection = mergedSections.some(
     (s) =>
       s.id === CONCISE_NOTES_SECTION.id ||
       normalizeName(s.name) === normalizeName(CONCISE_NOTES_SECTION.name) ||
       s.slug === CONCISE_NOTES_SECTION.slug
   );
-  const resolvedConciseSubjectIds = officialSubjectDefs.map((d) => subjectIdMap.get(d.id) ?? d.id);
+  const resolvedJeeSubjectIds = (['subj-physics', 'subj-chemistry', 'subj-mathematics'] as const).map(
+    (id) => subjectIdMap.get(id) ?? id
+  );
   if (!hasConciseSection) {
     mergedSections.unshift({
       ...CONCISE_NOTES_SECTION,
-      subjectIds: resolvedConciseSubjectIds,
+      subjectIds: resolvedJeeSubjectIds,
+    });
+  }
+
+  // Merge Formula Sheets section (PCMB: Physics, Chemistry, Mathematics & Biology)
+  const resolvedPcmbSubjectIds = officialSubjectDefs.map((d) => subjectIdMap.get(d.id) ?? d.id);
+  const existingFormulaSection = mergedSections.find(
+    (s) =>
+      s.id === FORMULA_SHEETS_SECTION.id ||
+      normalizeName(s.name) === normalizeName(FORMULA_SHEETS_SECTION.name) ||
+      s.slug === FORMULA_SHEETS_SECTION.slug
+  );
+  if (existingFormulaSection) {
+    if (existingFormulaSection.scope === 'subjects') {
+      existingFormulaSection.subjectIds = ensureCohorts(
+        existingFormulaSection.subjectIds ?? [],
+        resolvedPcmbSubjectIds
+      );
+    }
+  } else {
+    mergedSections.push({
+      ...FORMULA_SHEETS_SECTION,
+      subjectIds: resolvedPcmbSubjectIds,
     });
   }
   mergedSections.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
-  // Merge 82 JEE chapters (don't overwrite admin edits with same ID)
+  // Merge 82 JEE chapters + 33 PCMB Formula Sheet chapters (Master sheets, Experimental Physics, 24 Biology chapters)
   const chapterById = new Map<string, ChapterRecord>();
   for (const ch of params.chapters) {
-    chapterById.set(ch.id, ch);
+    chapterById.set(ch.id, { ...ch, cohorts: [...ch.cohorts] });
   }
-  for (const offCh of JEE_CONCISE_CHAPTERS) {
+  for (const offCh of [...JEE_CONCISE_CHAPTERS, ...PCMB_FORMULA_CHAPTERS]) {
     if (!chapterById.has(offCh.id)) {
       chapterById.set(offCh.id, {
         ...offCh,
+        cohorts: [...offCh.cohorts],
         subjectId: subjectIdMap.get(offCh.subjectId) ?? offCh.subjectId,
       });
+    }
+  }
+  // Expand shared Physics & Chemistry chapters to also appear for NEET Formula Sheets
+  // (JEE Concise Notes PDFs inside those chapters stay strictly JEE-only)
+  for (const [chapId, requiredCohorts] of Object.entries(PCMB_FORMULA_CHAPTER_COHORT_EXPANSIONS)) {
+    const existingCh = chapterById.get(chapId);
+    if (existingCh) {
+      existingCh.cohorts = ensureCohorts(existingCh.cohorts, requiredCohorts);
     }
   }
   const mergedChapters = Array.from(chapterById.values()).sort((a, b) => {
@@ -169,16 +266,26 @@ export function mergeOfficialJeeCatalog(params: {
     return (a.order ?? 0) - (b.order ?? 0);
   });
 
-  // Merge 82 Concise Notes PDFs
+  // Merge 82 JEE Concise Notes PDFs + 99 PCMB Formula Sheet PDFs
   const matById = new Map<string, StudyMaterialRecord>();
   for (const m of params.materials) {
     matById.set(m.id, m);
   }
+  const formulaSectionName = existingFormulaSection?.name ?? FORMULA_SHEETS_SECTION.name;
   for (const offMat of JEE_CONCISE_MATERIALS) {
     if (!matById.has(offMat.id)) {
       matById.set(offMat.id, {
         ...offMat,
         subjectId: subjectIdMap.get(offMat.subjectId) ?? offMat.subjectId,
+      });
+    }
+  }
+  for (const fsMat of PCMB_FORMULA_MATERIALS) {
+    if (!matById.has(fsMat.id)) {
+      matById.set(fsMat.id, {
+        ...fsMat,
+        sectionName: formulaSectionName,
+        subjectId: subjectIdMap.get(fsMat.subjectId) ?? fsMat.subjectId,
       });
     }
   }

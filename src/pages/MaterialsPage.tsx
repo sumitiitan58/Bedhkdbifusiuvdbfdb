@@ -98,11 +98,13 @@ export default function MaterialsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const trackParam = searchParams.get('track');
   const queryParam = searchParams.get('q');
+  const sectionParam = searchParams.get('section');
 
   const [selectedCohort, setSelectedCohort] = useState<StudentCohortId | 'all'>(
     trackParam || cohortId || 'class-12-jee'
   );
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>('all');
+  const [selectedDirectorySection, setSelectedDirectorySection] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState(queryParam || '');
   const [activeChapterId, setActiveChapterId] = useState<string | null>(null);
   const [activeSectionFilter, setActiveSectionFilter] = useState<string>('all');
@@ -111,7 +113,7 @@ export default function MaterialsPage() {
   const [previewMaterial, setPreviewMaterial] = useState<StudyMaterialRecord | null>(null);
   const [resolvedPreviewUrl, setResolvedPreviewUrl] = useState<string>('');
 
-  // Sync from URL ?track= / ?q= when arriving from Footer internal SEO links or SearchAction
+  // Sync from URL ?track= / ?q= / ?section= when arriving from Footer internal SEO links or SearchAction
   useEffect(() => {
     if (trackParam) {
       setSelectedCohort(trackParam);
@@ -127,6 +129,18 @@ export default function MaterialsPage() {
       setSearchQuery(queryParam);
     }
   }, [queryParam]);
+
+  useEffect(() => {
+    if (!sectionParam) {
+      setSelectedDirectorySection('all');
+      return;
+    }
+    const norm = sectionParam.trim().toLowerCase();
+    const matched = sections.find(
+      (s) => s.slug.toLowerCase() === norm || s.name.toLowerCase() === norm
+    );
+    setSelectedDirectorySection(matched ? matched.name : sectionParam);
+  }, [sectionParam, sections]);
 
   useEffect(() => {
     let active = true;
@@ -170,6 +184,100 @@ export default function MaterialsPage() {
     () => new Set(progress.bookmarkedMaterials),
     [progress.bookmarkedMaterials]
   );
+
+  const chapterMap = useMemo(
+    () => new Map(chapters.map((c) => [c.id, c])),
+    [chapters]
+  );
+
+  // Sections that have at least 1 resource for the active Track & Subject
+  const directorySections = useMemo(() => {
+    const visibleSubjectIds = new Set(visibleSubjects.map((s) => s.id));
+    const scopedMats = cohortMaterials.filter((m) => {
+      if (selectedCohort !== 'all' && !visibleSubjectIds.has(m.subjectId)) return false;
+      if (selectedSubjectId !== 'all' && m.subjectId !== selectedSubjectId) return false;
+      return true;
+    });
+    const counts = new Map<string, number>();
+    for (const m of scopedMats) {
+      counts.set(m.sectionName, (counts.get(m.sectionName) ?? 0) + 1);
+    }
+    const ordered: Array<{ name: string; slug: string; count: number }> = [];
+    const seen = new Set<string>();
+    for (const sec of sections) {
+      const count = counts.get(sec.name) ?? 0;
+      if (count > 0 && !seen.has(sec.name)) {
+        seen.add(sec.name);
+        ordered.push({ name: sec.name, slug: sec.slug, count });
+      }
+    }
+    for (const [name, count] of counts.entries()) {
+      if (!seen.has(name)) {
+        ordered.push({
+          name,
+          slug: name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+          count,
+        });
+      }
+    }
+    return ordered;
+  }, [cohortMaterials, sections, selectedCohort, selectedSubjectId, visibleSubjects]);
+
+  // Reset directory section filter if it no longer has items in the active track/subject
+  useEffect(() => {
+    if (
+      selectedDirectorySection !== 'all' &&
+      !directorySections.some((s) => s.name === selectedDirectorySection)
+    ) {
+      setSelectedDirectorySection('all');
+    }
+  }, [directorySections, selectedDirectorySection]);
+
+  // Direct filtered materials list when a Section tab (like Formula Sheets) is selected in View B
+  const filteredDirectoryMaterials = useMemo(() => {
+    if (selectedDirectorySection === 'all') return [];
+    const q = searchQuery.trim().toLowerCase();
+    const visibleSubjectIds = new Set(visibleSubjects.map((s) => s.id));
+    return cohortMaterials
+      .filter((m) => {
+        if (m.sectionName !== selectedDirectorySection) return false;
+        if (selectedCohort !== 'all' && !visibleSubjectIds.has(m.subjectId)) return false;
+        if (selectedSubjectId !== 'all' && m.subjectId !== selectedSubjectId) return false;
+        if (q) {
+          const subName = (subjectMap.get(m.subjectId)?.name ?? '').toLowerCase();
+          const chName = (chapterMap.get(m.chapterId)?.name ?? '').toLowerCase();
+          return (
+            m.title.toLowerCase().includes(q) ||
+            (m.description ?? '').toLowerCase().includes(q) ||
+            (m.seoKeywords ?? '').toLowerCase().includes(q) ||
+            subName.includes(q) ||
+            chName.includes(q)
+          );
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        const subA = subjectMap.get(a.subjectId)?.order ?? 99;
+        const subB = subjectMap.get(b.subjectId)?.order ?? 99;
+        if (subA !== subB) return subA - subB;
+        const aMaster = a.id.includes('-master') ? 0 : 1;
+        const bMaster = b.id.includes('-master') ? 0 : 1;
+        if (aMaster !== bMaster) return aMaster - bMaster;
+        const chA = chapterMap.get(a.chapterId)?.order ?? 999;
+        const chB = chapterMap.get(b.chapterId)?.order ?? 999;
+        if (chA !== chB) return chA - chB;
+        return a.title.localeCompare(b.title);
+      });
+  }, [
+    chapterMap,
+    cohortMaterials,
+    searchQuery,
+    selectedCohort,
+    selectedDirectorySection,
+    selectedSubjectId,
+    subjectMap,
+    visibleSubjects,
+  ]);
 
   // Strictly isolated Chapters filtered by Class/Sub-Class, Subject, and Search
   const filteredChapters = useMemo(() => {
@@ -759,10 +867,173 @@ export default function MaterialsPage() {
                   </button>
                 ))}
               </div>
+              {/* Section Quick Filter Tabs (Chapters Directory vs Formula Sheets / Concise Notes / PYQs) */}
+              {directorySections.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mr-1">
+                    Section:
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      playClick();
+                      setSelectedDirectorySection('all');
+                      const nextParams = new URLSearchParams(searchParams);
+                      nextParams.delete('section');
+                      setSearchParams(nextParams, { replace: true });
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                      selectedDirectorySection === 'all'
+                        ? 'bg-[#0B1B3B] text-white border-[#0B1B3B] dark:bg-[#2563EB] dark:border-[#2563EB]'
+                        : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-[#2563EB]'
+                    }`}
+                  >
+                    All Chapters ({filteredChapters.length})
+                  </button>
+                  {directorySections.map((sec) => {
+                    const active = selectedDirectorySection === sec.name;
+                    return (
+                      <button
+                        key={sec.name}
+                        type="button"
+                        onClick={() => {
+                          playClick();
+                          setSelectedDirectorySection(sec.name);
+                          const nextParams = new URLSearchParams(searchParams);
+                          nextParams.set('section', sec.slug);
+                          setSearchParams(nextParams, { replace: true });
+                        }}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                          active
+                            ? 'bg-[#F97316] text-white border-[#F97316]'
+                            : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-[#F97316]'
+                        }`}
+                      >
+                        {sec.name} ({sec.count})
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </ReusableCard>
 
-            {/* Chapters Card Grid */}
-            {filteredChapters.length === 0 ? (
+            {/* Direct Section Material Grid (e.g., Formula Sheets / Concise Notes) OR Chapters Card Grid */}
+            {selectedDirectorySection !== 'all' ? (
+              filteredDirectoryMaterials.length === 0 ? (
+                <ReusableCard className="py-12 text-center space-y-3">
+                  <FolderOpen className="w-10 h-10 text-slate-400 mx-auto" />
+                  <h2 className="font-display text-lg font-bold text-[#0B1B3B] dark:text-white">
+                    No {selectedDirectorySection} Match This Search
+                  </h2>
+                  <ReusableButton
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      setSearchQuery('');
+                      setSelectedSubjectId('all');
+                    }}
+                  >
+                    Clear Search
+                  </ReusableButton>
+                </ReusableCard>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4 items-start">
+                  {filteredDirectoryMaterials.map((mat) => {
+                    const subj = subjectMap.get(mat.subjectId);
+                    const isBookmarked = bookmarkSet.has(mat.id);
+                    const isVid = isVideoMaterial(mat);
+                    const isMasterSheet = mat.id.includes('-master');
+                    return (
+                      <ReusableCard
+                        key={mat.id}
+                        interactive
+                        padding="none"
+                        className="flex flex-col justify-between overflow-hidden"
+                      >
+                        <div className="p-3.5 space-y-1.5">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="text-[11px] font-semibold flex flex-wrap items-center gap-1.5">
+                              <span className="text-[#2563EB] dark:text-sky-400 inline-flex items-center gap-1">
+                                <FileText className="w-3.5 h-3.5" />
+                                {subj?.name ?? 'Subject'}
+                              </span>
+                              <span className="text-slate-300 dark:text-slate-700">·</span>
+                              <span className={isMasterSheet ? 'text-[#F97316] font-bold' : 'text-slate-500 dark:text-slate-400'}>
+                                {isMasterSheet ? 'Master Sheet' : mat.sectionName}
+                              </span>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                playClick();
+                                toggleMaterialBookmark(mat.id);
+                              }}
+                              aria-pressed={isBookmarked}
+                              aria-label={`${isBookmarked ? 'Remove bookmark for' : 'Bookmark'} ${mat.title}`}
+                              className="p-1 rounded-lg text-slate-500 hover:text-[#F97316] hover:bg-slate-100 dark:hover:bg-slate-800 shrink-0"
+                            >
+                              {isBookmarked ? (
+                                <BookmarkCheck className="w-4 h-4 text-[#F97316]" />
+                              ) : (
+                                <Bookmark className="w-4 h-4" />
+                              )}
+                            </button>
+                          </div>
+
+                          <h3 className="font-display text-sm sm:text-base font-bold text-[#0B1B3B] dark:text-white leading-snug">
+                            <Link
+                              to={getHierarchicalMaterialPath(mat, {
+                                subjectName: subj?.name,
+                                cohortId: selectedCohort !== 'all' ? selectedCohort : mat.cohorts[0],
+                              })}
+                              className="hover:text-[#2563EB] dark:hover:text-sky-400 transition-colors"
+                            >
+                              {mat.title}
+                            </Link>
+                          </h3>
+
+                          <p className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
+                            {formatBytes(mat.fileSizeBytes)} · PDF
+                          </p>
+                        </div>
+
+                        <div className="px-3.5 pb-3.5 pt-2.5 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2">
+                          <ReusableButton
+                            variant="primary"
+                            size="sm"
+                            className="flex-1"
+                            onClick={() => handleOpenPreview(mat)}
+                          >
+                            {isVid ? <Play className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            {isVid ? 'Watch Video' : 'Open PDF'}
+                          </ReusableButton>
+
+                          {!isVid && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void handleDownloadDocument(
+                                  mat.fileUrl,
+                                  mat.fileName || `${mat.title}.pdf`,
+                                  mat.id,
+                                  mat.title
+                                )
+                              }
+                              aria-label={`Download PDF ${mat.title}`}
+                              className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border border-[#2563EB]/30 bg-blue-50/70 dark:bg-blue-950/40 text-[#2563EB] dark:text-sky-300 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors shrink-0"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                              Download
+                            </button>
+                          )}
+                        </div>
+                      </ReusableCard>
+                    );
+                  })}
+                </div>
+              )
+            ) : filteredChapters.length === 0 ? (
               <ReusableCard className="py-12 text-center space-y-3">
                 <BookOpen className="w-10 h-10 text-slate-400 mx-auto" />
                 <h2 className="font-display text-lg font-bold text-[#0B1B3B] dark:text-white">
