@@ -5,10 +5,8 @@ import {
   Bookmark,
   BookmarkCheck,
   BookOpen,
-  CheckCircle2,
   ChevronRight,
   Download,
-  FileText,
   Sparkles,
 } from 'lucide-react';
 import { PageLayout } from '../layouts/PageLayout';
@@ -360,52 +358,23 @@ export default function MaterialDetailPage() {
           />
         )}
 
-        {/* Semantic Key Concepts & Revision Checklist for Googlebot + Students */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-          <ReusableCard className="lg:col-span-8 space-y-3 rounded-2xl border-slate-200/80">
-            <h2 className="font-display text-lg font-bold text-[#0B1B3B] dark:text-white flex items-center gap-2">
-              <FileText className="w-4 h-4 text-[#2563EB]" />
-              Key Concepts &amp; Formula Overview — {cleanChapterName}
-            </h2>
-            <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
-              {seoSummary}
-            </p>
-            <div className="pt-2 flex flex-wrap gap-4 text-xs font-semibold">
-              <Link to="/cbt-mocks" className="text-[#2563EB] dark:text-sky-400 hover:underline">
-                Attempt NTA CBT Mock Tests →
-              </Link>
-              <Link to="/dpp" className="text-[#F97316] hover:underline">
-                Practice Chapter-Wise DPPs →
-              </Link>
-              <Link
-                to={`/materials?track=${encodeURIComponent(primaryCohortId)}`}
-                className="text-slate-600 dark:text-slate-300 hover:underline"
-              >
-                Explore All {primaryCohortLabel} Notes →
-              </Link>
-            </div>
-          </ReusableCard>
-
-          <ReusableCard className="lg:col-span-4 space-y-3 rounded-2xl border-slate-200/80">
-            <h2 className="font-display text-base font-bold text-[#0B1B3B] dark:text-white">
-              Included PDFs &amp; Revision Checklist
-            </h2>
-            <ul className="space-y-2 text-xs sm:text-sm text-slate-600 dark:text-slate-300">
-              <li className="flex items-start gap-2">
-                <CheckCircle2 className="w-4 h-4 text-[#10B981] shrink-0 mt-0.5" />
-                <span>High-resolution multi-page {sectionLabel} PDF for {cleanChapterName}</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <CheckCircle2 className="w-4 h-4 text-[#10B981] shrink-0 mt-0.5" />
-                <span>Aligned with latest NTA JEE Main, JEE Advanced &amp; NCERT syllabus</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <CheckCircle2 className="w-4 h-4 text-[#10B981] shrink-0 mt-0.5" />
-                <span>Instant bookmarking and offline PDF download on mobile &amp; desktop</span>
-              </li>
-            </ul>
-          </ReusableCard>
-        </div>
+        {/* Semantic Key Concepts & Revision Checklist (SEO-only, visually hidden) */}
+        <section aria-label="Chapter SEO Overview" className="sr-only">
+          <h2>Key Concepts &amp; Formula Overview — {cleanChapterName}</h2>
+          <p>{seoSummary}</p>
+          <ul>
+            <li>High-resolution multi-page {sectionLabel} PDF for {cleanChapterName}</li>
+            <li>Aligned with latest NTA JEE Main, JEE Advanced, NEET UG &amp; NCERT syllabus</li>
+            <li>Instant bookmarking and offline PDF download on mobile &amp; desktop</li>
+          </ul>
+          <nav aria-label="Related study links">
+            <Link to="/cbt-mocks">Attempt NTA CBT Mock Tests</Link>
+            <Link to="/dpp">Practice Chapter-Wise DPPs</Link>
+            <Link to={`/materials?track=${encodeURIComponent(primaryCohortId)}`}>
+              Explore All {primaryCohortLabel} Notes
+            </Link>
+          </nav>
+        </section>
 
         {/* Related Crawlable Chapter Links */}
         {relatedMaterials.length > 0 && (

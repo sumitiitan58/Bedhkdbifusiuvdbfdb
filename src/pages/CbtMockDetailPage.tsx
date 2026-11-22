@@ -302,23 +302,15 @@ export default function CbtMockDetailPage() {
           </ReusableCard>
         </div>
 
-        {/* 150-Word SEO Overview for Search Indexing */}
-        <ReusableCard className="space-y-2.5 rounded-2xl border-slate-200/80">
-          <h2 className="font-display text-base font-bold text-[#0B1B3B] dark:text-white">
-            About {test.title}
-          </h2>
-          <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
-            {seoSummary}
-          </p>
-          <div className="pt-2 flex flex-wrap gap-3 text-xs font-semibold">
-            <Link to="/materials" className="text-[#2563EB] dark:text-sky-400 hover:underline">
-              Revise Chapter Concise Notes →
-            </Link>
-            <Link to="/dpp" className="text-[#F97316] hover:underline">
-              Solve Daily Practice Problems →
-            </Link>
-          </div>
-        </ReusableCard>
+        {/* 150-Word SEO Overview (Search Indexing, visually hidden) */}
+        <section aria-label={`About ${test.title}`} className="sr-only">
+          <h2>About {test.title}</h2>
+          <p>{seoSummary}</p>
+          <nav aria-label="Related exam resources">
+            <Link to="/materials">Revise Chapter Concise Notes</Link>
+            <Link to="/dpp">Solve Daily Practice Problems</Link>
+          </nav>
+        </section>
       </ResponsiveContainer>
     </PageLayout>
   );

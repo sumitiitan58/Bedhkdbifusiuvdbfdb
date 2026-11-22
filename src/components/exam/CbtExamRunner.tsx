@@ -6,7 +6,6 @@ import {
   BarChart3,
   BookOpen,
   Bookmark,
-  CheckCircle2,
   Clock,
   Eraser,
   Flag,
@@ -16,7 +15,7 @@ import {
   Send,
   ShieldAlert,
   X,
-  XCircle,
+  ZoomIn,
 } from 'lucide-react';
 import {
   Bar,
@@ -54,6 +53,8 @@ import { playClick, playSuccess, playWarning } from '../../utils/soundEffects';
 import { makeSafeDocId } from '../../services/firestoreService';
 import { ReusableButton } from '../ReusableButton';
 import { ReusableCard } from '../ReusableCard';
+import { QuestionZoomModal, type QuestionZoomPayload } from './QuestionZoomModal';
+import { SolutionCardDeck, type SolutionReviewItem } from './SolutionCardDeck';
 
 interface CbtExamRunnerProps {
   test: MockTestRecord;
@@ -196,6 +197,7 @@ export function CbtExamRunner({ test, questions, onExit }: CbtExamRunnerProps) {
 
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showMobilePalette, setShowMobilePalette] = useState(false);
+  const [zoomPayload, setZoomPayload] = useState<QuestionZoomPayload | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedAttempt, setSubmittedAttempt] = useState<TestAttemptRecord | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -898,118 +900,28 @@ export function CbtExamRunner({ test, questions, onExit }: CbtExamRunnerProps) {
           </div>
         </ReusableCard>
 
-        {/* Detailed Solutions */}
+        {/* Detailed Solutions — Swipeable Stacked Cards with Top Question Number Strip */}
         {test.showSolutionsAfterSubmit && (
-          <div className="space-y-4">
-            <h2 className="font-display text-lg font-bold text-[#0B1B3B] dark:text-white">
-              Question-by-Question Review & Solutions
-            </h2>
-            {sortedQuestions.map((q) => {
+          <SolutionCardDeck
+            title="Question-by-Question Review & Solutions"
+            items={sortedQuestions.map<SolutionReviewItem>((q) => {
               const studentAns = submittedAttempt.answers[q.id];
               const evalRes = evaluateSingleQuestion(q, studentAns, test);
               const timing = submittedAttempt.questionTimings.find((t) => t.questionId === q.id);
-
-              let studentText = 'Not Attempted';
-              if (studentAns?.type === 'single-mcq' && studentAns.selectedIndex !== null) {
-                studentText = `Option ${OPTION_LETTERS[studentAns.selectedIndex]}`;
-              } else if (studentAns?.type === 'multi-mcq' && studentAns.selectedIndices.length > 0) {
-                studentText = studentAns.selectedIndices.map((i) => OPTION_LETTERS[i]).join(', ');
-              } else if (studentAns?.type === 'integer' && studentAns.value.trim()) {
-                studentText = studentAns.value.trim();
-              }
-
-              const correctText =
-                q.questionType === 'integer'
-                  ? q.numericalAnswer ?? '—'
-                  : (q.correctOptionIndices ?? []).map((i) => OPTION_LETTERS[i]).join(', ');
-
-              return (
-                <ReusableCard key={q.id} padding="sm">
-                  <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-sm font-bold text-[#0B1B3B] dark:text-white">
-                        Q{q.questionNumber}
-                      </span>
-                      <span className="text-xs text-slate-500 dark:text-slate-400">
-                        {q.subjectName}
-                        {q.chapterName ? ` · ${q.chapterName}` : ''}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-3 text-xs font-semibold tabular-nums">
-                      <span className="text-slate-500 dark:text-slate-400">
-                        {timing ? `${timing.timeSpentSeconds}s · ${timing.paceCategory}` : ''}
-                      </span>
-                      {!evalRes.answered ? (
-                        <span className="text-slate-500">Skipped (0)</span>
-                      ) : evalRes.isCorrect ? (
-                        <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400">
-                          <CheckCircle2 className="w-4 h-4" />
-                          Correct (+{evalRes.deltaMarks})
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-rose-700 dark:text-rose-400">
-                          <XCircle className="w-4 h-4" />
-                          Incorrect ({evalRes.deltaMarks})
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="mt-3 space-y-3">
-                    {q.questionImageUrl && (
-                      <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white p-2 overflow-x-auto">
-                        <img
-                          src={q.questionImageUrl}
-                          alt={`Question ${q.questionNumber}`}
-                          className="w-full max-w-[740px] h-auto object-contain"
-                        />
-                      </div>
-                    )}
-                    {q.questionText && !q.questionImageUrl?.startsWith('/assets/mocks/') && (
-                      <p className="text-sm sm:text-base text-slate-800 dark:text-slate-200 whitespace-pre-line">
-                        {q.questionText}
-                      </p>
-                    )}
-
-                    <div className="flex flex-wrap gap-6 text-xs sm:text-sm pt-1">
-                      <p className="text-slate-600 dark:text-slate-300">
-                        Your Answer:{' '}
-                        <strong className="font-mono text-slate-900 dark:text-white">
-                          {studentText}
-                        </strong>
-                      </p>
-                      <p className="text-emerald-700 dark:text-emerald-400">
-                        Correct Answer:{' '}
-                        <strong className="font-mono">{correctText}</strong>
-                      </p>
-                    </div>
-
-                    {(q.solutionImageUrl || q.solutionText) && (
-                      <div className="mt-2 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800">
-                        <p className="text-xs font-bold uppercase tracking-wide text-[#0B1B3B] dark:text-sky-400 mb-2">
-                          Detailed Solution
-                        </p>
-                        {q.solutionImageUrl && (
-                          <div className="rounded-xl bg-white p-1.5 border border-slate-200/80 dark:border-slate-700 inline-block max-w-full">
-                            <img
-                              src={q.solutionImageUrl}
-                              alt={`Solution for Question ${q.questionNumber}`}
-                              className="w-full max-w-[680px] h-auto object-contain"
-                            />
-                          </div>
-                        )}
-                        {q.solutionText && !q.solutionImageUrl?.startsWith('/assets/mocks/') && (
-                          <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-line mt-2">
-                            {q.solutionText}
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </ReusableCard>
-              );
+              const status = !evalRes.answered
+                ? 'skipped'
+                : evalRes.isCorrect
+                  ? 'correct'
+                  : 'wrong';
+              return {
+                question: q,
+                studentAnswer: studentAns,
+                status,
+                deltaMarks: evalRes.deltaMarks,
+                timing,
+              };
             })}
-          </div>
+          />
         )}
       </div>
     );
@@ -1220,7 +1132,7 @@ export function CbtExamRunner({ test, questions, onExit }: CbtExamRunnerProps) {
                 {currentQ.chapterName ? ` · ${currentQ.chapterName}` : ''}
               </span>
             </div>
-            <div className="flex items-center gap-3 text-xs font-medium">
+            <div className="flex flex-wrap items-center gap-2.5 text-xs font-medium">
               <span className="text-slate-600 dark:text-slate-300">
                 {currentQ.questionType === 'single-mcq'
                   ? 'Single Choice MCQ'
@@ -1236,16 +1148,44 @@ export function CbtExamRunner({ test, questions, onExit }: CbtExamRunnerProps) {
                   ? `-${currentQ.negativeMarks ?? test.negativeMarks}`
                   : '0'}
               </span>
+              <button
+                type="button"
+                aria-label={`Zoom Question ${currentQ.questionNumber}`}
+                onClick={() => {
+                  playClick();
+                  setZoomPayload({
+                    title: `Question ${currentQ.questionNumber} — ${currentQ.subjectName}`,
+                    subtitle: currentQ.chapterName,
+                    imageUrl: currentQ.questionImageUrl,
+                    text: currentQ.questionText,
+                    optionTexts: currentQ.optionTexts,
+                    kind: 'question',
+                  });
+                }}
+                className="inline-flex items-center gap-1.5 min-h-9 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 hover:bg-blue-50 hover:border-[#2563EB] hover:text-[#2563EB] dark:bg-slate-900 dark:hover:bg-blue-950/60 dark:hover:border-sky-400 dark:hover:text-sky-300 text-slate-700 dark:text-slate-200 font-semibold transition-colors"
+              >
+                <ZoomIn className="w-4 h-4" />
+                <span>Zoom</span>
+              </button>
             </div>
           </div>
 
           <div className="space-y-4">
             {currentQ.questionImageUrl && (
-              <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white p-2.5 sm:p-3 overflow-x-auto">
+              <div className="relative rounded-xl border border-slate-200 dark:border-slate-700 bg-white p-2.5 sm:p-3 overflow-x-auto">
                 <img
                   src={currentQ.questionImageUrl}
                   alt={`Question ${currentQ.questionNumber}`}
-                  className="w-full max-w-[740px] h-auto object-contain mx-auto"
+                  onClick={() => {
+                    playClick();
+                    setZoomPayload({
+                      title: `Question ${currentQ.questionNumber} — ${currentQ.subjectName}`,
+                      subtitle: currentQ.chapterName,
+                      imageUrl: currentQ.questionImageUrl,
+                      kind: 'question',
+                    });
+                  }}
+                  className="w-full max-w-[740px] h-auto object-contain mx-auto cursor-zoom-in"
                 />
               </div>
             )}
@@ -1642,6 +1582,8 @@ export function CbtExamRunner({ test, questions, onExit }: CbtExamRunnerProps) {
           </ReusableCard>
         </div>
       )}
+      {/* Enlarged Question Lightbox Modal */}
+      <QuestionZoomModal payload={zoomPayload} onClose={() => setZoomPayload(null)} />
     </div>
   );
 }

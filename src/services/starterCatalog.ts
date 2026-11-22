@@ -16,6 +16,14 @@ import {
   ADDITIONAL_FULL_MOCK_QUESTIONS,
   ADDITIONAL_FULL_MOCK_TESTS,
 } from '../data/fullMockTestsCatalog';
+import {
+  NEET_FULL_MOCK_QUESTIONS,
+  NEET_FULL_MOCK_TESTS,
+} from '../data/neetMockTestsCatalog';
+import {
+  DPP_UNITS_DIMENSIONS_75_QUESTIONS,
+  DPP_UNITS_DIMENSIONS_75_RECORD,
+} from '../data/dppUnitsDimensionsCatalog';
 
 const ALL_COHORTS = [
   'class-9',
@@ -402,6 +410,7 @@ export const STARTER_LECTURES: VideoLectureRecord[] = [
 export const STARTER_TESTS: MockTestRecord[] = [
   FULL_MOCK_TEST_1_RECORD,
   ...ADDITIONAL_FULL_MOCK_TESTS,
+  ...NEET_FULL_MOCK_TESTS,
   {
     id: 'cbt-jee-main-starter-1',
     title: 'JEE Main 2027 Pattern — Full PCM Mini CBT Mock #01',
@@ -492,11 +501,14 @@ export const STARTER_TESTS: MockTestRecord[] = [
     status: 'published',
     createdAtIso: '2026-11-16T10:00:00.000Z',
   },
+  DPP_UNITS_DIMENSIONS_75_RECORD,
 ];
 
 export const STARTER_QUESTIONS: TestQuestionRecord[] = [
   ...FULL_MOCK_TEST_1_QUESTIONS,
   ...ADDITIONAL_FULL_MOCK_QUESTIONS,
+  ...NEET_FULL_MOCK_QUESTIONS,
+  ...DPP_UNITS_DIMENSIONS_75_QUESTIONS,
   // JEE Main CBT Mock #01 Questions
   {
     id: 'q-cbt1-1',

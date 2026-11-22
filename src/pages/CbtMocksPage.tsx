@@ -25,7 +25,7 @@ import {
   getEffectiveTestInstructions,
   getEffectiveTestSyllabus,
 } from '../utils/examPresets';
-import { getHierarchicalMockTestPath } from '../utils/seoHelpers';
+import { CANONICAL_ORIGIN, getHierarchicalMockTestPath } from '../utils/seoHelpers';
 import { getTestCohortIds, testMatchesCohort } from '../utils/catalogMerge';
 import { playClick } from '../utils/soundEffects';
 import type { MockTestRecord, StudentCohortId, TestAttemptRecord } from '../types';
@@ -96,9 +96,23 @@ export default function CbtMocksPage() {
   return (
     <PageLayout>
       <SeoHead
-        title="NTA CBT Mock Test Engine - Prepskm"
-        description="Attempt free NTA-pattern JEE Main, JEE Advanced & NEET CBT mock tests with +4/-1 marking and AI analysis."
+        title="Free JEE Main & NEET UG NTA CBT Mock Tests (720 & 300 Marks) | PREPSKM.IN"
+        description="Attempt free full-syllabus NTA-pattern JEE Main (75 Qs / 300 Marks) and NEET UG (180 Qs / 720 Marks) CBT mock tests with +4/-1 marking, swipeable solutions, and subject-wise analytics on PREPSKM.IN."
         canonicalPath="/cbt-mocks"
+        keywords="NEET UG mock test free online, NEET 180 questions 720 marks CBT test, JEE Main full mock test NTA pattern, free NEET UG mock test 01 02 03 04 05, PREPSKM CBT mocks"
+        jsonLd={{
+          '@context': 'https://schema.org',
+          '@type': 'ItemList',
+          name: 'PREPSKM Free JEE Main & NEET UG NTA CBT Mock Tests',
+          url: `${CANONICAL_ORIGIN}/cbt-mocks`,
+          numberOfItems: publishedCbts.length,
+          itemListElement: publishedCbts.map((t, index) => ({
+            '@type': 'ListItem',
+            position: index + 1,
+            name: t.title,
+            url: `${CANONICAL_ORIGIN}${getHierarchicalMockTestPath(t)}`,
+          })),
+        }}
       />
 
       <ResponsiveContainer className="py-8 sm:py-10 space-y-8">

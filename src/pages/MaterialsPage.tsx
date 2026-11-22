@@ -836,39 +836,24 @@ export default function MaterialsPage() {
               </div>
             )}
 
-            {/* Direct Crawlable Published PDFs & Concise Notes Index for Googlebot + Fast Access */}
+            {/* Direct Crawlable Published PDFs & Concise Notes Index (SEO-only, visually hidden) */}
             {cohortMaterials.length > 0 && (
-              <section className="pt-4 border-t border-slate-200 dark:border-slate-800 space-y-3">
-                <div className="flex items-center justify-between gap-2">
-                  <h2 className="font-display text-base sm:text-lg font-bold text-[#0B1B3B] dark:text-white">
-                    Published Notes &amp; PDFs ({cohortMaterials.length})
-                  </h2>
-                  <span className="text-xs text-slate-500 dark:text-slate-400">
-                    Click any PDF to open its full multi-page reader
-                  </span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-                  {cohortMaterials.slice(0, 18).map((mat) => (
-                    <Link
-                      key={mat.id}
-                      to={getHierarchicalMaterialPath(mat, {
-                        subjectName: subjectMap.get(mat.subjectId)?.name,
-                        cohortId: selectedCohort !== 'all' ? selectedCohort : mat.cohorts[0],
-                      })}
-                      className="flex items-center justify-between gap-2 p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-[#111A2E] hover:border-[#2563EB] hover:-translate-y-0.5 transition-all"
-                    >
-                      <div className="min-w-0">
-                        <p className="text-[11px] font-semibold text-[#F97316] truncate">
-                          {mat.sectionName} · {subjectMap.get(mat.subjectId)?.name ?? 'Subject'}
-                        </p>
-                        <p className="text-xs sm:text-sm font-bold text-[#0B1B3B] dark:text-white truncate">
-                          {mat.title}
-                        </p>
-                      </div>
-                      <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
-                    </Link>
+              <section aria-label="Published Notes and PDFs Index" className="sr-only">
+                <h2>Published Notes &amp; PDFs ({cohortMaterials.length})</h2>
+                <ul>
+                  {cohortMaterials.map((mat) => (
+                    <li key={mat.id}>
+                      <Link
+                        to={getHierarchicalMaterialPath(mat, {
+                          subjectName: subjectMap.get(mat.subjectId)?.name,
+                          cohortId: selectedCohort !== 'all' ? selectedCohort : mat.cohorts[0],
+                        })}
+                      >
+                        {mat.sectionName} · {subjectMap.get(mat.subjectId)?.name ?? 'Subject'} — {mat.title}
+                      </Link>
+                    </li>
                   ))}
-                </div>
+                </ul>
               </section>
             )}
           </>

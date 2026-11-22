@@ -1,13 +1,9 @@
 import { useMemo, useState } from 'react';
 import {
   Activity,
-  CheckCircle2,
   Clock,
-  Loader2,
   ShieldAlert,
-  Sparkles,
   X,
-  XCircle,
 } from 'lucide-react';
 import {
   Bar,
@@ -30,6 +26,7 @@ import {
   type GeminiQuestionExplanation,
 } from '../../services/geminiClient';
 import { playAiSparkle, playClick } from '../../utils/soundEffects';
+import { SolutionCardDeck, type SolutionReviewItem } from '../exam/SolutionCardDeck';
 
 const LETTERS = ['A', 'B', 'C', 'D'] as const;
 
@@ -66,7 +63,6 @@ function formatOfficialAnswer(q: TestQuestionRecord): string {
 }
 
 export function AttemptReviewModal({ attempt, questions, onClose }: AttemptReviewModalProps) {
-  const [filterMode, setFilterMode] = useState<'all' | 'incorrect' | 'correct' | 'skipped'>('all');
   const [aiExplanations, setAiExplanations] = useState<Record<string, GeminiQuestionExplanation>>({});
   const [aiLoadingId, setAiLoadingId] = useState<string | null>(null);
   const [aiErrorById, setAiErrorById] = useState<Record<string, string>>({});
@@ -84,15 +80,22 @@ export function AttemptReviewModal({ attempt, questions, onClose }: AttemptRevie
     [attempt.testId, questions]
   );
 
-  const filteredQuestions = useMemo(() => {
-    return testQuestions.filter((q) => {
+  const reviewItems = useMemo<SolutionReviewItem[]>(() => {
+    return testQuestions.map((q) => {
       const timing = timingMap.get(q.id);
-      if (filterMode === 'all') return true;
-      if (filterMode === 'correct') return Boolean(timing?.answered && timing?.isCorrect);
-      if (filterMode === 'incorrect') return Boolean(timing?.answered && !timing?.isCorrect);
-      return !timing?.answered;
+      const status = !timing?.answered
+        ? 'skipped'
+        : timing.isCorrect
+          ? 'correct'
+          : 'wrong';
+      return {
+        question: q,
+        studentAnswer: attempt.answers?.[q.id],
+        status,
+        timing,
+      };
     });
-  }, [filterMode, testQuestions, timingMap]);
+  }, [attempt.answers, testQuestions, timingMap]);
 
   const timeSeriesData = useMemo(
     () =>
@@ -271,219 +274,21 @@ export function AttemptReviewModal({ attempt, questions, onClose }: AttemptRevie
             </div>
           </div>
 
-          {/* Question-by-Question Review & Solutions */}
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="font-display text-sm sm:text-base font-bold text-[#0B1B3B] dark:text-white">
-                Question-by-Question Solutions ({filteredQuestions.length} of {testQuestions.length})
-              </h3>
-              <div className="flex flex-wrap gap-1.5">
-                {(
-                  [
-                    { id: 'all', label: `All (${testQuestions.length})` },
-                    { id: 'incorrect', label: `Wrong (${attempt.incorrectCount})` },
-                    { id: 'correct', label: `Correct (${attempt.correctCount})` },
-                    { id: 'skipped', label: `Skipped (${attempt.unattemptedCount})` },
-                  ] as const
-                ).map((tab) => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => {
-                      playClick();
-                      setFilterMode(tab.id);
-                    }}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors ${
-                      filterMode === tab.id
-                        ? 'bg-[#0B1B3B] text-white border-[#0B1B3B] dark:bg-[#2563EB] dark:border-[#2563EB]'
-                        : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
+          {/* Swipeable Stacked Solution Cards with Top Question Number Strip */}
+          {testQuestions.length === 0 ? (
+            <div className="p-6 text-center rounded-xl border border-slate-200 dark:border-slate-800 text-xs text-slate-500">
+              Original questions for this test are no longer in the active catalog, though your score and pacing summary above remain saved.
             </div>
-
-            {testQuestions.length === 0 ? (
-              <div className="p-6 text-center rounded-xl border border-slate-200 dark:border-slate-800 text-xs text-slate-500">
-                Original questions for this test are no longer in the active catalog, though your score and pacing summary above remain saved.
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {filteredQuestions.map((q) => {
-                  const timing = timingMap.get(q.id);
-                  const ans = attempt.answers?.[q.id];
-                  const isCorrect = Boolean(timing?.answered && timing?.isCorrect);
-                  const isWrong = Boolean(timing?.answered && !timing?.isCorrect);
-                  const aiExp = aiExplanations[q.id];
-                  const aiErr = aiErrorById[q.id];
-
-                  return (
-                    <div
-                      key={q.id}
-                      className={`p-3.5 sm:p-4 rounded-xl border space-y-2.5 ${
-                        isCorrect
-                          ? 'border-emerald-200 dark:border-emerald-800/70 bg-emerald-50/30 dark:bg-emerald-950/15'
-                          : isWrong
-                            ? 'border-rose-200 dark:border-rose-800/70 bg-rose-50/30 dark:bg-rose-950/15'
-                            : 'border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-900/40'
-                      }`}
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                        <div className="flex items-center gap-2 font-semibold">
-                          <span className="font-mono font-bold text-[#0B1B3B] dark:text-white">
-                            Q{q.questionNumber}
-                          </span>
-                          <span className="text-[#2563EB] dark:text-sky-400">{q.subjectName}</span>
-                          {q.chapterName && (
-                            <span className="text-slate-500 dark:text-slate-400">· {q.chapterName}</span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 font-mono text-[11px]">
-                          {timing && (
-                            <span className="text-slate-500">
-                              {timing.timeSpentSeconds}s · {timing.paceCategory}
-                            </span>
-                          )}
-                          {isCorrect ? (
-                            <span className="inline-flex items-center gap-1 font-bold text-emerald-700 dark:text-emerald-400">
-                              <CheckCircle2 className="w-3.5 h-3.5" /> Correct
-                            </span>
-                          ) : isWrong ? (
-                            <span className="inline-flex items-center gap-1 font-bold text-rose-600 dark:text-rose-400">
-                              <XCircle className="w-3.5 h-3.5" /> Incorrect
-                            </span>
-                          ) : (
-                            <span className="font-semibold text-slate-500">Skipped</span>
-                          )}
-                        </div>
-                      </div>
-
-                      {q.questionText && !q.questionImageUrl?.startsWith('/assets/mocks/') && (
-                        <p className="text-xs sm:text-sm text-slate-900 dark:text-slate-100 leading-relaxed">
-                          {q.questionText}
-                        </p>
-                      )}
-                      {q.questionImageUrl && (
-                        <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white p-2 inline-block max-w-full">
-                          <img
-                            src={q.questionImageUrl}
-                            alt={`Question ${q.questionNumber}`}
-                            className="w-full max-w-[740px] h-auto object-contain"
-                          />
-                        </div>
-                      )}
-
-                      {q.questionType !== 'integer' &&
-                        !q.questionImageUrl?.startsWith('/assets/mocks/') &&
-                        q.optionTexts &&
-                        q.optionTexts.some(Boolean) && (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs">
-                            {q.optionTexts.map((txt, idx) => {
-                              const isOfficial = (q.correctOptionIndices ?? []).includes(idx);
-                              const isPicked =
-                                (ans?.type === 'single-mcq' && ans.selectedIndex === idx) ||
-                                (ans?.type === 'multi-mcq' && ans.selectedIndices.includes(idx));
-                              return (
-                                <div
-                                  key={idx}
-                                  className={`px-2.5 py-1.5 rounded-lg border flex items-center gap-2 ${
-                                    isOfficial
-                                      ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200 font-semibold'
-                                      : isPicked
-                                        ? 'border-rose-400 bg-rose-50 dark:bg-rose-950/40 text-rose-900 dark:text-rose-200'
-                                        : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 text-slate-700 dark:text-slate-300'
-                                  }`}
-                                >
-                                  <span className="font-mono font-bold">{LETTERS[idx]}.</span>
-                                  <span className="truncate">{txt}</span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-
-                      <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-200/70 dark:border-slate-800 text-xs">
-                        <div className="flex flex-wrap gap-3">
-                          <span>
-                            Your Answer:{' '}
-                            <strong className="font-mono">{formatStudentAnswer(q, ans)}</strong>
-                          </span>
-                          <span className="text-emerald-700 dark:text-emerald-400">
-                            Official Key:{' '}
-                            <strong className="font-mono">{formatOfficialAnswer(q)}</strong>
-                          </span>
-                        </div>
-
-                        <button
-                          type="button"
-                          disabled={aiLoadingId === q.id}
-                          onClick={() => void handleExplainWithAi(q)}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-blue-50 dark:bg-blue-950/50 text-[#2563EB] dark:text-sky-400 border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors disabled:opacity-50"
-                        >
-                          {aiLoadingId === q.id ? (
-                            <Loader2 className="w-3 h-3 animate-spin" />
-                          ) : (
-                            <Sparkles className="w-3 h-3" />
-                          )}
-                          {aiLoadingId === q.id ? 'Explaining...' : 'Explain with Gemini AI'}
-                        </button>
-                      </div>
-
-                      {(q.solutionText || q.solutionImageUrl) && (
-                        <div className="p-2.5 rounded-lg bg-white/80 dark:bg-slate-900/70 border border-slate-200/80 dark:border-slate-800 space-y-1.5">
-                          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                            Official Solution
-                          </p>
-                          {q.solutionText && !q.solutionImageUrl?.startsWith('/assets/mocks/') && (
-                            <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
-                              {q.solutionText}
-                            </p>
-                          )}
-                          {q.solutionImageUrl && (
-                            <div className="rounded-lg bg-white p-1 border border-slate-200/80 dark:border-slate-700 inline-block max-w-full">
-                              <img
-                                src={q.solutionImageUrl}
-                                alt={`Solution for Q${q.questionNumber}`}
-                                className="w-full max-w-[680px] h-auto object-contain"
-                              />
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {aiErr && (
-                        <p className="text-xs text-rose-600 dark:text-rose-400">{aiErr}</p>
-                      )}
-
-                      {aiExp && (
-                        <div className="p-3 rounded-xl bg-blue-50/70 dark:bg-blue-950/35 border border-blue-200 dark:border-blue-800 space-y-1.5 text-xs">
-                          <p className="font-bold text-[#2563EB] dark:text-sky-400 flex items-center gap-1.5">
-                            <Sparkles className="w-3.5 h-3.5 text-[#F97316]" />
-                            Gemini AI Concept Breakdown
-                          </p>
-                          <p className="text-slate-800 dark:text-slate-200">
-                            <strong>Concept: </strong>
-                            {aiExp.coreConcept}
-                          </p>
-                          <ol className="list-decimal pl-4 space-y-0.5 text-slate-700 dark:text-slate-300">
-                            {aiExp.stepByStep.map((s, i) => (
-                              <li key={i}>{s}</li>
-                            ))}
-                          </ol>
-                          <p className="text-emerald-800 dark:text-emerald-300 font-medium">
-                            <strong>10-Sec Shortcut: </strong>
-                            {aiExp.examShortcut}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          ) : (
+            <SolutionCardDeck
+              items={reviewItems}
+              title="Question-by-Question Solutions"
+              onExplainWithAi={handleExplainWithAi}
+              aiExplanations={aiExplanations}
+              aiLoadingId={aiLoadingId}
+              aiErrorById={aiErrorById}
+            />
+          )}
         </div>
       </div>
     </div>
