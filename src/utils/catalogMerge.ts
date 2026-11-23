@@ -11,6 +11,7 @@ import {
   CONCISE_NOTES_SECTION,
   JEE_CONCISE_CHAPTERS,
   JEE_CONCISE_MATERIALS,
+  RETIRED_CONCISE_CHAPTER_IDS,
 } from '../data/jeeConciseNotesCatalog';
 import {
   FORMULA_SHEETS_SECTION,
@@ -94,14 +95,16 @@ export function mergeClassGroups(
   return Array.from(byId.values()).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 }
 
+const OFFICIAL_CONCISE_MATERIAL_IDS = new Set(JEE_CONCISE_MATERIALS.map((m) => m.id));
+
 /**
  * Non-destructively merges Firestore subjects, sections, chapters, and materials
- * with the official 82-chapter JEE Concise Notes catalog AND the 99-PDF PCMB Formula Sheets catalog.
+ * with the official 99-PDF 5-page PCMB Chapter Notes catalog AND the 99-PDF PCMB Formula Sheets catalog.
  * - Physics & Chemistry: shared across JEE & NEET (11th, 12th, Dropper)
  * - Mathematics: strictly JEE only (11th JEE, 12th JEE, JEE Dropper)
  * - Biology: strictly NEET only (11th NEET, 12th NEET, NEET Dropper)
- * If the admin recreated subjects under custom subject IDs, official chapters & PDFs
- * automatically remap to those subject IDs so nothing duplicates.
+ * Official chapter notes automatically upgrade any stale seeded `mat-concise-*` / `PREPSKM_*`
+ * records from Firestore while preserving all custom admin uploads untouched.
  */
 export function mergeOfficialJeeCatalog(params: {
   subjects: SubjectRecord[];
@@ -194,30 +197,36 @@ export function mergeOfficialJeeCatalog(params: {
 
   mergedSubjects.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
-  // Merge Concise Notes section (JEE PCM)
+  // Merge Chapter Notes & Formula Sheets internal section records (PCMB)
+  const resolvedPcmbSubjectIds = officialSubjectDefs.map((d) => subjectIdMap.get(d.id) ?? d.id);
   const mergedSections: SectionRecord[] = params.sections.map((s) => ({
     ...s,
     subjectIds: s.subjectIds ? [...s.subjectIds] : undefined,
     chapterIds: s.chapterIds ? [...s.chapterIds] : undefined,
   }));
-  const hasConciseSection = mergedSections.some(
+  const existingNotesSection = mergedSections.find(
     (s) =>
       s.id === CONCISE_NOTES_SECTION.id ||
       normalizeName(s.name) === normalizeName(CONCISE_NOTES_SECTION.name) ||
-      s.slug === CONCISE_NOTES_SECTION.slug
+      normalizeName(s.name) === 'concise notes' ||
+      s.slug === CONCISE_NOTES_SECTION.slug ||
+      s.slug === 'concise-notes'
   );
-  const resolvedJeeSubjectIds = (['subj-physics', 'subj-chemistry', 'subj-mathematics'] as const).map(
-    (id) => subjectIdMap.get(id) ?? id
-  );
-  if (!hasConciseSection) {
+  if (existingNotesSection) {
+    existingNotesSection.name = CONCISE_NOTES_SECTION.name;
+    if (existingNotesSection.scope === 'subjects') {
+      existingNotesSection.subjectIds = ensureCohorts(
+        existingNotesSection.subjectIds ?? [],
+        resolvedPcmbSubjectIds
+      );
+    }
+  } else {
     mergedSections.unshift({
       ...CONCISE_NOTES_SECTION,
-      subjectIds: resolvedJeeSubjectIds,
+      subjectIds: resolvedPcmbSubjectIds,
     });
   }
 
-  // Merge Formula Sheets section (PCMB: Physics, Chemistry, Mathematics & Biology)
-  const resolvedPcmbSubjectIds = officialSubjectDefs.map((d) => subjectIdMap.get(d.id) ?? d.id);
   const existingFormulaSection = mergedSections.find(
     (s) =>
       s.id === FORMULA_SHEETS_SECTION.id ||
@@ -239,22 +248,89 @@ export function mergeOfficialJeeCatalog(params: {
   }
   mergedSections.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
-  // Merge 82 JEE chapters + 33 PCMB Formula Sheet chapters (Master sheets, Experimental Physics, 24 Biology chapters)
+  // Merge materials first so we know whether any retired chapter ID still holds custom admin uploads
+  const matById = new Map<string, StudyMaterialRecord>();
+  const customChapterIdsWithMaterials = new Set<string>();
+  for (const m of params.materials) {
+    // Drop retired legacy mat-concise-* IDs or legacy PREPSKM_* notes replaced by the 99 new 5-page PDFs
+    const isLegacyReplacedNote =
+      (m.id.startsWith('mat-concise-') && !OFFICIAL_CONCISE_MATERIAL_IDS.has(m.id)) ||
+      (typeof m.fileUrl === 'string' &&
+        /\/assets\/aistudio\/PREPSKM_(?:Phy_|Chem_|\d{2}_)/i.test(m.fileUrl));
+    if (isLegacyReplacedNote) continue;
+    matById.set(m.id, m);
+    if (!m.id.startsWith('mat-concise-') && !m.id.startsWith('mat-fs-')) {
+      customChapterIdsWithMaterials.add(m.chapterId);
+    }
+  }
+
+  // Always upsert all 99 brand-new 5-page Chapter Notes PDFs so stale Firestore copies are replaced
+  for (const offMat of JEE_CONCISE_MATERIALS) {
+    matById.set(offMat.id, {
+      ...offMat,
+      subjectId: subjectIdMap.get(offMat.subjectId) ?? offMat.subjectId,
+    });
+  }
+
+  // Merge all 99 PCMB Formula Sheet PDFs
+  const formulaSectionName = existingFormulaSection?.name ?? FORMULA_SHEETS_SECTION.name;
+  for (const fsMat of PCMB_FORMULA_MATERIALS) {
+    if (!matById.has(fsMat.id)) {
+      matById.set(fsMat.id, {
+        ...fsMat,
+        sectionName: formulaSectionName,
+        subjectId: subjectIdMap.get(fsMat.subjectId) ?? fsMat.subjectId,
+      });
+    } else {
+      // Ensure updated chapterId mapping (e.g. EM Waves -> chap-jee-phy-20) stays in sync
+      const existing = matById.get(fsMat.id)!;
+      if (RETIRED_CONCISE_CHAPTER_IDS.has(existing.chapterId)) {
+        matById.set(fsMat.id, { ...existing, chapterId: fsMat.chapterId });
+      }
+    }
+  }
+  const mergedMaterials = Array.from(matById.values());
+
+  // Merge all official PCMB chapters + Formula Sheet chapters (Master sheets, Experimental Physics, Biology)
   const chapterById = new Map<string, ChapterRecord>();
   for (const ch of params.chapters) {
+    if (RETIRED_CONCISE_CHAPTER_IDS.has(ch.id) && !customChapterIdsWithMaterials.has(ch.id)) {
+      continue;
+    }
     chapterById.set(ch.id, { ...ch, cohorts: [...ch.cohorts] });
   }
-  for (const offCh of [...JEE_CONCISE_CHAPTERS, ...PCMB_FORMULA_CHAPTERS]) {
-    if (!chapterById.has(offCh.id)) {
-      chapterById.set(offCh.id, {
-        ...offCh,
-        cohorts: [...offCh.cohorts],
-        subjectId: subjectIdMap.get(offCh.subjectId) ?? offCh.subjectId,
+  for (const fsCh of PCMB_FORMULA_CHAPTERS) {
+    if (!chapterById.has(fsCh.id)) {
+      chapterById.set(fsCh.id, {
+        ...fsCh,
+        cohorts: [...fsCh.cohorts],
+        subjectId: subjectIdMap.get(fsCh.subjectId) ?? fsCh.subjectId,
       });
     }
   }
-  // Expand shared Physics & Chemistry chapters to also appear for NEET Formula Sheets
-  // (JEE Concise Notes PDFs inside those chapters stay strictly JEE-only)
+  // Upsert all 99 official Chapter Notes chapters so updated titles, orders, and JEE+NEET cohorts take effect
+  for (const offCh of JEE_CONCISE_CHAPTERS) {
+    const existing = chapterById.get(offCh.id);
+    const resolvedSubjectId = subjectIdMap.get(offCh.subjectId) ?? offCh.subjectId;
+    if (existing) {
+      chapterById.set(offCh.id, {
+        ...existing,
+        subjectId: resolvedSubjectId,
+        name: offCh.name,
+        order: offCh.order,
+        cohorts: ensureCohorts(existing.cohorts, offCh.cohorts),
+        weightageMarks: offCh.weightageMarks,
+        difficulty: offCh.difficulty,
+      });
+    } else {
+      chapterById.set(offCh.id, {
+        ...offCh,
+        cohorts: [...offCh.cohorts],
+        subjectId: resolvedSubjectId,
+      });
+    }
+  }
+  // Expand shared Physics & Chemistry chapters with any additional Formula Sheet cohorts
   for (const [chapId, requiredCohorts] of Object.entries(PCMB_FORMULA_CHAPTER_COHORT_EXPANSIONS)) {
     const existingCh = chapterById.get(chapId);
     if (existingCh) {
@@ -265,31 +341,6 @@ export function mergeOfficialJeeCatalog(params: {
     if (a.subjectId !== b.subjectId) return a.subjectId.localeCompare(b.subjectId);
     return (a.order ?? 0) - (b.order ?? 0);
   });
-
-  // Merge 82 JEE Concise Notes PDFs + 99 PCMB Formula Sheet PDFs
-  const matById = new Map<string, StudyMaterialRecord>();
-  for (const m of params.materials) {
-    matById.set(m.id, m);
-  }
-  const formulaSectionName = existingFormulaSection?.name ?? FORMULA_SHEETS_SECTION.name;
-  for (const offMat of JEE_CONCISE_MATERIALS) {
-    if (!matById.has(offMat.id)) {
-      matById.set(offMat.id, {
-        ...offMat,
-        subjectId: subjectIdMap.get(offMat.subjectId) ?? offMat.subjectId,
-      });
-    }
-  }
-  for (const fsMat of PCMB_FORMULA_MATERIALS) {
-    if (!matById.has(fsMat.id)) {
-      matById.set(fsMat.id, {
-        ...fsMat,
-        sectionName: formulaSectionName,
-        subjectId: subjectIdMap.get(fsMat.subjectId) ?? fsMat.subjectId,
-      });
-    }
-  }
-  const mergedMaterials = Array.from(matById.values());
 
   return {
     subjects: mergedSubjects,

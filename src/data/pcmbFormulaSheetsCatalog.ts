@@ -405,7 +405,7 @@ const FORMULA_SPECS: FormulaSheetSpec[] = [
   },
   {
     id: 'mat-fs-phy-12-08',
-    chapterId: 'chap-jee-phy-21',
+    chapterId: 'chap-jee-phy-20',
     subjectId: 'subj-physics',
     subjectName: 'Physics',
     classLevel: 'Class 12',
