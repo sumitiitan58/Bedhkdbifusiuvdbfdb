@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
 import {
   ArrowLeft,
@@ -51,9 +52,9 @@ interface FullPageMediaReaderProps {
 }
 
 /**
- * Full-page edge-to-edge immersive reader/theater for PDFs, Videos, and Images.
- * Replaces small boxed popup previews with a dedicated full-viewport study experience
- * featuring book page-turning animation, cinema video stage, and interactive SFX.
+ * Full-screen edge-to-edge immersive reader/theater for PDFs, Videos, and Images.
+ * Portaled directly into document.body at z-[9999] so PDFs always open full-screen
+ * rather than inside a small popup dialog.
  */
 export function FullPageMediaReader({
   item,
@@ -108,7 +109,7 @@ export function FullPageMediaReader({
     onClose();
   };
 
-  // PDF renders directly in the Full-Page 3D Book Reader
+  // PDF renders directly in the True Full-Screen PDF Reader
   if (item.mediaKind === 'pdf') {
     return (
       <FullPdfViewer
@@ -118,29 +119,31 @@ export function FullPageMediaReader({
         fileName={item.fileName}
         materialId={item.id}
         fullPage
+        isBookmarked={isBookmarked}
+        onToggleBookmark={onToggleBookmark}
         onClose={onClose}
         onDownloadApproved={onDownloadApproved}
       />
     );
   }
 
-  // VIDEO & IMAGE render in an edge-to-edge Full-Page Theater / Sheet Stage
+  // VIDEO & IMAGE render in an edge-to-edge Full-Screen Theater / Sheet Stage
   const attachments = item.attachments ?? [];
 
-  return (
+  const overlay = (
     <motion.div
-      initial={{ opacity: 0, scale: 0.985 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
       role="dialog"
       aria-modal="true"
-      aria-label={`Full-page viewer for ${item.title}`}
+      aria-label={`Full-screen viewer for ${item.title}`}
       data-testid={
         item.mediaKind === 'video'
           ? 'full-page-video-theater'
           : 'full-page-image-reader'
       }
-      className="fixed inset-0 z-50 w-screen h-screen flex flex-col bg-gradient-to-b from-[#060B17] via-[#0A1326] to-[#050914] text-slate-100"
+      className="fixed inset-0 z-[9999] w-screen h-[100dvh] flex flex-col bg-gradient-to-b from-[#060B17] via-[#0A1326] to-[#050914] text-slate-100"
     >
       {/* Top Cinema / Reader Bar */}
       <header className="px-3 sm:px-5 h-14 bg-[#070E1F]/95 border-b border-slate-800/90 flex items-center justify-between gap-3 shrink-0">
@@ -368,4 +371,9 @@ export function FullPageMediaReader({
       </div>
     </motion.div>
   );
+
+  if (typeof document !== 'undefined') {
+    return createPortal(overlay, document.body);
+  }
+  return overlay;
 }

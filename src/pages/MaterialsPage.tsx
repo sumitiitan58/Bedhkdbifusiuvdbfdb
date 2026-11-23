@@ -7,11 +7,11 @@ import {
   BookOpen,
   ChevronRight,
   Download,
-  Eye,
   FileText,
   Film,
   FolderOpen,
   Image as ImageIcon,
+  Maximize2,
   Paperclip,
   Play,
   Search,
@@ -33,17 +33,16 @@ import {
   filterMaterialsByCohort,
   filterSubjectsByCohort,
 } from '../utils/catalogMerge';
-import { CANONICAL_ORIGIN, getHierarchicalMaterialPath } from '../utils/seoHelpers';
+import {
+  CANONICAL_ORIGIN,
+  getHierarchicalMaterialPath,
+  stripChapterNumberPrefix,
+} from '../utils/seoHelpers';
 import { playClick } from '../utils/soundEffects';
-import type {
-  ChapterRecord,
-  SectionRecord,
-  StudentCohortId,
-  StudyMaterialRecord,
-} from '../types';
+import type { StudentCohortId, StudyMaterialRecord } from '../types';
 
 function formatBytes(bytes?: number): string {
-  if (!bytes || bytes <= 0) return 'Resource';
+  if (!bytes || bytes <= 0) return 'PDF';
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
@@ -62,23 +61,38 @@ function extractYouTubeId(url: string): string | null {
   return null;
 }
 
-function sectionAppliesToChapter(section: SectionRecord, chapter: ChapterRecord): boolean {
-  const scope = section.scope ?? 'all';
-  if (scope === 'all') return true;
-  if (scope === 'subjects') {
-    return (section.subjectIds ?? []).includes(chapter.subjectId);
-  }
-  if (scope === 'chapters') {
-    return (section.chapterIds ?? []).includes(chapter.id);
-  }
-  return true;
-}
-
 function isVideoMaterial(mat: StudyMaterialRecord): boolean {
   if (mat.mediaType === 'video') return true;
   if (mat.mimeType?.startsWith('video/')) return true;
   if (extractYouTubeId(mat.fileUrl)) return true;
   return /\.(mp4|webm|mov)(\?|$)/i.test(mat.fileUrl);
+}
+
+function isFormulaSheet(mat: StudyMaterialRecord): boolean {
+  const s = `${mat.sectionName ?? ''} ${mat.resourceType ?? ''} ${mat.title}`.toLowerCase();
+  return s.includes('formula');
+}
+
+function getFriendlyResourceLabel(mat: StudyMaterialRecord): string {
+  if (isVideoMaterial(mat)) return 'Video Lecture';
+  if (mat.id.includes('-master')) return 'Master Formula Sheet';
+  if (isFormulaSheet(mat)) return 'Formula Sheet';
+  const raw = `${mat.sectionName ?? ''} ${mat.resourceType ?? ''}`.toLowerCase();
+  if (raw.includes('pyq') || raw.includes('previous year')) return 'PYQ Archive';
+  return 'Chapter Notes';
+}
+
+function sortChapterResources(items: StudyMaterialRecord[]): StudyMaterialRecord[] {
+  const rank = (m: StudyMaterialRecord) => {
+    if (isVideoMaterial(m)) return 3;
+    if (isFormulaSheet(m)) return 2;
+    return 1; // Chapter Notes always shown first
+  };
+  return [...items].sort((a, b) => {
+    const diff = rank(a) - rank(b);
+    if (diff !== 0) return diff;
+    return a.title.localeCompare(b.title);
+  });
 }
 
 export default function MaterialsPage() {
@@ -88,7 +102,6 @@ export default function MaterialsPage() {
     allCohorts,
     subjects,
     chapters,
-    sections,
     materials,
     progress,
     toggleMaterialBookmark,
@@ -98,22 +111,23 @@ export default function MaterialsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const trackParam = searchParams.get('track');
   const queryParam = searchParams.get('q');
-  const sectionParam = searchParams.get('section');
+  const viewParam = searchParams.get('view') || searchParams.get('section');
 
   const [selectedCohort, setSelectedCohort] = useState<StudentCohortId | 'all'>(
     trackParam || cohortId || 'class-12-jee'
   );
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>('all');
-  const [selectedDirectorySection, setSelectedDirectorySection] = useState<string>('all');
+  const [browseMode, setBrowseMode] = useState<'chapters' | 'formula-sheets'>(() =>
+    viewParam && viewParam.toLowerCase().includes('formula') ? 'formula-sheets' : 'chapters'
+  );
   const [searchQuery, setSearchQuery] = useState(queryParam || '');
   const [activeChapterId, setActiveChapterId] = useState<string | null>(null);
-  const [activeSectionFilter, setActiveSectionFilter] = useState<string>('all');
   const [onlyBookmarked, setOnlyBookmarked] = useState(false);
 
   const [previewMaterial, setPreviewMaterial] = useState<StudyMaterialRecord | null>(null);
   const [resolvedPreviewUrl, setResolvedPreviewUrl] = useState<string>('');
 
-  // Sync from URL ?track= / ?q= / ?section= when arriving from Footer internal SEO links or SearchAction
+  // Sync URL ?track= / ?q= / ?view= when arriving from Footer internal SEO links or SearchAction
   useEffect(() => {
     if (trackParam) {
       setSelectedCohort(trackParam);
@@ -131,16 +145,12 @@ export default function MaterialsPage() {
   }, [queryParam]);
 
   useEffect(() => {
-    if (!sectionParam) {
-      setSelectedDirectorySection('all');
-      return;
+    if (viewParam && viewParam.toLowerCase().includes('formula')) {
+      setBrowseMode('formula-sheets');
+    } else if (viewParam === 'chapters') {
+      setBrowseMode('chapters');
     }
-    const norm = sectionParam.trim().toLowerCase();
-    const matched = sections.find(
-      (s) => s.slug.toLowerCase() === norm || s.name.toLowerCase() === norm
-    );
-    setSelectedDirectorySection(matched ? matched.name : sectionParam);
-  }, [sectionParam, sections]);
+  }, [viewParam]);
 
   useEffect(() => {
     let active = true;
@@ -184,65 +194,20 @@ export default function MaterialsPage() {
     () => new Set(progress.bookmarkedMaterials),
     [progress.bookmarkedMaterials]
   );
-
   const chapterMap = useMemo(
     () => new Map(chapters.map((c) => [c.id, c])),
     [chapters]
   );
 
-  // Sections that have at least 1 resource for the active Track & Subject
-  const directorySections = useMemo(() => {
-    const visibleSubjectIds = new Set(visibleSubjects.map((s) => s.id));
-    const scopedMats = cohortMaterials.filter((m) => {
-      if (selectedCohort !== 'all' && !visibleSubjectIds.has(m.subjectId)) return false;
-      if (selectedSubjectId !== 'all' && m.subjectId !== selectedSubjectId) return false;
-      return true;
-    });
-    const counts = new Map<string, number>();
-    for (const m of scopedMats) {
-      counts.set(m.sectionName, (counts.get(m.sectionName) ?? 0) + 1);
-    }
-    const ordered: Array<{ name: string; slug: string; count: number }> = [];
-    const seen = new Set<string>();
-    for (const sec of sections) {
-      const count = counts.get(sec.name) ?? 0;
-      if (count > 0 && !seen.has(sec.name)) {
-        seen.add(sec.name);
-        ordered.push({ name: sec.name, slug: sec.slug, count });
-      }
-    }
-    for (const [name, count] of counts.entries()) {
-      if (!seen.has(name)) {
-        ordered.push({
-          name,
-          slug: name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-          count,
-        });
-      }
-    }
-    return ordered;
-  }, [cohortMaterials, sections, selectedCohort, selectedSubjectId, visibleSubjects]);
-
-  // Reset directory section filter if it no longer has items in the active track/subject
-  useEffect(() => {
-    if (
-      selectedDirectorySection !== 'all' &&
-      !directorySections.some((s) => s.name === selectedDirectorySection)
-    ) {
-      setSelectedDirectorySection('all');
-    }
-  }, [directorySections, selectedDirectorySection]);
-
-  // Direct filtered materials list when a Section tab (like Formula Sheets) is selected in View B
-  const filteredDirectoryMaterials = useMemo(() => {
-    if (selectedDirectorySection === 'all') return [];
+  const formulaSheetMaterials = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     const visibleSubjectIds = new Set(visibleSubjects.map((s) => s.id));
     return cohortMaterials
       .filter((m) => {
-        if (m.sectionName !== selectedDirectorySection) return false;
+        if (!isFormulaSheet(m)) return false;
         if (selectedCohort !== 'all' && !visibleSubjectIds.has(m.subjectId)) return false;
         if (selectedSubjectId !== 'all' && m.subjectId !== selectedSubjectId) return false;
+        if (onlyBookmarked && !bookmarkSet.has(m.id)) return false;
         if (q) {
           const subName = (subjectMap.get(m.subjectId)?.name ?? '').toLowerCase();
           const chName = (chapterMap.get(m.chapterId)?.name ?? '').toLowerCase();
@@ -269,15 +234,26 @@ export default function MaterialsPage() {
         return a.title.localeCompare(b.title);
       });
   }, [
+    bookmarkSet,
     chapterMap,
     cohortMaterials,
+    onlyBookmarked,
     searchQuery,
     selectedCohort,
-    selectedDirectorySection,
     selectedSubjectId,
     subjectMap,
     visibleSubjects,
   ]);
+
+  const totalFormulaSheetsInScope = useMemo(() => {
+    const visibleSubjectIds = new Set(visibleSubjects.map((s) => s.id));
+    return cohortMaterials.filter(
+      (m) =>
+        isFormulaSheet(m) &&
+        (selectedCohort === 'all' || visibleSubjectIds.has(m.subjectId)) &&
+        (selectedSubjectId === 'all' || m.subjectId === selectedSubjectId)
+    ).length;
+  }, [cohortMaterials, selectedCohort, selectedSubjectId, visibleSubjects]);
 
   // Strictly isolated Chapters filtered by Class/Sub-Class, Subject, and Search
   const filteredChapters = useMemo(() => {
@@ -288,14 +264,15 @@ export default function MaterialsPage() {
       .filter((ch) => {
         if (selectedCohort !== 'all' && !visibleSubjectIds.has(ch.subjectId)) return false;
         if (selectedSubjectId !== 'all' && ch.subjectId !== selectedSubjectId) return false;
+        const chMats = cohortMaterials.filter((m) => m.chapterId === ch.id);
+        if (onlyBookmarked && !chMats.some((m) => bookmarkSet.has(m.id))) return false;
         if (q) {
           const subName = (subjectMap.get(ch.subjectId)?.name ?? '').toLowerCase();
-          const chMats = cohortMaterials.filter((m) => m.chapterId === ch.id);
           const matchesMaterial = chMats.some(
             (m) =>
               m.title.toLowerCase().includes(q) ||
               (m.description ?? '').toLowerCase().includes(q) ||
-              m.sectionName.toLowerCase().includes(q)
+              (m.seoKeywords ?? '').toLowerCase().includes(q)
           );
           return ch.name.toLowerCase().includes(q) || subName.includes(q) || matchesMaterial;
         }
@@ -307,62 +284,33 @@ export default function MaterialsPage() {
         if (subA !== subB) return subA - subB;
         return (a.order ?? 0) - (b.order ?? 0);
       });
-  }, [chapters, cohortMaterials, searchQuery, selectedCohort, selectedSubjectId, subjectMap, visibleSubjects]);
+  }, [
+    bookmarkSet,
+    chapters,
+    cohortMaterials,
+    onlyBookmarked,
+    searchQuery,
+    selectedCohort,
+    selectedSubjectId,
+    subjectMap,
+    visibleSubjects,
+  ]);
 
   const activeChapter = useMemo(
     () => (activeChapterId ? chapters.find((c) => c.id === activeChapterId) ?? null : null),
     [activeChapterId, chapters]
   );
 
-  // All materials in this chapter STRICTLY belonging to the active Class/Sub-Class
-  const activeChapterAllCohortMaterials = useMemo(() => {
-    if (!activeChapter) return [];
-    return cohortMaterials.filter((m) => m.chapterId === activeChapter.id);
-  }, [activeChapter, cohortMaterials]);
-
-  // Sections applicable to the clicked chapter (only showing Concise Notes / scoped sections properly)
-  const chapterSections = useMemo(() => {
-    if (!activeChapter) return [];
-    const applicable = sections.filter((sec) => {
-      if (!sectionAppliesToChapter(sec, activeChapter)) return false;
-      // Keep Concise Notes scoped to JEE tracks (or whenever items exist in it for this track)
-      if (
-        sec.slug === 'concise-notes' &&
-        selectedCohort !== 'all' &&
-        !selectedCohort.includes('jee') &&
-        !activeChapterAllCohortMaterials.some((m) => m.sectionName === sec.name)
-      ) {
-        return false;
-      }
-      return true;
-    });
-    const existingNames = new Set(applicable.map((s) => s.name));
-    const extraNames = Array.from(
-      new Set(
-        activeChapterAllCohortMaterials
-          .filter((m) => !existingNames.has(m.sectionName))
-          .map((m) => m.sectionName)
-      )
-    );
-    const extras: SectionRecord[] = extraNames.map((name, idx) => ({
-      id: `extra-${idx}-${name}`,
-      name,
-      slug: name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-      order: 100 + idx,
-      scope: 'chapters',
-    }));
-    return [...applicable, ...extras].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-  }, [activeChapter, activeChapterAllCohortMaterials, sections, selectedCohort]);
-
-  // Strictly isolated Materials inside the opened Chapter
+  // All notes & PDFs directly inside the clicked Chapter (NO section tabs or empty placeholders)
   const chapterMaterials = useMemo(() => {
     if (!activeChapter) return [];
-    return activeChapterAllCohortMaterials.filter((m) => {
-      if (activeSectionFilter !== 'all' && m.sectionName !== activeSectionFilter) return false;
+    const scoped = cohortMaterials.filter((m) => {
+      if (m.chapterId !== activeChapter.id) return false;
       if (onlyBookmarked && !bookmarkSet.has(m.id)) return false;
       return true;
     });
-  }, [activeChapter, activeChapterAllCohortMaterials, activeSectionFilter, bookmarkSet, onlyBookmarked]);
+    return sortChapterResources(scoped);
+  }, [activeChapter, bookmarkSet, cohortMaterials, onlyBookmarked]);
 
   const handleOpenPreview = (mat: StudyMaterialRecord) => {
     playClick();
@@ -378,8 +326,8 @@ export default function MaterialsPage() {
   ) => {
     await requestPdfDownload({
       url: rawUrl,
-      fileName: suggestedName || 'PREPSKM-Study-Material.pdf',
-      title: displayTitle || suggestedName || 'Study Material PDF',
+      fileName: suggestedName || 'PREPSKM-Notes.pdf',
+      title: displayTitle || suggestedName || 'Chapter Notes PDF',
       materialId,
       onApproved: () => {
         if (materialId) recordMaterialView(materialId);
@@ -390,24 +338,66 @@ export default function MaterialsPage() {
   const activeSubjectName = activeChapter
     ? subjectMap.get(activeChapter.subjectId)?.name ?? 'Subject'
     : '';
+  const selectedCohortLabel =
+    selectedCohort === 'all'
+      ? 'JEE & NEET'
+      : allCohorts.find((c) => c.id === selectedCohort)?.label ?? selectedCohort;
+
+  const cleanActiveChapterName = activeChapter
+    ? stripChapterNumberPrefix(activeChapter.name)
+    : '';
 
   const seoTitle = activeChapter
-    ? `${activeChapter.name} (${activeSubjectName}) Concise Notes & PYQs - Prepskm`
-    : 'JEE & NEET Chapter-Wise Study Materials & Notes - Prepskm';
+    ? `${cleanActiveChapterName} Notes & Formula Sheet PDF – ${activeSubjectName} | Prepskm`
+    : browseMode === 'formula-sheets'
+      ? `${selectedCohortLabel} Formula Sheets PDF – Physics, Chemistry, Maths & Biology | Prepskm`
+      : `${selectedCohortLabel} Chapter-Wise Notes & Study Materials PDF | Prepskm`;
 
   const seoDescription = activeChapter
-    ? `Download free ${activeChapter.name} (${activeSubjectName}) Concise Notes, Short Notes, Formula Sheets, and PYQs on Prepskm.`
-    : 'Browse free JEE Main, JEE Advanced, NEET UG & Board chapter-wise Concise Notes, Short Notes, Formula Sheets, and PYQ PDFs on Prepskm.';
+    ? `Read full-screen ${cleanActiveChapterName} (${activeSubjectName}) chapter notes and formula sheet PDFs free for ${selectedCohortLabel} on Prepskm.`
+    : `Browse free chapter-wise ${selectedCohortLabel} notes, revision PDFs, and PCMB formula sheets for JEE Main, JEE Advanced & NEET UG on Prepskm.`;
 
   const materialsJsonLd = useMemo(
     () => ({
       '@context': 'https://schema.org',
-      '@type': 'Course',
-      name: activeChapter ? `${activeChapter.name} — ${activeSubjectName}` : 'Prepskm Chapter Study Materials & Concise Notes',
-      description: seoDescription,
-      provider: { '@type': 'EducationalOrganization', name: 'Prepskm', url: CANONICAL_ORIGIN },
+      '@graph': [
+        {
+          '@type': 'CollectionPage',
+          name: seoTitle,
+          description: seoDescription,
+          url: `${CANONICAL_ORIGIN}/materials`,
+          inLanguage: 'en-IN',
+          provider: {
+            '@type': 'EducationalOrganization',
+            name: 'Prepskm',
+            url: CANONICAL_ORIGIN,
+          },
+        },
+        {
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            { '@type': 'ListItem', position: 1, name: 'Home', item: `${CANONICAL_ORIGIN}/` },
+            {
+              '@type': 'ListItem',
+              position: 2,
+              name: 'Chapter Notes & Study Materials',
+              item: `${CANONICAL_ORIGIN}/materials`,
+            },
+            ...(activeChapter
+              ? [
+                  {
+                    '@type': 'ListItem',
+                    position: 3,
+                    name: `${cleanActiveChapterName} (${activeSubjectName})`,
+                    item: `${CANONICAL_ORIGIN}/materials`,
+                  },
+                ]
+              : []),
+          ],
+        },
+      ],
     }),
-    [activeChapter, activeSubjectName, seoDescription]
+    [activeChapter, activeSubjectName, cleanActiveChapterName, seoDescription, seoTitle]
   );
 
   const activeYoutubeId =
@@ -423,14 +413,14 @@ export default function MaterialsPage() {
         canonicalPath="/materials"
         keywords={
           activeChapter
-            ? `${activeChapter.name}, ${activeSubjectName}, JEE notes, NEET notes, PYQs, formula sheet`
-            : 'chapter wise study materials, JEE short notes, NEET biology NCERT, concept videos, PYQ PDFs'
+            ? `${cleanActiveChapterName} notes pdf, ${activeSubjectName} chapter notes, ${selectedCohortLabel}, formula sheet, prepskm`
+            : `chapter wise notes pdf, ${selectedCohortLabel} notes, JEE notes, NEET notes, PCMB formula sheets, prepskm`
         }
         jsonLd={materialsJsonLd}
       />
 
       <ResponsiveContainer className="py-5 sm:py-8 space-y-5 sm:space-y-6">
-        {/* VIEW A: CHAPTER DETAIL WORKSPACE (Shows Admin Sections -> PDFs & Videos with Thumbnails) */}
+        {/* VIEW A: CLEAN CHAPTER NOTES VIEW (Direct Notes & Formula Sheets — Zero Section Clutter) */}
         {activeChapter ? (
           <div className="space-y-4 sm:space-y-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -439,7 +429,6 @@ export default function MaterialsPage() {
                 onClick={() => {
                   playClick();
                   setActiveChapterId(null);
-                  setActiveSectionFilter('all');
                 }}
                 className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-semibold text-[#0B1B3B] dark:text-white bg-white dark:bg-[#111A2E] border border-slate-200 dark:border-slate-800 hover:border-[#2563EB] transition-colors"
               >
@@ -456,103 +445,55 @@ export default function MaterialsPage() {
               </div>
             </div>
 
-            <ReusableCard className="space-y-4">
+            <ReusableCard className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <p className="text-xs font-bold uppercase tracking-wider text-[#F97316]">
-                  {activeSubjectName} Chapter Workspace
+                  {activeSubjectName} · {selectedCohortLabel}
                 </p>
                 <h1 className="font-display text-2xl sm:text-3xl font-extrabold text-[#0B1B3B] dark:text-white mt-0.5">
                   {activeChapter.name}
                 </h1>
                 <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                  Browse every faculty-curated section inside this chapter — open PDFs, inspect
-                  formula sheets, or watch concept videos right here.
+                  Open any chapter note or formula sheet directly in full-screen PDF reader or download for offline revision.
                 </p>
               </div>
 
-              {/* Section Tabs inside Chapter */}
-              <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
-                <div className="flex flex-wrap gap-2" role="tablist" aria-label="Chapter sections">
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={activeSectionFilter === 'all'}
-                    onClick={() => {
-                      playClick();
-                      setActiveSectionFilter('all');
-                    }}
-                    className={`px-3.5 py-2 rounded-xl text-xs font-semibold border transition-colors ${
-                      activeSectionFilter === 'all'
-                        ? 'bg-[#0B1B3B] text-white border-[#0B1B3B] dark:bg-[#2563EB] dark:border-[#2563EB]'
-                        : 'bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-[#2563EB]'
-                    }`}
-                  >
-                    All Sections ({activeChapterAllCohortMaterials.length})
-                  </button>
-
-                  {chapterSections.map((sec) => {
-                    const count = activeChapterAllCohortMaterials.filter(
-                      (m) => m.sectionName === sec.name
-                    ).length;
-                    const active = activeSectionFilter === sec.name;
-                    return (
-                      <button
-                        key={sec.id}
-                        type="button"
-                        role="tab"
-                        aria-selected={active}
-                        onClick={() => {
-                          playClick();
-                          setActiveSectionFilter(sec.name);
-                        }}
-                        className={`px-3.5 py-2 rounded-xl text-xs font-semibold border transition-colors ${
-                          active
-                            ? 'bg-[#0B1B3B] text-white border-[#0B1B3B] dark:bg-[#2563EB] dark:border-[#2563EB]'
-                            : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-[#2563EB]'
-                        }`}
-                      >
-                        {sec.name} ({count})
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    playClick();
-                    setOnlyBookmarked((b) => !b);
-                  }}
-                  aria-pressed={onlyBookmarked}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
-                    onlyBookmarked
-                      ? 'bg-[#F97316] text-white border-[#F97316]'
-                      : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
-                  }`}
-                >
-                  <Bookmark className="w-3.5 h-3.5" />
-                  Bookmarked
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  playClick();
+                  setOnlyBookmarked((b) => !b);
+                }}
+                aria-pressed={onlyBookmarked}
+                className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold border transition-colors self-start sm:self-center shrink-0 ${
+                  onlyBookmarked
+                    ? 'bg-[#F97316] text-white border-[#F97316]'
+                    : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-[#2563EB]'
+                }`}
+              >
+                <Bookmark className="w-3.5 h-3.5" />
+                Bookmarked Only
+              </button>
             </ReusableCard>
 
-            {/* Grouped Sections View or Filtered Section Grid */}
             {chapterMaterials.length === 0 ? (
               <ReusableCard className="py-12 text-center space-y-3">
                 <FolderOpen className="w-10 h-10 text-slate-400 mx-auto" />
                 <h2 className="font-display text-lg font-bold text-[#0B1B3B] dark:text-white">
-                  No Files Uploaded in This Section Yet
+                  {onlyBookmarked ? 'No Bookmarked Notes in This Chapter' : 'No Notes Uploaded Yet'}
                 </h2>
                 <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-                  Admins can upload PDFs, images, or video lessons with thumbnails to this section anytime from the Admin Console.
+                  {onlyBookmarked
+                    ? 'Clear the Bookmarked filter to view all available PDFs in this chapter.'
+                    : 'Chapter notes and formula sheets for this chapter will appear here as soon as they are published.'}
                 </p>
-                {activeSectionFilter !== 'all' && (
+                {onlyBookmarked && (
                   <ReusableButton
                     variant="secondary"
                     size="sm"
-                    onClick={() => setActiveSectionFilter('all')}
+                    onClick={() => setOnlyBookmarked(false)}
                   >
-                    Show All Sections in {activeChapter.name}
+                    Show All Chapter PDFs
                   </ReusableButton>
                 )}
               </ReusableCard>
@@ -563,6 +504,7 @@ export default function MaterialsPage() {
                   const isBookmarked = bookmarkSet.has(mat.id);
                   const isImg = mat.mediaType === 'image' || mat.mimeType?.startsWith('image/');
                   const attachments = mat.attachments ?? [];
+                  const friendlyLabel = getFriendlyResourceLabel(mat);
 
                   return (
                     <ReusableCard
@@ -572,7 +514,6 @@ export default function MaterialsPage() {
                       className="flex flex-col justify-between overflow-hidden"
                     >
                       <div>
-                        {/* Video Thumbnail / Visual Banner */}
                         {isVid ? (
                           <button
                             type="button"
@@ -625,9 +566,11 @@ export default function MaterialsPage() {
                               ) : (
                                 <FileText className="w-3.5 h-3.5" />
                               )}
-                              <span>{mat.sectionName}</span>
+                              <span>{friendlyLabel}</span>
                               <span className="text-slate-300 dark:text-slate-700">·</span>
-                              <span className="uppercase">{isVid ? 'Video' : mat.mediaType ?? 'PDF'}</span>
+                              <span className="uppercase">
+                                {isVid ? 'Video' : mat.mediaType ?? 'PDF'}
+                              </span>
                             </div>
 
                             <button
@@ -648,17 +591,18 @@ export default function MaterialsPage() {
                             </button>
                           </div>
 
-                          <h3 className="font-display text-sm sm:text-base font-bold text-[#0B1B3B] dark:text-white leading-snug">
+                          <h2 className="font-display text-sm sm:text-base font-bold text-[#0B1B3B] dark:text-white leading-snug">
                             <Link
                               to={getHierarchicalMaterialPath(mat, {
                                 subjectName: subjectMap.get(mat.subjectId)?.name,
-                                cohortId: selectedCohort !== 'all' ? selectedCohort : mat.cohorts[0],
+                                cohortId:
+                                  selectedCohort !== 'all' ? selectedCohort : mat.cohorts[0],
                               })}
                               className="hover:text-[#2563EB] dark:hover:text-sky-400 transition-colors"
                             >
                               {mat.title}
                             </Link>
-                          </h3>
+                          </h2>
 
                           {mat.description && (
                             <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-2">
@@ -672,7 +616,6 @@ export default function MaterialsPage() {
                               : formatBytes(mat.fileSizeBytes)}
                           </p>
 
-                          {/* Tagged PDF / Document Attachments on Videos */}
                           {attachments.length > 0 && (
                             <div className="pt-2 mt-1.5 border-t border-slate-100 dark:border-slate-800 space-y-1.5">
                               <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 flex items-center gap-1">
@@ -714,11 +657,14 @@ export default function MaterialsPage() {
                           className="flex-1"
                           onClick={() => handleOpenPreview(mat)}
                         >
-                          {isVid ? <Play className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                          {isVid ? 'Watch Video' : 'Open Book Preview'}
+                          {isVid ? (
+                            <Play className="w-4 h-4" />
+                          ) : (
+                            <Maximize2 className="w-3.5 h-3.5" />
+                          )}
+                          {isVid ? 'Watch Full Screen' : 'Full-Screen PDF'}
                         </ReusableButton>
 
-                        {/* Download button ONLY for PDFs/Documents/Images — NEVER for Videos */}
                         {!isVid && (
                           <button
                             type="button"
@@ -734,7 +680,7 @@ export default function MaterialsPage() {
                             className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border border-[#2563EB]/30 bg-blue-50/70 dark:bg-blue-950/40 text-[#2563EB] dark:text-sky-300 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors shrink-0"
                           >
                             <Download className="w-3.5 h-3.5" />
-                            Download PDF
+                            Download
                           </button>
                         )}
                       </div>
@@ -745,35 +691,39 @@ export default function MaterialsPage() {
             )}
           </div>
         ) : (
-          /* VIEW B: CHAPTER DIRECTORY (Click any Chapter -> opens its Scoped Sections) */
+          /* VIEW B: CHAPTER DIRECTORY & FORMULA SHEETS (Zero "Section" Clutter) */
           <>
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
               <div>
                 <p className="text-xs font-bold uppercase tracking-wider text-[#F97316]">
-                  Click Any Chapter → Open Sections (PDFs &amp; Videos)
+                  Full-Screen Chapter Notes &amp; Formula Sheets
                 </p>
                 <h1 className="font-display text-3xl font-extrabold text-[#0B1B3B] dark:text-white mt-0.5">
                   Chapter-Wise Study Materials
                 </h1>
                 <p className="mt-1.5 text-sm sm:text-base text-slate-600 dark:text-slate-400">
-                  Select a chapter to explore admin-curated Short Notes, Concept Videos with thumbnails, Formula Sheets, and PYQs.
+                  Open any chapter to read concise notes and PCMB formula sheets in full-screen PDF mode or download for offline revision.
                 </p>
               </div>
               <div className="flex flex-wrap md:flex-nowrap items-center gap-2.5 text-xs font-semibold tabular-nums text-slate-600 dark:text-slate-400 shrink-0 whitespace-nowrap">
                 <GuestDownloadBadge />
-                <span aria-hidden="true" className="text-slate-300 dark:text-slate-700">·</span>
+                <span aria-hidden="true" className="text-slate-300 dark:text-slate-700">
+                  ·
+                </span>
                 <span>{filteredChapters.length} Chapters</span>
-                <span aria-hidden="true" className="text-slate-300 dark:text-slate-700">·</span>
-                <span>{cohortMaterials.length} Resources</span>
+                <span aria-hidden="true" className="text-slate-300 dark:text-slate-700">
+                  ·
+                </span>
+                <span>{cohortMaterials.length} PDFs</span>
               </div>
             </div>
 
-            {/* Filter Bar */}
+            {/* Clean Filter Bar (No Section Jargon) */}
             <ReusableCard padding="sm" className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 <div className="relative lg:col-span-2">
                   <label htmlFor="chapter-search" className="sr-only">
-                    Search chapters or materials
+                    Search chapters or notes
                   </label>
                   <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
@@ -788,7 +738,7 @@ export default function MaterialsPage() {
 
                 <div>
                   <label htmlFor="mat-cohort-filter" className="sr-only">
-                    Filter by class or sub-class
+                    Filter by class or exam track
                   </label>
                   <select
                     id="mat-cohort-filter"
@@ -833,97 +783,110 @@ export default function MaterialsPage() {
                 </div>
               </div>
 
-              {/* Subject Quick Tabs */}
-              <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => {
-                    playClick();
-                    setSelectedSubjectId('all');
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                    selectedSubjectId === 'all'
-                      ? 'bg-[#0B1B3B] text-white dark:bg-[#2563EB]'
-                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-                  }`}
-                >
-                  All Subjects
-                </button>
-                {visibleSubjects.map((s) => (
+              {/* Subject Quick Tabs + Clean Library Switch */}
+              <div className="flex flex-wrap items-center justify-between gap-2.5 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <div className="flex flex-wrap gap-1.5">
                   <button
-                    key={s.id}
                     type="button"
                     onClick={() => {
                       playClick();
-                      setSelectedSubjectId(s.id);
+                      setSelectedSubjectId('all');
                     }}
                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                      selectedSubjectId === s.id
+                      selectedSubjectId === 'all'
                         ? 'bg-[#0B1B3B] text-white dark:bg-[#2563EB]'
                         : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
                     }`}
                   >
-                    {s.name}
+                    All Subjects
                   </button>
-                ))}
-              </div>
-              {/* Section Quick Filter Tabs (Chapters Directory vs Formula Sheets / Concise Notes / PYQs) */}
-              {directorySections.length > 0 && (
-                <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mr-1">
-                    Section:
-                  </span>
+                  {visibleSubjects.map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => {
+                        playClick();
+                        setSelectedSubjectId(s.id);
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                        selectedSubjectId === s.id
+                          ? 'bg-[#0B1B3B] text-white dark:bg-[#2563EB]'
+                          : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                      }`}
+                    >
+                      {s.name}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
                     onClick={() => {
                       playClick();
-                      setSelectedDirectorySection('all');
+                      setBrowseMode('chapters');
                       const nextParams = new URLSearchParams(searchParams);
+                      nextParams.delete('view');
                       nextParams.delete('section');
                       setSearchParams(nextParams, { replace: true });
                     }}
                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
-                      selectedDirectorySection === 'all'
+                      browseMode === 'chapters'
                         ? 'bg-[#0B1B3B] text-white border-[#0B1B3B] dark:bg-[#2563EB] dark:border-[#2563EB]'
                         : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-[#2563EB]'
                     }`}
                   >
-                    All Chapters ({filteredChapters.length})
+                    Chapter Notes ({filteredChapters.length})
                   </button>
-                  {directorySections.map((sec) => {
-                    const active = selectedDirectorySection === sec.name;
-                    return (
-                      <button
-                        key={sec.name}
-                        type="button"
-                        onClick={() => {
-                          playClick();
-                          setSelectedDirectorySection(sec.name);
-                          const nextParams = new URLSearchParams(searchParams);
-                          nextParams.set('section', sec.slug);
-                          setSearchParams(nextParams, { replace: true });
-                        }}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
-                          active
-                            ? 'bg-[#F97316] text-white border-[#F97316]'
-                            : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-[#F97316]'
-                        }`}
-                      >
-                        {sec.name} ({sec.count})
-                      </button>
-                    );
-                  })}
+
+                  {totalFormulaSheetsInScope > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        playClick();
+                        setBrowseMode('formula-sheets');
+                        const nextParams = new URLSearchParams(searchParams);
+                        nextParams.set('view', 'formula-sheets');
+                        nextParams.delete('section');
+                        setSearchParams(nextParams, { replace: true });
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                        browseMode === 'formula-sheets'
+                          ? 'bg-[#F97316] text-white border-[#F97316]'
+                          : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-[#F97316]'
+                      }`}
+                    >
+                      Formula Sheets ({totalFormulaSheetsInScope})
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      playClick();
+                      setOnlyBookmarked((b) => !b);
+                    }}
+                    aria-pressed={onlyBookmarked}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                      onlyBookmarked
+                        ? 'bg-[#F97316] text-white border-[#F97316]'
+                        : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-[#2563EB]'
+                    }`}
+                  >
+                    <Bookmark className="w-3.5 h-3.5" />
+                    Saved
+                  </button>
                 </div>
-              )}
+              </div>
             </ReusableCard>
 
-            {/* Direct Section Material Grid (e.g., Formula Sheets / Concise Notes) OR Chapters Card Grid */}
-            {selectedDirectorySection !== 'all' ? (
-              filteredDirectoryMaterials.length === 0 ? (
+            {/* Formula Sheets Grid OR Chapter Notes Directory */}
+            {browseMode === 'formula-sheets' ? (
+              formulaSheetMaterials.length === 0 ? (
                 <ReusableCard className="py-12 text-center space-y-3">
                   <FolderOpen className="w-10 h-10 text-slate-400 mx-auto" />
                   <h2 className="font-display text-lg font-bold text-[#0B1B3B] dark:text-white">
-                    No {selectedDirectorySection} Match This Search
+                    No Formula Sheets Match This Filter
                   </h2>
                   <ReusableButton
                     variant="secondary"
@@ -931,17 +894,17 @@ export default function MaterialsPage() {
                     onClick={() => {
                       setSearchQuery('');
                       setSelectedSubjectId('all');
+                      setOnlyBookmarked(false);
                     }}
                   >
-                    Clear Search
+                    Clear Filters
                   </ReusableButton>
                 </ReusableCard>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4 items-start">
-                  {filteredDirectoryMaterials.map((mat) => {
+                  {formulaSheetMaterials.map((mat) => {
                     const subj = subjectMap.get(mat.subjectId);
                     const isBookmarked = bookmarkSet.has(mat.id);
-                    const isVid = isVideoMaterial(mat);
                     const isMasterSheet = mat.id.includes('-master');
                     return (
                       <ReusableCard
@@ -958,8 +921,14 @@ export default function MaterialsPage() {
                                 {subj?.name ?? 'Subject'}
                               </span>
                               <span className="text-slate-300 dark:text-slate-700">·</span>
-                              <span className={isMasterSheet ? 'text-[#F97316] font-bold' : 'text-slate-500 dark:text-slate-400'}>
-                                {isMasterSheet ? 'Master Sheet' : mat.sectionName}
+                              <span
+                                className={
+                                  isMasterSheet
+                                    ? 'text-[#F97316] font-bold'
+                                    : 'text-slate-500 dark:text-slate-400'
+                                }
+                              >
+                                {isMasterSheet ? 'Master Sheet' : 'Formula Sheet'}
                               </span>
                             </div>
 
@@ -981,17 +950,18 @@ export default function MaterialsPage() {
                             </button>
                           </div>
 
-                          <h3 className="font-display text-sm sm:text-base font-bold text-[#0B1B3B] dark:text-white leading-snug">
+                          <h2 className="font-display text-sm sm:text-base font-bold text-[#0B1B3B] dark:text-white leading-snug">
                             <Link
                               to={getHierarchicalMaterialPath(mat, {
                                 subjectName: subj?.name,
-                                cohortId: selectedCohort !== 'all' ? selectedCohort : mat.cohorts[0],
+                                cohortId:
+                                  selectedCohort !== 'all' ? selectedCohort : mat.cohorts[0],
                               })}
                               className="hover:text-[#2563EB] dark:hover:text-sky-400 transition-colors"
                             >
                               {mat.title}
                             </Link>
-                          </h3>
+                          </h2>
 
                           <p className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
                             {formatBytes(mat.fileSizeBytes)} · PDF
@@ -1005,28 +975,26 @@ export default function MaterialsPage() {
                             className="flex-1"
                             onClick={() => handleOpenPreview(mat)}
                           >
-                            {isVid ? <Play className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                            {isVid ? 'Watch Video' : 'Open PDF'}
+                            <Maximize2 className="w-3.5 h-3.5" />
+                            Full-Screen PDF
                           </ReusableButton>
 
-                          {!isVid && (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                void handleDownloadDocument(
-                                  mat.fileUrl,
-                                  mat.fileName || `${mat.title}.pdf`,
-                                  mat.id,
-                                  mat.title
-                                )
-                              }
-                              aria-label={`Download PDF ${mat.title}`}
-                              className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border border-[#2563EB]/30 bg-blue-50/70 dark:bg-blue-950/40 text-[#2563EB] dark:text-sky-300 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors shrink-0"
-                            >
-                              <Download className="w-3.5 h-3.5" />
-                              Download
-                            </button>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void handleDownloadDocument(
+                                mat.fileUrl,
+                                mat.fileName || `${mat.title}.pdf`,
+                                mat.id,
+                                mat.title
+                              )
+                            }
+                            aria-label={`Download PDF ${mat.title}`}
+                            className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border border-[#2563EB]/30 bg-blue-50/70 dark:bg-blue-950/40 text-[#2563EB] dark:text-sky-300 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors shrink-0"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                            Download
+                          </button>
                         </div>
                       </ReusableCard>
                     );
@@ -1046,30 +1014,42 @@ export default function MaterialsPage() {
                     setSelectedCohort('all');
                     setSelectedSubjectId('all');
                     setSearchQuery('');
+                    setOnlyBookmarked(false);
                   }}
                 >
                   Reset Filters
                 </ReusableButton>
               </ReusableCard>
             ) : (
-              <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                 {filteredChapters.map((ch) => {
                   const subj = subjectMap.get(ch.subjectId);
-                  const chItems = cohortMaterials.filter((m) => m.chapterId === ch.id);
-                  const applicableSecs = sections.filter((s) => sectionAppliesToChapter(s, ch));
-                  const videoCount = chItems.filter((m) => isVideoMaterial(m)).length;
-                  const pdfCount = chItems.length - videoCount;
+                  const chItems = sortChapterResources(
+                    cohortMaterials.filter((m) => m.chapterId === ch.id)
+                  );
+                  const primaryNote =
+                    chItems.find((m) => !isVideoMaterial(m) && !isFormulaSheet(m)) ??
+                    chItems.find((m) => !isVideoMaterial(m)) ??
+                    null;
+                  const noteCount = chItems.filter(
+                    (m) => !isVideoMaterial(m) && !isFormulaSheet(m)
+                  ).length;
+                  const formulaCount = chItems.filter((m) => isFormulaSheet(m)).length;
+                  const pdfCount = chItems.filter((m) => !isVideoMaterial(m)).length;
+                  const summaryParts: string[] = [];
+                  if (noteCount > 0) summaryParts.push(`${noteCount} Notes PDF`);
+                  if (formulaCount > 0)
+                    summaryParts.push(
+                      formulaCount === 1 ? 'Formula Sheet' : `${formulaCount} Formula Sheets`
+                    );
+                  if (summaryParts.length === 0 && chItems.length > 0) {
+                    summaryParts.push(`${chItems.length} Resource${chItems.length > 1 ? 's' : ''}`);
+                  }
 
                   return (
-                    <button
+                    <div
                       key={ch.id}
-                      type="button"
-                      onClick={() => {
-                        playClick();
-                        setActiveChapterId(ch.id);
-                        setActiveSectionFilter('all');
-                      }}
-                      className="group text-left rounded-xl sm:rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-[#111A2E] p-3 sm:p-4 hover:border-[#2563EB] dark:hover:border-sky-400 hover:shadow-md transition-all flex flex-col justify-between gap-2.5 sm:gap-3"
+                      className="group rounded-xl sm:rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-[#111A2E] p-3.5 sm:p-4 hover:border-[#2563EB] dark:hover:border-sky-400 hover:shadow-md transition-all flex flex-col justify-between gap-3"
                     >
                       <div className="space-y-1.5">
                         <div className="flex flex-wrap items-center justify-between gap-1 text-[11px] font-semibold">
@@ -1081,46 +1061,99 @@ export default function MaterialsPage() {
                           </span>
                         </div>
 
-                        <h2 className="font-display text-sm sm:text-base font-bold text-[#0B1B3B] dark:text-white group-hover:text-[#2563EB] dark:group-hover:text-sky-400 transition-colors leading-snug">
-                          {ch.name}
+                        <h2 className="font-display text-sm sm:text-base font-bold text-[#0B1B3B] dark:text-white leading-snug">
+                          {primaryNote ? (
+                            <Link
+                              to={getHierarchicalMaterialPath(primaryNote, {
+                                subjectName: subj?.name,
+                                cohortId:
+                                  selectedCohort !== 'all'
+                                    ? selectedCohort
+                                    : primaryNote.cohorts[0],
+                              })}
+                              className="hover:text-[#2563EB] dark:hover:text-sky-400 transition-colors"
+                            >
+                              {ch.name}
+                            </Link>
+                          ) : (
+                            ch.name
+                          )}
                         </h2>
 
-                        <p className="hidden sm:block text-xs text-slate-600 dark:text-slate-400 leading-relaxed line-clamp-1">
-                          {applicableSecs.slice(0, 3).map((s) => s.name).join(' · ')}
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          {summaryParts.length > 0
+                            ? summaryParts.join(' · ')
+                            : 'Notes coming soon'}
                         </p>
                       </div>
 
-                      <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] font-semibold">
-                        <span className="text-slate-600 dark:text-slate-300 tabular-nums inline-flex items-center gap-1.5">
-                          <span>{pdfCount} PDF</span>
-                          <span className="text-slate-300 dark:text-slate-700">·</span>
-                          <span>{videoCount} Vid</span>
-                        </span>
-                        <span className="inline-flex items-center gap-0.5 text-[#2563EB] dark:text-sky-400">
-                          <span className="hidden sm:inline">Open</span>
-                          <ChevronRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
-                        </span>
+                      <div className="flex items-center justify-between gap-2 pt-2.5 border-t border-slate-100 dark:border-slate-800">
+                        {primaryNote ? (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenPreview(primaryNote)}
+                            className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0B1B3B] hover:bg-[#162C5B] dark:bg-[#2563EB] dark:hover:bg-[#1D4ED8] text-white text-xs font-semibold transition-colors flex-1"
+                          >
+                            <Maximize2 className="w-3.5 h-3.5" />
+                            <span>Read Full Screen</span>
+                          </button>
+                        ) : (
+                          <span className="text-xs text-slate-400">No PDF yet</span>
+                        )}
+
+                        {pdfCount > 1 ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              playClick();
+                              setActiveChapterId(ch.id);
+                            }}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:border-[#2563EB] hover:text-[#2563EB] dark:hover:text-sky-400 transition-colors shrink-0"
+                          >
+                            <span>All ({chItems.length})</span>
+                            <ChevronRight className="w-3.5 h-3.5" />
+                          </button>
+                        ) : primaryNote ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void handleDownloadDocument(
+                                primaryNote.fileUrl,
+                                primaryNote.fileName || `${primaryNote.title}.pdf`,
+                                primaryNote.id,
+                                primaryNote.title
+                              )
+                            }
+                            aria-label={`Download PDF for ${ch.name}`}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[#2563EB]/30 bg-blue-50/70 dark:bg-blue-950/40 text-xs font-semibold text-[#2563EB] dark:text-sky-300 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors shrink-0"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                            <span>PDF</span>
+                          </button>
+                        ) : null}
                       </div>
-                    </button>
+                    </div>
                   );
                 })}
               </div>
             )}
 
-            {/* Direct Crawlable Published PDFs & Concise Notes Index (SEO-only, visually hidden) */}
+            {/* Direct Crawlable Published Notes & Formula Sheets Index (SEO-only, visually hidden) */}
             {cohortMaterials.length > 0 && (
               <section aria-label="Published Notes and PDFs Index" className="sr-only">
-                <h2>Published Notes &amp; PDFs ({cohortMaterials.length})</h2>
+                <h2>Published Chapter Notes &amp; Formula Sheets ({cohortMaterials.length})</h2>
                 <ul>
                   {cohortMaterials.map((mat) => (
                     <li key={mat.id}>
                       <Link
                         to={getHierarchicalMaterialPath(mat, {
                           subjectName: subjectMap.get(mat.subjectId)?.name,
-                          cohortId: selectedCohort !== 'all' ? selectedCohort : mat.cohorts[0],
+                          cohortId:
+                            selectedCohort !== 'all' ? selectedCohort : mat.cohorts[0],
                         })}
                       >
-                        {mat.sectionName} · {subjectMap.get(mat.subjectId)?.name ?? 'Subject'} — {mat.title}
+                        {getFriendlyResourceLabel(mat)} ·{' '}
+                        {subjectMap.get(mat.subjectId)?.name ?? 'Subject'} — {mat.title}
                       </Link>
                     </li>
                   ))}
@@ -1129,17 +1162,17 @@ export default function MaterialsPage() {
             )}
           </>
         )}
-        {/* Non-intrusive Native Banner Ad below the Notes/Chapter list */}
+
         <NativeBannerAd />
       </ResponsiveContainer>
 
-      {/* Full-Page Book PDF Reader / Full-Page Video Theater (No boxed popup modal) */}
+      {/* True Full-Screen PDF Reader / Video Theater (Portaled to document.body at z-[9999]) */}
       {previewMaterial && (
         <FullPageMediaReader
           item={{
             id: previewMaterial.id,
             title: previewMaterial.title,
-            sectionName: previewMaterial.sectionName,
+            sectionName: getFriendlyResourceLabel(previewMaterial),
             description: previewMaterial.description,
             url: resolvedPreviewUrl || previewMaterial.fileUrl,
             fileName: previewMaterial.fileName,

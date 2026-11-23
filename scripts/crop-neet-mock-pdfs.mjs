@@ -656,7 +656,10 @@ function cropNeetPdfImages(testCfg, meta) {
         sBody.bgRgb
       );
     }
+    fs.rmSync(ppmFiles[idx], { force: true });
   }
+
+  fs.rmSync(path.join(TMP_DIR, testCfg.assetFolder), { recursive: true, force: true });
 
   if (qIndex !== 180) {
     throw new Error(`Expected 180 cropped questions for ${testCfg.assetFolder}, got ${qIndex}`);

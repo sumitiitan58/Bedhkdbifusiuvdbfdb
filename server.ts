@@ -153,20 +153,25 @@ function resolveRouteSeo(reqPath: string): RouteSeoSnapshot | null {
           ? requestedClass
           : material.cohorts[0] ?? 'class-11-jee';
       const primaryCohortLabel = getCohortLabel(primaryCohortId);
-      const sectionLabel = material.sectionName || 'Concise Notes';
+      const rawLabel = `${material.sectionName ?? ''} ${material.title}`.toLowerCase();
+      const resourceLabel = rawLabel.includes('formula')
+        ? 'Formula Sheet'
+        : rawLabel.includes('pyq') || rawLabel.includes('previous year')
+          ? 'PYQ Archive'
+          : 'Chapter Notes';
       const canonicalPath = getHierarchicalMaterialPath(material, {
         subjectName,
         cohortId: primaryCohortId,
       });
-      const title = `${cleanChapter} ${sectionLabel} & PDF – ${primaryCohortLabel} ${subjectName} | PREPSKM.IN`;
+      const title = `${cleanChapter} ${resourceLabel} PDF – ${primaryCohortLabel} ${subjectName} | PREPSKM.IN`;
       const description =
         material.seoDescription?.trim() ||
-        `Download free ${cleanChapter} concise notes, formula sheets, PYQs, and attempt NTA-grade CBT mocks for ${primaryCohortLabel} on PREPSKM.IN.`;
+        `Read full-screen & download free ${cleanChapter} ${resourceLabel.toLowerCase()} PDF for ${primaryCohortLabel} ${subjectName} on PREPSKM.IN.`;
       const summary = buildMaterialSeoSummary({
         title: material.title,
         subjectName,
         chapterName: cleanChapter,
-        sectionName: sectionLabel,
+        sectionName: resourceLabel,
         cohortLabels: material.cohorts.map(getCohortLabel),
         description: material.description,
       });
@@ -175,15 +180,19 @@ function resolveRouteSeo(reqPath: string): RouteSeoSnapshot | null {
         '@context': 'https://schema.org',
         '@graph': [
           {
-            '@type': 'LearningResource',
+            '@type': ['LearningResource', 'DigitalDocument'],
             name: title,
             headline: material.title,
             description,
             educationalLevel: material.cohorts.map(getCohortLabel).join(', ') || primaryCohortLabel,
-            learningResourceType: sectionLabel,
+            learningResourceType: resourceLabel,
+            encodingFormat: 'application/pdf',
             inLanguage: 'en-IN',
             about: { '@type': 'Thing', name: `${subjectName} - ${cleanChapter}` },
             url: `${CANONICAL_ORIGIN}${canonicalPath}`,
+            contentUrl: material.fileUrl.startsWith('http')
+              ? material.fileUrl
+              : `${CANONICAL_ORIGIN}${material.fileUrl}`,
             provider: {
               '@type': 'EducationalOrganization',
               name: 'PREPSKM.IN',
@@ -198,7 +207,7 @@ function resolveRouteSeo(reqPath: string): RouteSeoSnapshot | null {
               {
                 '@type': 'ListItem',
                 position: 2,
-                name: 'Study Materials',
+                name: 'Chapter Notes & Study Materials',
                 item: `${CANONICAL_ORIGIN}/materials`,
               },
               {
@@ -210,7 +219,7 @@ function resolveRouteSeo(reqPath: string): RouteSeoSnapshot | null {
               {
                 '@type': 'ListItem',
                 position: 4,
-                name: `${cleanChapter} ${sectionLabel}`,
+                name: `${cleanChapter} ${resourceLabel}`,
                 item: `${CANONICAL_ORIGIN}${canonicalPath}`,
               },
             ],
@@ -221,9 +230,9 @@ function resolveRouteSeo(reqPath: string): RouteSeoSnapshot | null {
       const bodyHtml = `
       <div style="font-family:'DM Sans',system-ui,sans-serif;max-width:960px;margin:0 auto;padding:24px 16px;color:#0B1B3B;">
         <nav aria-label="Breadcrumb" style="font-size:13px;margin-bottom:12px;">
-          <a href="/">Home</a> &rsaquo; <a href="/materials">Materials</a> &rsaquo; <a href="/materials?track=${encodeURIComponent(primaryCohortId)}">${escapeHtml(primaryCohortLabel)}</a> &rsaquo; <span>${escapeHtml(cleanChapter)}</span>
+          <a href="/">Home</a> &rsaquo; <a href="/materials">Chapter Notes</a> &rsaquo; <a href="/materials?track=${encodeURIComponent(primaryCohortId)}">${escapeHtml(primaryCohortLabel)}</a> &rsaquo; <span>${escapeHtml(cleanChapter)}</span>
         </nav>
-        <h1 style="font-size:28px;font-weight:800;margin:0 0 12px;">${escapeHtml(cleanChapter)} ${escapeHtml(sectionLabel)} &amp; PDF — ${escapeHtml(primaryCohortLabel)} ${escapeHtml(subjectName)}</h1>
+        <h1 style="font-size:28px;font-weight:800;margin:0 0 12px;">${escapeHtml(cleanChapter)} ${escapeHtml(resourceLabel)} PDF — ${escapeHtml(primaryCohortLabel)} ${escapeHtml(subjectName)}</h1>
         <p style="font-size:15px;line-height:1.6;color:#334155;">${escapeHtml(summary)}</p>
         <h2 style="font-size:20px;font-weight:700;margin:20px 0 8px;">Key Concepts &amp; Formula Overview</h2>
         <p style="font-size:14px;color:#475569;">${escapeHtml(material.description || description)}</p>

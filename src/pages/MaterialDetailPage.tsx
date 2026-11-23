@@ -7,6 +7,7 @@ import {
   BookOpen,
   ChevronRight,
   Download,
+  Maximize2,
   Sparkles,
 } from 'lucide-react';
 import { PageLayout } from '../layouts/PageLayout';
@@ -28,6 +29,13 @@ import {
   stripChapterNumberPrefix,
 } from '../utils/seoHelpers';
 import { playClick } from '../utils/soundEffects';
+
+function getFriendlyResourceTypeLabel(sectionName?: string, title?: string): string {
+  const combined = `${sectionName ?? ''} ${title ?? ''}`.toLowerCase();
+  if (combined.includes('formula')) return 'Formula Sheet';
+  if (combined.includes('pyq') || combined.includes('previous year')) return 'PYQ Archive';
+  return 'Chapter Notes';
+}
 
 export default function MaterialDetailPage() {
   const { slug, classSlug, chapterSlug } = useParams<{
@@ -64,9 +72,11 @@ export default function MaterialDetailPage() {
   }, [materials, activeSlug]);
 
   const [resolvedUrl, setResolvedUrl] = useState<string>('');
+  const [openFullScreen, setOpenFullScreen] = useState<boolean>(false);
 
   useEffect(() => {
     let active = true;
+    setOpenFullScreen(false);
     if (!material) {
       setResolvedUrl('');
       return;
@@ -117,7 +127,7 @@ export default function MaterialDetailPage() {
       <PageLayout>
         <SeoHead
           title="Study Material Not Found | PREPSKM.IN"
-          description="Browse free chapter-wise JEE Main, JEE Advanced & NEET UG study materials and concise notes on PREPSKM.IN."
+          description="Browse free chapter-wise JEE Main, JEE Advanced & NEET UG notes and formula sheets on PREPSKM.IN."
           canonicalPath="/materials"
         />
         <ResponsiveContainer size="narrow" className="py-16">
@@ -127,10 +137,10 @@ export default function MaterialDetailPage() {
               Study Material Not Found
             </h1>
             <p className="text-sm text-slate-600 dark:text-slate-400">
-              This chapter PDF may have been moved or renamed. Browse all 82+ JEE, NEET &amp; Board chapter materials below.
+              This chapter PDF may have been moved or renamed. Browse all JEE, NEET &amp; Board chapter notes below.
             </p>
             <ReusableButton variant="primary" size="sm" to="/materials">
-              Browse All Study Materials
+              Browse All Chapter Notes
             </ReusableButton>
           </ReusableCard>
         </ResponsiveContainer>
@@ -146,19 +156,20 @@ export default function MaterialDetailPage() {
     cohortId: primaryCohortId,
   });
   const isBookmarked = progress.bookmarkedMaterials.includes(material.id);
+  const isImage = material.mediaType === 'image' || material.mimeType?.startsWith('image/');
 
-  const sectionLabel = material.sectionName || 'Concise Notes';
-  const pageTitle = `${cleanChapterName} ${sectionLabel} & PDF – ${primaryCohortLabel} ${subjectName} | PREPSKM.IN`;
+  const resourceLabel = getFriendlyResourceTypeLabel(material.sectionName, material.title);
+  const pageTitle = `${cleanChapterName} ${resourceLabel} PDF – ${primaryCohortLabel} ${subjectName} | PREPSKM.IN`;
 
   const metaDescription =
     material.seoDescription?.trim() ||
-    `Download free ${cleanChapterName} concise notes, formula sheets, PYQs, and attempt NTA-grade CBT mocks for ${primaryCohortLabel} on PREPSKM.IN.`;
+    `Read full-screen & download free ${cleanChapterName} ${resourceLabel.toLowerCase()} PDF for ${primaryCohortLabel} ${subjectName} on PREPSKM.IN.`;
 
   const seoSummary = buildMaterialSeoSummary({
     title: material.title,
     subjectName,
     chapterName: cleanChapterName,
-    sectionName: sectionLabel,
+    sectionName: resourceLabel,
     cohortLabels,
     description: material.description,
   });
@@ -167,18 +178,22 @@ export default function MaterialDetailPage() {
     '@context': 'https://schema.org',
     '@graph': [
       {
-        '@type': 'LearningResource',
+        '@type': ['LearningResource', 'DigitalDocument'],
         name: pageTitle,
         headline: material.title,
         description: metaDescription,
         educationalLevel: cohortLabels.join(', ') || primaryCohortLabel,
-        learningResourceType: sectionLabel,
+        learningResourceType: resourceLabel,
+        encodingFormat: 'application/pdf',
         inLanguage: 'en-IN',
         about: {
           '@type': 'Thing',
           name: `${subjectName} - ${cleanChapterName}`,
         },
         url: `${CANONICAL_ORIGIN}${routePath}`,
+        contentUrl: material.fileUrl.startsWith('http')
+          ? material.fileUrl
+          : `${CANONICAL_ORIGIN}${material.fileUrl}`,
         provider: {
           '@type': 'EducationalOrganization',
           name: 'PREPSKM.IN',
@@ -198,7 +213,7 @@ export default function MaterialDetailPage() {
           {
             '@type': 'ListItem',
             position: 2,
-            name: 'Study Materials',
+            name: 'Chapter Notes & Study Materials',
             item: `${CANONICAL_ORIGIN}/materials`,
           },
           {
@@ -210,7 +225,7 @@ export default function MaterialDetailPage() {
           {
             '@type': 'ListItem',
             position: 4,
-            name: `${cleanChapterName} ${sectionLabel}`,
+            name: `${cleanChapterName} ${resourceLabel}`,
             item: `${CANONICAL_ORIGIN}${routePath}`,
           },
         ],
@@ -226,7 +241,7 @@ export default function MaterialDetailPage() {
         canonicalPath={routePath}
         keywords={
           material.seoKeywords ||
-          `${cleanChapterName}, ${cleanChapterName} concise notes, ${subjectName}, ${primaryCohortLabel}, ${sectionLabel}, PREPSKM.IN, JEE notes, NEET notes`
+          `${cleanChapterName}, ${cleanChapterName} notes pdf, ${subjectName}, ${primaryCohortLabel}, ${resourceLabel}, PREPSKM.IN, JEE notes, NEET notes`
         }
         jsonLd={jsonLd}
       />
@@ -242,7 +257,7 @@ export default function MaterialDetailPage() {
           </Link>
           <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
           <Link to="/materials" className="hover:text-[#2563EB] dark:hover:text-sky-400 transition-colors">
-            Materials
+            Chapter Notes
           </Link>
           <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
           <Link
@@ -270,6 +285,20 @@ export default function MaterialDetailPage() {
             <span className="hidden sm:inline-flex">
               <GuestDownloadBadge />
             </span>
+            {!isImage && (
+              <button
+                type="button"
+                onClick={() => {
+                  playClick();
+                  setOpenFullScreen(true);
+                }}
+                data-testid="detail-open-fullscreen-btn"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-[#0B1B3B] hover:bg-[#162C5B] dark:bg-cyan-500 dark:hover:bg-cyan-400 text-white dark:text-slate-950 transition-colors"
+              >
+                <Maximize2 className="w-4 h-4" />
+                Open Full-Screen PDF
+              </button>
+            )}
             <button
               type="button"
               onClick={() => {
@@ -309,7 +338,7 @@ export default function MaterialDetailPage() {
           <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
             <span className="text-[#F97316] inline-flex items-center gap-1">
               <Sparkles className="w-3.5 h-3.5" />
-              {sectionLabel}
+              {resourceLabel}
             </span>
             <span className="text-slate-300 dark:text-slate-700">·</span>
             <span className="text-[#2563EB] dark:text-sky-400">{subjectName}</span>
@@ -326,7 +355,7 @@ export default function MaterialDetailPage() {
           </div>
 
           <h1 className="font-display text-2xl sm:text-3xl font-extrabold text-[#0B1B3B] dark:text-white leading-tight">
-            {cleanChapterName} {sectionLabel} &amp; PDF — {primaryCohortLabel} {subjectName}
+            {cleanChapterName} {resourceLabel} PDF — {primaryCohortLabel} {subjectName}
           </h1>
 
           {cohortLabels.length > 0 && (
@@ -337,23 +366,41 @@ export default function MaterialDetailPage() {
           )}
         </ReusableCard>
 
-        {/* Full Multi-Page PDF Viewer */}
-        {material.mediaType === 'image' || material.mimeType?.startsWith('image/') ? (
+        {/* Full-Width Multi-Page PDF Viewer (with 1-click True Full-Screen Portal) */}
+        {isImage ? (
           <ReusableCard padding="sm" className="text-center rounded-2xl border-slate-200/80">
             <img
               src={resolvedUrl || material.fileUrl}
               alt={material.title}
-              className="max-h-[75vh] mx-auto rounded-lg object-contain"
+              className="max-h-[80vh] mx-auto rounded-lg object-contain"
             />
           </ReusableCard>
         ) : (
           <FullPdfViewer
             url={resolvedUrl || material.fileUrl}
             title={material.title}
-            subtitle={`${subjectName} · ${sectionLabel}`}
+            subtitle={`${subjectName} · ${resourceLabel}`}
             fileName={material.fileName}
             materialId={material.id}
-            heightClassName="h-[74vh]"
+            heightClassName="h-[80vh]"
+            isBookmarked={isBookmarked}
+            onToggleBookmark={() => toggleMaterialBookmark(material.id)}
+            onDownloadApproved={() => recordMaterialView(material.id)}
+          />
+        )}
+
+        {/* True Full-Screen Portal PDF Reader when launched from Detail Header */}
+        {openFullScreen && !isImage && (
+          <FullPdfViewer
+            url={resolvedUrl || material.fileUrl}
+            title={material.title}
+            subtitle={`${subjectName} · ${resourceLabel}`}
+            fileName={material.fileName}
+            materialId={material.id}
+            fullPage
+            isBookmarked={isBookmarked}
+            onToggleBookmark={() => toggleMaterialBookmark(material.id)}
+            onClose={() => setOpenFullScreen(false)}
             onDownloadApproved={() => recordMaterialView(material.id)}
           />
         )}
@@ -363,9 +410,9 @@ export default function MaterialDetailPage() {
           <h2>Key Concepts &amp; Formula Overview — {cleanChapterName}</h2>
           <p>{seoSummary}</p>
           <ul>
-            <li>High-resolution multi-page {sectionLabel} PDF for {cleanChapterName}</li>
+            <li>High-resolution multi-page {resourceLabel} PDF for {cleanChapterName}</li>
             <li>Aligned with latest NTA JEE Main, JEE Advanced, NEET UG &amp; NCERT syllabus</li>
-            <li>Instant bookmarking and offline PDF download on mobile &amp; desktop</li>
+            <li>True full-screen PDF reader, instant bookmarking, and offline PDF download</li>
           </ul>
           <nav aria-label="Related study links">
             <Link to="/cbt-mocks">Attempt NTA CBT Mock Tests</Link>
@@ -380,7 +427,7 @@ export default function MaterialDetailPage() {
         {relatedMaterials.length > 0 && (
           <section className="space-y-3">
             <h2 className="font-display text-lg font-bold text-[#0B1B3B] dark:text-white">
-              More {subjectName} Concise Notes &amp; Study Materials
+              More {subjectName} Chapter Notes &amp; Formula Sheets
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {relatedMaterials.map((rel) => {
@@ -395,7 +442,9 @@ export default function MaterialDetailPage() {
                     to={relPath}
                     className="block rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-[#111A2E] p-4 hover:border-[#2563EB] hover:-translate-y-0.5 transition-all"
                   >
-                    <p className="text-[11px] font-semibold text-[#F97316]">{rel.sectionName}</p>
+                    <p className="text-[11px] font-semibold text-[#F97316]">
+                      {getFriendlyResourceTypeLabel(rel.sectionName, rel.title)}
+                    </p>
                     <h3 className="font-display text-sm font-bold text-[#0B1B3B] dark:text-white mt-0.5 line-clamp-2">
                       {rel.title}
                     </h3>

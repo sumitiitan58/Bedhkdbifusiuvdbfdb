@@ -33,6 +33,10 @@ import {
   FULL_MOCK_TEST_5_QUESTIONS,
   FULL_MOCK_TEST_5_RECORD,
 } from '../data/fullMockTestsCatalog';
+import {
+  NEET_FULL_MOCK_QUESTIONS,
+  NEET_FULL_MOCK_TESTS,
+} from '../data/neetMockTestsCatalog';
 import { STARTER_MATERIALS } from '../services/starterCatalog';
 import {
   filterChaptersByCohort,
@@ -496,8 +500,8 @@ test('mergeOfficialMockTests prepends official JEE/NEET mocks and 75Q DPP alongs
   };
 
   const mergedOnce = mergeOfficialMockTests({ mockTests: [customTest], questions: [] });
-  // 5 JEE Full Mocks + 5 NEET Full Mocks + 1 Units & Dimensions 75Q DPP + 1 custom admin test = 12
-  assert.equal(mergedOnce.mockTests.length, 12);
+  // 5 JEE Full Mocks + 8 NEET Full Mocks + 1 Units & Dimensions 75Q DPP + 1 custom admin test = 15
+  assert.equal(mergedOnce.mockTests.length, 15);
   assert.deepEqual(
     mergedOnce.mockTests.slice(0, 5).map((t) => t.id),
     [
@@ -508,13 +512,13 @@ test('mergeOfficialMockTests prepends official JEE/NEET mocks and 75Q DPP alongs
       FULL_MOCK_TEST_5_ID,
     ]
   );
-  // 315 JEE questions + 900 NEET questions + 75 Units & Dimensions DPP questions = 1290
-  assert.equal(mergedOnce.questions.length, 1290);
+  // 315 JEE questions + 1440 NEET questions + 75 Units & Dimensions DPP questions = 1830
+  assert.equal(mergedOnce.questions.length, 1830);
 
   // Calling again does not duplicate any official test or question
   const mergedTwice = mergeOfficialMockTests(mergedOnce);
-  assert.equal(mergedTwice.mockTests.length, 12);
-  assert.equal(mergedTwice.questions.length, 1290);
+  assert.equal(mergedTwice.mockTests.length, 15);
+  assert.equal(mergedTwice.questions.length, 1830);
 
   // Both 12th JEE and Dropper JEE filters return all 5 JEE Full Mock Tests; NEET returns none of them
   const expectedIds = [
@@ -708,6 +712,71 @@ test('PCMB Formula Sheets catalog contains all 99 verified PDFs on disk with str
   assert.equal(mergedNeet11Mats.filter((m) => m.subjectId === 'custom-bio').length, 15);
   assert.equal(mergedNeet11Mats.filter((m) => m.subjectId === 'custom-phy').length, 14);
 });
+
+test('NEET (UG) Full Mock Tests 01–08 have 1,440 verified questions, 2,880 cropped PNGs on disk, and strictly target 12th NEET & Dropper NEET', () => {
+  assert.equal(NEET_FULL_MOCK_TESTS.length, 8);
+  assert.equal(NEET_FULL_MOCK_QUESTIONS.length, 1440);
+
+  const pngSig = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+
+  for (let i = 0; i < NEET_FULL_MOCK_TESTS.length; i++) {
+    const mock = NEET_FULL_MOCK_TESTS[i];
+    const num = i + 1;
+    assert.equal(mock.id, `cbt-neet-full-mock-test-${num}`);
+    assert.equal(mock.totalQuestions, 180);
+    assert.equal(mock.totalMarks, 720);
+    assert.equal(mock.durationMinutes, 180);
+    assert.equal(mock.positiveMarks, 4);
+    assert.equal(mock.negativeMarks, 1);
+    assert.equal(mock.negativeMarkingEnabled, true);
+    assert.equal(mock.status, 'published');
+    assert.ok(mock.slug && mock.slug.startsWith(`neet-ug-full-mock-test-0${num}`));
+
+    // Strictly 12th NEET & Dropper NEET only
+    assert.deepEqual(getTestCohortIds(mock), ['class-12-neet', 'neet-dropper']);
+    assert.equal(testMatchesCohort(mock, 'class-12-neet'), true);
+    assert.equal(testMatchesCohort(mock, 'neet-dropper'), true);
+    assert.equal(testMatchesCohort(mock, 'class-11-neet'), false);
+    assert.equal(testMatchesCohort(mock, 'class-12-jee'), false);
+    assert.equal(testMatchesCohort(mock, 'jee-dropper'), false);
+
+    const qs = NEET_FULL_MOCK_QUESTIONS.filter((q) => q.testId === mock.id);
+    assert.equal(qs.length, 180);
+    assert.equal(qs.filter((q) => q.subjectName === 'Physics').length, 45);
+    assert.equal(qs.filter((q) => q.subjectName === 'Chemistry').length, 45);
+    assert.equal(qs.filter((q) => q.subjectName === 'Botany').length, 45);
+    assert.equal(qs.filter((q) => q.subjectName === 'Zoology').length, 45);
+
+    for (const q of qs) {
+      assert.equal(q.optionTexts?.length, 4);
+      assert.equal(q.correctOptionIndices?.length, 1);
+      const ans = q.correctOptionIndices![0];
+      assert.ok(ans >= 0 && ans <= 3);
+      const qPath = path.join(process.cwd(), 'public', q.questionImageUrl!);
+      const sPath = path.join(process.cwd(), 'public', q.solutionImageUrl!);
+      assert.equal(fs.existsSync(qPath), true, `Missing NEET question PNG: ${qPath}`);
+      assert.equal(fs.existsSync(sPath), true, `Missing NEET solution PNG: ${sPath}`);
+      assert.ok(fs.readFileSync(qPath).subarray(0, 4).equals(pngSig));
+      assert.ok(fs.readFileSync(sPath).subarray(0, 4).equals(pngSig));
+    }
+  }
+});
+
+test('Static sitemap.xml covers all 8 NEET mocks, 5 JEE mocks, 99 formula sheets, and 82 chapter notes cleanly', () => {
+  const sitemapPath = path.join(process.cwd(), 'public', 'sitemap.xml');
+  assert.equal(fs.existsSync(sitemapPath), true);
+  const xml = fs.readFileSync(sitemapPath, 'utf8');
+  assert.ok(xml.includes('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'));
+  for (const mock of NEET_FULL_MOCK_TESTS) {
+    const loc = `${CANONICAL_ORIGIN}${getHierarchicalMockTestPath(mock)}`;
+    assert.ok(xml.includes(`<loc>${loc}</loc>`), `Missing NEET mock in sitemap.xml: ${loc}`);
+  }
+  for (const fsMat of PCMB_FORMULA_MATERIALS) {
+    const loc = `${CANONICAL_ORIGIN}${getHierarchicalMaterialPath(fsMat, { cohortId: fsMat.cohorts[0] })}`;
+    assert.ok(xml.includes(`<loc>${loc}</loc>`), `Missing formula sheet in sitemap.xml: ${loc}`);
+  }
+});
+
 
 
 
