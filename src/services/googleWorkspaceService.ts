@@ -1,29 +1,7 @@
 import { GoogleAuthProvider, onAuthStateChanged, signInWithPopup, type User } from 'firebase/auth';
-import { auth } from '../firebase/config';
+import { auth, googleProvider } from '../firebase/config';
 import type { TestAttemptRecord } from '../types';
 import type { PrepScoreActionItem, PrepScoreReport } from '../utils/prepScoreEngine';
-
-/**
- * Provisioned Google Workspace OAuth scopes for Prepskm (Google Sheets, Drive & Google Tasks).
- * Note: Google Keep API is enterprise domain-wide-delegation only and cannot be authorized
- * via standard consumer @gmail.com OAuth consent popups; Keep export is supported via
- * structured checklist copy + deep link.
- */
-export const WORKSPACE_SCOPES = [
-  'https://www.googleapis.com/auth/drive',
-  'https://www.googleapis.com/auth/drive.file',
-  'https://www.googleapis.com/auth/drive.readonly',
-  'https://www.googleapis.com/auth/spreadsheets',
-  'https://www.googleapis.com/auth/spreadsheets.readonly',
-  'https://www.googleapis.com/auth/tasks',
-  'https://www.googleapis.com/auth/tasks.readonly',
-] as const;
-
-const workspaceProvider = new GoogleAuthProvider();
-for (const scope of WORKSPACE_SCOPES) {
-  workspaceProvider.addScope(scope);
-}
-workspaceProvider.setCustomParameters({ prompt: 'consent select_account' });
 
 // Strict in-memory access token cache (NEVER persisted in localStorage or sessionStorage)
 let cachedWorkspaceToken: string | null = null;
@@ -56,25 +34,40 @@ export function hasWorkspaceAccessToken(): boolean {
   return Boolean(cachedWorkspaceToken);
 }
 
+/**
+ * Hydrates the short-lived Google OAuth 2.0 access token in JS memory after
+ * unified Firebase Google SSO sign-in. Never writes tokens to web storage.
+ */
+export function setWorkspaceAccessToken(token: string | null): void {
+  const cleaned = typeof token === 'string' && token.trim() ? token.trim() : null;
+  cachedWorkspaceToken = cleaned;
+  notifyListeners();
+}
+
 export function clearWorkspaceAccessToken(): void {
   cachedWorkspaceToken = null;
   notifyListeners();
 }
 
+/**
+ * Runs unified Google Sign-In (Firebase Auth + Google Sheets & Google Tasks OAuth 2.0 SSO)
+ * or refreshes the short-lived in-memory OAuth access token after a full page reload.
+ */
 export async function connectGoogleWorkspace(): Promise<{
   user: User;
   accessToken: string;
 }> {
   try {
     isConnectingWorkspace = true;
-    const result = await signInWithPopup(auth, workspaceProvider);
+    const result = await signInWithPopup(auth, googleProvider);
     const credential = GoogleAuthProvider.credentialFromResult(result);
     if (!credential?.accessToken) {
-      throw new Error('Could not obtain a Google Workspace access token. Please allow Sheets and Tasks permissions.');
+      throw new Error(
+        'Could not obtain a Google OAuth access token. Please allow Sheets and Tasks permissions during Google Sign-In.'
+      );
     }
-    cachedWorkspaceToken = credential.accessToken;
-    notifyListeners();
-    return { user: result.user, accessToken: cachedWorkspaceToken };
+    setWorkspaceAccessToken(credential.accessToken);
+    return { user: result.user, accessToken: credential.accessToken };
   } finally {
     isConnectingWorkspace = false;
   }

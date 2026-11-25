@@ -18,7 +18,25 @@ export const db = firestoreDatabaseId
   : getFirestore(app);
 export const auth = getAuth(app);
 export const storage = getStorage(app);
+/**
+ * Provisioned Google OAuth 2.0 Workspace scopes unified on the primary Firebase
+ * GoogleAuthProvider so a single Google Sign-In grants Firebase Auth + Google
+ * Sheets + Google Tasks access seamlessly (SSO).
+ */
+export const WORKSPACE_SCOPES = [
+  'https://www.googleapis.com/auth/drive',
+  'https://www.googleapis.com/auth/drive.file',
+  'https://www.googleapis.com/auth/drive.readonly',
+  'https://www.googleapis.com/auth/spreadsheets',
+  'https://www.googleapis.com/auth/spreadsheets.readonly',
+  'https://www.googleapis.com/auth/tasks',
+  'https://www.googleapis.com/auth/tasks.readonly',
+] as const;
+
 export const googleProvider = new GoogleAuthProvider();
+for (const scope of WORKSPACE_SCOPES) {
+  googleProvider.addScope(scope);
+}
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
 export enum OperationType {

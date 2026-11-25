@@ -1,9 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
+import { GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
 import type { User } from 'firebase/auth';
 import { ADMIN_EMAILS, auth, googleProvider } from '../firebase/config';
 import firebaseConfig from '../../firebase-applet-config.json';
+import {
+  clearWorkspaceAccessToken,
+  setWorkspaceAccessToken,
+} from '../services/googleWorkspaceService';
 import type { StudentCohortId, TestAttemptRecord, UserProfile, UserProgressData } from '../types';
 
 export const FIREBASE_PROJECT_ID = firebaseConfig.projectId;
@@ -300,7 +304,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
     try {
-      await signInWithPopup(auth, googleProvider);
+      const result = await signInWithPopup(auth, googleProvider);
+      const credential = GoogleAuthProvider.credentialFromResult(result);
+      if (credential?.accessToken) {
+        setWorkspaceAccessToken(credential.accessToken);
+      }
       setOnboardingModalOpen(false);
     } catch (err) {
       const code =
@@ -322,6 +330,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
+    clearWorkspaceAccessToken();
     await signOut(auth);
   }, []);
 

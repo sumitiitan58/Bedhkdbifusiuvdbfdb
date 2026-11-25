@@ -1,38 +1,55 @@
 /**
- * Preps AI Multi-Provider Cloudflare Pages Function (/api/preps-ai)
+ * Preps AI 6-Provider Automatic Failover Function (/api/preps-ai)
  *
- * Automatic key & provider rotation order using Cloudflare Pages `env`:
- *   1. Groq       (llama-3.3-70b-versatile)
- *   2. Gemini     (gemini-2.5-flash)
- *   3. OpenRouter (openrouter/free)
- *   4. Mistral    (mistral-small-latest)
- *
- * Supports comma-separated multiple API keys per provider in Cloudflare Pages
- * Environment Variables / Secrets (or `.dev.vars` locally):
- *   GROQ_API_KEYS / GROQ_API_KEY
- *   GEMINI_API_KEYS / GEMINI_API_KEY
- *   OPENROUTER_API_KEYS / OPENROUTER_API_KEY
- *   MISTRAL_API_KEYS / MISTRAL_API_KEY
+ * Each provider reads its own dedicated individual environment variable to prevent
+ * key-parsing or configuration errors:
+ *   1. Groq                  (GROQ_API_KEY)                  -> llama-3.3-70b-versatile
+ *   2. Gemini                (GEMINI_API_KEY)                -> gemini-2.5-flash
+ *   3. DeepSeek              (DEEPSEEK_API_KEY)              -> deepseek-chat
+ *   4. OpenRouter            (OPENROUTER_API_KEY)            -> openrouter/free
+ *   5. Mistral               (MISTRAL_API_KEY)               -> mistral-small-latest
+ *   6. Cloudflare Workers AI (CLOUDFLARE_WORKERS_AI_API_KEY + CLOUDFLARE_ACCOUNT_ID, or env.AI binding)
+ *                                                            -> @cf/meta/llama-3.3-70b-instruct-fp8-fast
  */
 
 const REQUEST_TIMEOUT_MS = 18000;
 const MAX_MESSAGES = 14;
 const MAX_MESSAGE_CHARS = 3000;
+const CLOUDFLARE_AI_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 
-export function parseKeyList(...envValues) {
-  const keys = [];
-  const seen = new Set();
-  for (const raw of envValues) {
-    if (typeof raw !== 'string' || !raw.trim()) continue;
-    for (const part of raw.split(/[\n,]+/)) {
-      const cleaned = part.trim();
-      if (cleaned && !seen.has(cleaned)) {
-        seen.add(cleaned);
-        keys.push(cleaned);
-      }
-    }
+export const AI_PROVIDER_ENV_VARS = [
+  'GROQ_API_KEY',
+  'GEMINI_API_KEY',
+  'DEEPSEEK_API_KEY',
+  'OPENROUTER_API_KEY',
+  'MISTRAL_API_KEY',
+  'CLOUDFLARE_WORKERS_AI_API_KEY',
+];
+
+export function getSingleApiKey(rawValue) {
+  if (typeof rawValue !== 'string') return '';
+  return rawValue.trim();
+}
+
+export function countConfiguredProviders(env = {}) {
+  const runtimeEnv = env && typeof env === 'object' ? env : {};
+  let count = 0;
+
+  if (getSingleApiKey(runtimeEnv.GROQ_API_KEY)) count += 1;
+  if (getSingleApiKey(runtimeEnv.GEMINI_API_KEY)) count += 1;
+  if (getSingleApiKey(runtimeEnv.DEEPSEEK_API_KEY)) count += 1;
+  if (getSingleApiKey(runtimeEnv.OPENROUTER_API_KEY)) count += 1;
+  if (getSingleApiKey(runtimeEnv.MISTRAL_API_KEY)) count += 1;
+
+  const hasCloudflareRest =
+    Boolean(getSingleApiKey(runtimeEnv.CLOUDFLARE_WORKERS_AI_API_KEY)) &&
+    Boolean(getSingleApiKey(runtimeEnv.CLOUDFLARE_ACCOUNT_ID));
+  const hasCloudflareBinding = Boolean(runtimeEnv.AI && typeof runtimeEnv.AI.run === 'function');
+  if (hasCloudflareRest || hasCloudflareBinding) {
+    count += 1;
   }
-  return keys;
+
+  return count;
 }
 
 export function resolveCorsHeaders(requestOrigin) {
@@ -161,18 +178,26 @@ function buildSuggestedFollowUps(messages, context) {
   ];
 }
 
-async function fetchWithTimeout(url, options, timeoutMs = REQUEST_TIMEOUT_MS) {
+async function fetchWithTimeout(fetchImpl, url, options, timeoutMs = REQUEST_TIMEOUT_MS) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    return await fetch(url, { ...options, signal: controller.signal });
+    return await fetchImpl(url, { ...options, signal: controller.signal });
   } finally {
     clearTimeout(timer);
   }
 }
 
-async function callOpenAiCompatible({ url, apiKey, model, systemPrompt, messages, extraHeaders = {} }) {
-  const response = await fetchWithTimeout(url, {
+async function callOpenAiCompatible({
+  fetchImpl,
+  url,
+  apiKey,
+  model,
+  systemPrompt,
+  messages,
+  extraHeaders = {},
+}) {
+  const response = await fetchWithTimeout(fetchImpl, url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -195,7 +220,10 @@ async function callOpenAiCompatible({ url, apiKey, model, systemPrompt, messages
   }
 
   const data = await response.json();
-  const text = data?.choices?.[0]?.message?.content;
+  const text =
+    data?.choices?.[0]?.message?.content ??
+    data?.result?.response ??
+    data?.response;
   const reply = typeof text === 'string' ? text.trim() : '';
   if (!reply) {
     throw new Error('Empty completion');
@@ -203,7 +231,7 @@ async function callOpenAiCompatible({ url, apiKey, model, systemPrompt, messages
   return reply;
 }
 
-async function callGeminiRest({ apiKey, systemPrompt, messages }) {
+async function callGeminiRest({ fetchImpl, apiKey, systemPrompt, messages }) {
   const url =
     'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 
@@ -212,7 +240,7 @@ async function callGeminiRest({ apiKey, systemPrompt, messages }) {
     parts: [{ text: m.content }],
   }));
 
-  const response = await fetchWithTimeout(url, {
+  const response = await fetchWithTimeout(fetchImpl, url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -248,18 +276,81 @@ async function callGeminiRest({ apiKey, systemPrompt, messages }) {
   return reply;
 }
 
-export async function runPrepsAiWithFallback({ messages, context, env = {} }) {
+async function callCloudflareWorkersAi({
+  fetchImpl,
+  apiKey,
+  accountId,
+  aiBinding,
+  systemPrompt,
+  messages,
+}) {
+  const chatMessages = [
+    { role: 'system', content: systemPrompt },
+    ...messages.map((m) => ({ role: m.role, content: m.content })),
+  ];
+
+  // Prefer REST API with CLOUDFLARE_WORKERS_AI_API_KEY + CLOUDFLARE_ACCOUNT_ID when configured
+  if (apiKey && accountId) {
+    const safeAccountId = encodeURIComponent(accountId);
+    return callOpenAiCompatible({
+      fetchImpl,
+      url: `https://api.cloudflare.com/client/v4/accounts/${safeAccountId}/ai/v1/chat/completions`,
+      apiKey,
+      model: CLOUDFLARE_AI_MODEL,
+      systemPrompt,
+      messages,
+    });
+  }
+
+  // Fallback to native Cloudflare Pages AI binding (`env.AI`) if attached
+  if (aiBinding && typeof aiBinding.run === 'function') {
+    const result = await aiBinding.run(CLOUDFLARE_AI_MODEL, {
+      messages: chatMessages,
+      max_tokens: 900,
+      temperature: 0.5,
+    });
+    const text =
+      typeof result === 'string'
+        ? result
+        : result?.response ?? result?.choices?.[0]?.message?.content;
+    const reply = typeof text === 'string' ? text.trim() : '';
+    if (!reply) {
+      throw new Error('Empty Cloudflare Workers AI response');
+    }
+    return reply;
+  }
+
+  throw new Error('Cloudflare Workers AI account ID or binding missing');
+}
+
+export async function runPrepsAiWithFallback({
+  messages,
+  context,
+  env = {},
+  fetchImpl = globalThis.fetch,
+}) {
   const runtimeEnv = env && typeof env === 'object' ? env : {};
   const systemPrompt = buildSystemPrompt(context);
+
+  const groqKey = getSingleApiKey(runtimeEnv.GROQ_API_KEY);
+  const geminiKey = getSingleApiKey(runtimeEnv.GEMINI_API_KEY);
+  const deepseekKey = getSingleApiKey(runtimeEnv.DEEPSEEK_API_KEY);
+  const openrouterKey = getSingleApiKey(runtimeEnv.OPENROUTER_API_KEY);
+  const mistralKey = getSingleApiKey(runtimeEnv.MISTRAL_API_KEY);
+  const cloudflareKey = getSingleApiKey(runtimeEnv.CLOUDFLARE_WORKERS_AI_API_KEY);
+  const cloudflareAccountId = getSingleApiKey(runtimeEnv.CLOUDFLARE_ACCOUNT_ID);
+  const cloudflareBinding =
+    runtimeEnv.AI && typeof runtimeEnv.AI.run === 'function' ? runtimeEnv.AI : null;
 
   const providers = [
     {
       name: 'groq',
-      keys: parseKeyList(runtimeEnv.GROQ_API_KEYS, runtimeEnv.GROQ_API_KEY),
-      invoke: (apiKey) =>
+      enabled: Boolean(groqKey),
+      invoke: () =>
         callOpenAiCompatible({
+          fetchImpl,
           url: 'https://api.groq.com/openai/v1/chat/completions',
-          apiKey,
+          apiKey: groqKey,
           model: 'llama-3.3-70b-versatile',
           systemPrompt,
           messages,
@@ -267,21 +358,36 @@ export async function runPrepsAiWithFallback({ messages, context, env = {} }) {
     },
     {
       name: 'gemini',
-      keys: parseKeyList(runtimeEnv.GEMINI_API_KEYS, runtimeEnv.GEMINI_API_KEY),
-      invoke: (apiKey) =>
+      enabled: Boolean(geminiKey),
+      invoke: () =>
         callGeminiRest({
-          apiKey,
+          fetchImpl,
+          apiKey: geminiKey,
+          systemPrompt,
+          messages,
+        }),
+    },
+    {
+      name: 'deepseek',
+      enabled: Boolean(deepseekKey),
+      invoke: () =>
+        callOpenAiCompatible({
+          fetchImpl,
+          url: 'https://api.deepseek.com/chat/completions',
+          apiKey: deepseekKey,
+          model: 'deepseek-chat',
           systemPrompt,
           messages,
         }),
     },
     {
       name: 'openrouter',
-      keys: parseKeyList(runtimeEnv.OPENROUTER_API_KEYS, runtimeEnv.OPENROUTER_API_KEY),
-      invoke: (apiKey) =>
+      enabled: Boolean(openrouterKey),
+      invoke: () =>
         callOpenAiCompatible({
+          fetchImpl,
           url: 'https://openrouter.ai/api/v1/chat/completions',
-          apiKey,
+          apiKey: openrouterKey,
           model: 'openrouter/free',
           systemPrompt,
           messages,
@@ -293,42 +399,55 @@ export async function runPrepsAiWithFallback({ messages, context, env = {} }) {
     },
     {
       name: 'mistral',
-      keys: parseKeyList(runtimeEnv.MISTRAL_API_KEYS, runtimeEnv.MISTRAL_API_KEY),
-      invoke: (apiKey) =>
+      enabled: Boolean(mistralKey),
+      invoke: () =>
         callOpenAiCompatible({
+          fetchImpl,
           url: 'https://api.mistral.ai/v1/chat/completions',
-          apiKey,
+          apiKey: mistralKey,
           model: 'mistral-small-latest',
+          systemPrompt,
+          messages,
+        }),
+    },
+    {
+      name: 'cloudflare-workers-ai',
+      enabled: Boolean((cloudflareKey && cloudflareAccountId) || cloudflareBinding),
+      invoke: () =>
+        callCloudflareWorkersAi({
+          fetchImpl,
+          apiKey: cloudflareKey,
+          accountId: cloudflareAccountId,
+          aiBinding: cloudflareBinding,
           systemPrompt,
           messages,
         }),
     },
   ];
 
-  let totalKeysConfigured = 0;
+  let configuredProviders = 0;
 
   for (const provider of providers) {
-    for (const apiKey of provider.keys) {
-      totalKeysConfigured += 1;
-      try {
-        const reply = await provider.invoke(apiKey);
-        return {
-          ok: true,
-          reply,
-          provider: provider.name,
-          suggestedFollowUps: buildSuggestedFollowUps(messages, context),
-        };
-      } catch {
-        // Silently rotate to the next key or next provider without exposing credentials
-        continue;
-      }
+    if (!provider.enabled) continue;
+    configuredProviders += 1;
+    try {
+      const reply = await provider.invoke();
+      return {
+        ok: true,
+        reply,
+        provider: provider.name,
+        suggestedFollowUps: buildSuggestedFollowUps(messages, context),
+      };
+    } catch {
+      // Automatically fail over to the next configured provider without leaking credentials
+      continue;
     }
   }
 
   return {
     ok: false,
     error:
-      totalKeysConfigured === 0
+      configuredProviders === 0
         ? 'Preps AI is temporarily unavailable because no AI provider keys are configured yet. Please check back shortly.'
         : 'Preps AI is experiencing high demand right now across all mentors. Please wait a few seconds and try your question again.',
   };

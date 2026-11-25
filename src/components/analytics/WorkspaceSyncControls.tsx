@@ -28,6 +28,7 @@ import {
   toggleGoogleStudyTaskStatus,
   type GoogleStudyTaskItem,
 } from '../../services/googleWorkspaceService';
+import { useAuth } from '../../context/AuthContext';
 import type { TestAttemptRecord } from '../../types';
 import type { PrepScoreReport } from '../../utils/prepScoreEngine';
 import { playClick, playSuccess } from '../../utils/soundEffects';
@@ -55,6 +56,7 @@ export function WorkspaceSyncControls({
   studentName,
   compact = false,
 }: WorkspaceSyncControlsProps) {
+  const { isGuest } = useAuth();
   const [workspaceConnected, setWorkspaceConnected] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [pendingConfirm, setPendingConfirm] = useState<PendingWorkspaceAction>(null);
@@ -112,7 +114,7 @@ export function WorkspaceSyncControls({
       playSuccess();
       setStatusMessage({
         kind: 'success',
-        text: 'Google Workspace connected. Export 3-tab test analytics to Sheets or manage study goals in Google Tasks.',
+        text: 'Google SSO active. Your account, Google Sheets analytics export, and Google Tasks study list are ready.',
       });
     } catch (err) {
       setStatusMessage({
@@ -120,7 +122,7 @@ export function WorkspaceSyncControls({
         text:
           err instanceof Error
             ? err.message
-            : 'Google Workspace sign-in was cancelled or failed.',
+            : 'Google Sign-In was cancelled or failed.',
       });
     } finally {
       setConnecting(false);
@@ -259,8 +261,10 @@ export function WorkspaceSyncControls({
           </span>
           <span>
             {workspaceConnected
-              ? 'Google Sheets & Google Tasks ready in memory'
-              : 'Export 3-tab Sheets analytics & manage study goals in Google Tasks'}
+              ? 'Google SSO active · Sheets & Tasks ready'
+              : !isGuest
+                ? 'Signed in · Refresh Google SSO session to sync Sheets & Tasks'
+                : 'Single Sign-On for Prepskm, Google Sheets & Google Tasks'}
           </span>
         </div>
 
@@ -300,7 +304,9 @@ export function WorkspaceSyncControls({
                   />
                 </svg>
               )}
-              <span>Connect Google Sheets &amp; Tasks</span>
+              <span>
+                {!isGuest ? 'Refresh Google SSO (Sheets & Tasks)' : 'Sign in with Google'}
+              </span>
             </button>
           ) : (
             <>

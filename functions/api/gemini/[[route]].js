@@ -10,8 +10,8 @@
  */
 
 import {
+  getSingleApiKey,
   normalizeMessages,
-  parseKeyList,
   resolveCorsHeaders,
   runPrepsAiWithFallback,
 } from '../preps-ai.js';
@@ -32,15 +32,15 @@ function jsonResponse(payload, status = 200, corsHeaders = {}) {
 }
 
 async function callGeminiJson({ env, systemInstruction, contents, responseSchema }) {
-  const keys = parseKeyList(env?.GEMINI_API_KEYS, env?.GEMINI_API_KEY);
-  if (keys.length === 0) {
+  const apiKey = getSingleApiKey(env?.GEMINI_API_KEY);
+  if (!apiKey) {
     throw new Error(
-      'GEMINI_API_KEY is not configured. Add GEMINI_API_KEY or GEMINI_API_KEYS in Cloudflare Pages Environment Variables.'
+      'GEMINI_API_KEY is not configured. Add GEMINI_API_KEY in Cloudflare Pages Environment Variables.'
     );
   }
 
   let lastError = 'Gemini AI request failed.';
-  for (const apiKey of keys) {
+  for (const key of [apiKey]) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     try {
@@ -49,7 +49,7 @@ async function callGeminiJson({ env, systemInstruction, contents, responseSchema
         signal: controller.signal,
         headers: {
           'Content-Type': 'application/json',
-          'x-goog-api-key': apiKey,
+          'x-goog-api-key': key,
         },
         body: JSON.stringify({
           system_instruction: { parts: [{ text: systemInstruction }] },
@@ -125,12 +125,12 @@ export async function onRequestGet(context) {
   const path = new URL(request.url).pathname.replace(/\/+$/, '');
 
   if (path.endsWith('/health')) {
-    const keys = parseKeyList(env?.GEMINI_API_KEYS, env?.GEMINI_API_KEY);
+    const hasGeminiKey = Boolean(getSingleApiKey(env?.GEMINI_API_KEY));
     return jsonResponse(
       {
         ok: true,
         service: 'prepskm-cloudflare-pages-gemini',
-        aiConfigured: keys.length > 0,
+        aiConfigured: hasGeminiKey,
       },
       200,
       corsHeaders

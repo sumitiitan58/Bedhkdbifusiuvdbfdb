@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import fs from 'fs';
+import http from 'http';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import express from 'express';
@@ -27,7 +28,7 @@ import {
   buildTestSeoDescription,
   buildTestSeoTitle,
 } from './src/data/seoContent';
-import { runPrepsAiWithFallback } from './functions/api/preps-ai.js';
+import { countConfiguredProviders, runPrepsAiWithFallback } from './functions/api/preps-ai.js';
 import {
   JEE_CONCISE_CHAPTERS,
   JEE_CONCISE_MATERIALS,
@@ -510,7 +511,13 @@ async function createApp() {
 
   // Health check
   app.get('/api/health', (_req, res) => {
-    res.json({ ok: true, service: 'prepskm-api', aiConfigured: Boolean(process.env.GEMINI_API_KEY) });
+    const providersReady = countConfiguredProviders(process.env);
+    res.json({
+      ok: true,
+      service: 'prepskm-api',
+      aiConfigured: providersReady > 0,
+      providersReady,
+    });
   });
 
   // Dynamic XML Sitemap (static pages + 82 JEE Concise Notes + starter catalog + live Firestore published docs)
@@ -1087,11 +1094,15 @@ async function createApp() {
 
   const isProd = process.env.NODE_ENV === 'production';
   const distDir = path.resolve(__dirname, 'dist');
+  const httpServer = http.createServer(app);
 
   if (!isProd) {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        hmr: { server: httpServer },
+      },
       appType: 'custom',
     });
     app.use(vite.middlewares);
@@ -1132,7 +1143,7 @@ async function createApp() {
   }
 
   const port = Number(process.env.PORT) || 3000;
-  app.listen(port, '0.0.0.0', () => {
+  httpServer.listen(port, '0.0.0.0', () => {
     console.log(`PREPSKM.IN server listening on http://0.0.0.0:${port}`);
   });
 }
