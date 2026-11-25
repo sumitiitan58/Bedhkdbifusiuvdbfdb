@@ -12,7 +12,6 @@ import {
   Clock,
   Download,
   FileSpreadsheet,
-  Info,
   Pause,
   Play,
   Plus,
@@ -40,6 +39,7 @@ import { ReusableButton } from '../components/ReusableButton';
 import { ReusableCard } from '../components/ReusableCard';
 import { ClassSubClassPicker } from '../components/ClassSubClassPicker';
 import { GeminiMentorPanel } from '../components/ai/GeminiMentorPanel';
+import { StreakTargetWidget } from '../components/dashboard/StreakTargetWidget';
 import { SeoHead } from '../components/SeoHead';
 import { useAuth } from '../context/AuthContext';
 import { usePlatformData } from '../context/PlatformDataContext';
@@ -378,7 +378,7 @@ export default function HomePage() {
                 NTA-pattern JEE/NEET CBT mock tests, review solutions, and track Exam IQ.
               </p>
 
-              <div className="flex flex-wrap items-center gap-2.5 pt-0.5">
+              <div className="flex flex-wrap items-center gap-3 pt-1">
                 <ReusableButton variant="primary" size="md" to="/cbt-mocks">
                   Start CBT Mock
                   <ArrowRight className="w-4 h-4" />
@@ -386,9 +386,12 @@ export default function HomePage() {
                 <ReusableButton variant="secondary" size="md" to="/materials">
                   Chapters &amp; Notes
                 </ReusableButton>
-                <ReusableButton variant="ghost" size="sm" to="/about">
-                  <Info className="w-4 h-4" />
-                  About
+                <ReusableButton variant="secondary" size="md" to="/mistakes">
+                  Mistake Notebook
+                </ReusableButton>
+                <ReusableButton variant="ghost" size="sm" to="/preps-ai">
+                  <Sparkles className="w-4 h-4 text-[#2563EB]" />
+                  Preps AI
                 </ReusableButton>
               </div>
 
@@ -487,7 +490,8 @@ export default function HomePage() {
                         <p className="font-display text-sm sm:text-base font-bold text-[#0B1B3B] dark:text-white truncate">
                           {activeCohort.label}
                         </p>
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/70 dark:border-slate-700 shrink-0">
+                        <span className="text-slate-300 dark:text-slate-700">·</span>
+                        <span className="text-xs font-semibold text-slate-600 dark:text-slate-300 shrink-0">
                           {streamPillText}
                         </span>
                       </div>
@@ -510,7 +514,12 @@ export default function HomePage() {
         </ResponsiveContainer>
       </section>
 
-      <ResponsiveContainer className="py-7 sm:py-9 space-y-8 sm:space-y-10">
+      <ResponsiveContainer className="py-8 sm:py-10 space-y-8 sm:space-y-10">
+        {/* Daily Consistency Streak & Target Exam Countdown */}
+        <motion.section {...REVEAL_PROPS} aria-label="Daily streak and exam countdown">
+          <StreakTargetWidget />
+        </motion.section>
+
         {/* Class -> Sub-Class Selector */}
         <motion.section {...REVEAL_PROPS} aria-labelledby="class-selector-heading" className="space-y-3">
           <div className="flex items-center justify-between gap-2">
@@ -589,7 +598,7 @@ export default function HomePage() {
             </h2>
           </div>
 
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {visibleModules.map((mod) => {
               const Icon = MODULE_ICONS[mod.id as keyof typeof MODULE_ICONS] ?? BookOpen;
               return (

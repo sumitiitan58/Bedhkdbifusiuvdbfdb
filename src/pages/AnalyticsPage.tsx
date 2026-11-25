@@ -2,712 +2,394 @@ import { useMemo, useState } from 'react';
 import {
   Activity,
   Award,
-  BarChart3,
-  Clock,
-  Eye,
-  Info,
-  ShieldCheck,
-  Target,
+  BookMarked,
+  ClipboardCheck,
+  Sparkles,
   TrendingUp,
 } from 'lucide-react';
 import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
   CartesianGrid,
-  Legend,
   Line,
   LineChart,
-  PolarAngleAxis,
-  PolarGrid,
-  PolarRadiusAxis,
-  Radar,
-  RadarChart,
   ResponsiveContainer as RechartsContainer,
-  Scatter,
-  ScatterChart,
   Tooltip,
   XAxis,
   YAxis,
-  ZAxis,
 } from 'recharts';
 import { PageLayout } from '../layouts/PageLayout';
 import { ResponsiveContainer } from '../components/ResponsiveContainer';
 import { ReusableCard } from '../components/ReusableCard';
 import { ReusableButton } from '../components/ReusableButton';
 import { SeoHead } from '../components/SeoHead';
-import { GeminiMentorPanel } from '../components/ai/GeminiMentorPanel';
-import { AttemptReviewModal } from '../components/analytics/AttemptReviewModal';
+import { ProTestAnalysisDashboard } from '../components/analytics/ProTestAnalysisDashboard';
 import { useAuth } from '../context/AuthContext';
 import { usePlatformData } from '../context/PlatformDataContext';
-import { computeCumulativeAnalytics } from '../utils/scoringEngine';
-import {
-  computeWeeklyScheduleStats,
-  createDefaultWeeklySchedule,
-} from '../utils/weeklySchedule';
+import { estimatePercentileAndRank } from '../utils/testAnalysisEngine';
+import { testMatchesCohort } from '../utils/catalogMerge';
 import { playClick } from '../utils/soundEffects';
 import type { TestAttemptRecord } from '../types';
 
 export default function AnalyticsPage() {
-  const { profile, cohortId } = useAuth();
-  const { allCohorts, attempts, questions, iqConfig, progress } = usePlatformData();
-  const [reviewAttempt, setReviewAttempt] = useState<TestAttemptRecord | null>(null);
+  const { cohortId } = useAuth();
+  const { attempts, questions, iqConfig, allCohorts, mockTests } = usePlatformData();
 
-  const orderedAttempts = useMemo(
+  const sortedAttempts = useMemo(
     () =>
-      [...attempts].sort(
-        (a, b) => new Date(a.submittedAtIso).getTime() - new Date(b.submittedAtIso).getTime()
+      [...attempts].sort((a, b) =>
+        (b.submittedAtIso || '').localeCompare(a.submittedAtIso || '')
       ),
     [attempts]
   );
 
-  const summary = useMemo(
-    () => computeCumulativeAnalytics(orderedAttempts),
-    [orderedAttempts]
-  );
-
-  const totalRoomExitWarnings = useMemo(
-    () => orderedAttempts.reduce((sum, a) => sum + (a.roomExitWarnings ?? 0), 0),
-    [orderedAttempts]
-  );
-
-  const progressionSeries = useMemo(() => {
-    let runningMarks = 0;
-    let runningMax = 0;
-    return orderedAttempts.map((att, idx) => {
-      runningMarks += att.score;
-      runningMax += att.maxScore;
-      const cumulativePct =
-        runningMax > 0 ? Math.max(0, Math.round((runningMarks / runningMax) * 100)) : 0;
-      return {
-        label: `#${idx + 1}`,
-        shortTitle: att.testTitle.length > 22 ? `${att.testTitle.slice(0, 22)}…` : att.testTitle,
-        score: att.score,
-        maxScore: att.maxScore,
-        accuracy: att.accuracyPercent,
-        correct: att.correctCount,
-        incorrect: att.incorrectCount,
-        unattempted: att.unattemptedCount,
-        avgTime: att.avgTimePerQuestion,
-        iqScore: att.iqScore,
-        cumulativePct,
-      };
-    });
-  }, [orderedAttempts]);
-
-  const subjectAggregate = useMemo(() => {
-    const map = new Map<
-      string,
-      { subject: string; correct: number; incorrect: number; unattempted: number; score: number; maxScore: number }
-    >();
-    for (const att of orderedAttempts) {
-      for (const s of att.subjectScores) {
-        const cur = map.get(s.subjectName) ?? {
-          subject: s.subjectName,
-          correct: 0,
-          incorrect: 0,
-          unattempted: 0,
-          score: 0,
-          maxScore: 0,
-        };
-        cur.correct += s.correct;
-        cur.incorrect += s.incorrect;
-        cur.unattempted += s.unattempted;
-        cur.score += s.score;
-        cur.maxScore += s.maxScore;
-        map.set(s.subjectName, cur);
-      }
-    }
-    return Array.from(map.values()).map((row) => {
-      const att = row.correct + row.incorrect;
-      const scorePct = row.maxScore > 0 ? Math.max(0, Math.round((row.score / row.maxScore) * 100)) : 0;
-      return {
-        ...row,
-        accuracy: att > 0 ? Math.round((row.correct / att) * 100) : 0,
-        scorePct,
-      };
-    });
-  }, [orderedAttempts]);
-
-  const chapterAggregate = useMemo(() => {
-    const map = new Map<
-      string,
-      { chapterName: string; subjectName: string; correct: number; incorrect: number; total: number }
-    >();
-    for (const att of orderedAttempts) {
-      for (const c of att.chapterScores) {
-        const key = `${c.subjectName}::${c.chapterName}`;
-        const cur = map.get(key) ?? {
-          chapterName: c.chapterName,
-          subjectName: c.subjectName,
-          correct: 0,
-          incorrect: 0,
-          total: 0,
-        };
-        cur.correct += c.correct;
-        cur.incorrect += c.incorrect;
-        cur.total += c.total;
-        map.set(key, cur);
-      }
-    }
-    return Array.from(map.values())
-      .map((c) => {
-        const attempted = c.correct + c.incorrect;
-        return {
-          ...c,
-          accuracy: attempted > 0 ? Math.round((c.correct / attempted) * 100) : 0,
-        };
-      })
-      .sort((a, b) => a.accuracy - b.accuracy);
-  }, [orderedAttempts]);
-
-  const paceTotals = useMemo(() => {
-    return orderedAttempts.reduce(
-      (acc, att) => ({
-        tooFast: acc.tooFast + att.paceSummary.tooFastCount,
-        optimal: acc.optimal + att.paceSummary.optimalCount,
-        tooSlow: acc.tooSlow + att.paceSummary.tooSlowCount,
-        unattempted: acc.unattempted + att.paceSummary.unattemptedCount,
-      }),
-      { tooFast: 0, optimal: 0, tooSlow: 0, unattempted: 0 }
-    );
-  }, [orderedAttempts]);
+  const [selectedAttemptId, setSelectedAttemptId] = useState<string>('');
+  const [showSamplePreview, setShowSamplePreview] = useState(false);
 
   const activeCohortLabel = useMemo(
-    () => allCohorts.find((c) => c.id === cohortId)?.label ?? 'JEE / NEET Aspirant',
+    () => allCohorts.find((c) => c.id === cohortId)?.label ?? 'JEE Main',
     [allCohorts, cohortId]
   );
 
-  const weeklyCompletion = useMemo(() => {
-    const items =
-      progress.weeklySchedule && progress.weeklySchedule.length > 0
-        ? progress.weeklySchedule
-        : createDefaultWeeklySchedule();
-    return computeWeeklyScheduleStats(items);
-  }, [progress.weeklySchedule]);
+  // Build a realistic preview attempt using actual starter questions so new students can explore the Pro Analysis UI before submitting their first test
+  const samplePreviewAttempt = useMemo<TestAttemptRecord | null>(() => {
+    const sampleTest =
+      mockTests.find(
+        (t) =>
+          t.destination === 'cbt-mock' &&
+          testMatchesCohort(t, cohortId) &&
+          questions.some((q) => q.testId === t.id)
+      ) ??
+      mockTests.find(
+        (t) => t.destination === 'cbt-mock' && questions.some((q) => q.testId === t.id)
+      ) ??
+      mockTests[0];
+    if (!sampleTest) return null;
+    const sampleQs = questions
+      .filter((q) => q.testId === sampleTest.id)
+      .sort((a, b) => a.questionNumber - b.questionNumber);
+    if (sampleQs.length === 0) return null;
+
+    const timings = sampleQs.map((q, idx) => {
+      const mod = idx % 5;
+      const answered = mod !== 4;
+      const isCorrect = mod === 0 || mod === 1 || mod === 2;
+      const timeSpentSeconds =
+        mod === 2 ? 175 : mod === 3 ? 22 : mod === 4 ? 12 : 68;
+      const paceCategory = !answered
+        ? ('Unattempted' as const)
+        : timeSpentSeconds > 135
+          ? ('Too Slow' as const)
+          : timeSpentSeconds < 25
+            ? ('Too Fast' as const)
+            : ('Optimal Pace' as const);
+      return {
+        questionId: q.id,
+        questionNumber: q.questionNumber,
+        subjectName: q.subjectName,
+        chapterName: q.chapterName || 'Core Syllabus',
+        openedAtMs: 0,
+        answeredAtMs: answered ? timeSpentSeconds * 1000 : null,
+        timeSpentSeconds,
+        answered,
+        isCorrect,
+        paceCategory,
+      };
+    });
+
+    const subjectBuckets = new Map<
+      string,
+      { score: number; maxScore: number; correct: number; incorrect: number; unattempted: number; time: number }
+    >();
+    const answers: TestAttemptRecord['answers'] = {};
+    let totalScore = 0;
+    let totalMax = 0;
+    let correctCount = 0;
+    let incorrectCount = 0;
+    let unattemptedCount = 0;
+    let totalTime = 0;
+
+    timings.forEach((t, idx) => {
+      const q = sampleQs[idx];
+      const pos = q.positiveMarks ?? 4;
+      const neg = q.negativeMarks ?? 1;
+      totalMax += pos;
+      totalTime += t.timeSpentSeconds;
+
+      const cur = subjectBuckets.get(t.subjectName) ?? {
+        score: 0,
+        maxScore: 0,
+        correct: 0,
+        incorrect: 0,
+        unattempted: 0,
+        time: 0,
+      };
+      cur.maxScore += pos;
+      cur.time += t.timeSpentSeconds;
+
+      if (!t.answered) {
+        unattemptedCount++;
+        cur.unattempted++;
+      } else if (t.isCorrect) {
+        correctCount++;
+        cur.correct++;
+        totalScore += pos;
+        cur.score += pos;
+        answers[q.id] =
+          q.questionType === 'integer'
+            ? { type: 'integer', value: q.numericalAnswer ?? '1' }
+            : { type: 'single-mcq', selectedIndex: q.correctOptionIndices?.[0] ?? 0 };
+      } else {
+        incorrectCount++;
+        cur.incorrect++;
+        totalScore -= neg;
+        cur.score -= neg;
+        const wrongIdx = ((q.correctOptionIndices?.[0] ?? 0) + 1) % 4;
+        answers[q.id] =
+          q.questionType === 'integer'
+            ? { type: 'integer', value: '0' }
+            : { type: 'single-mcq', selectedIndex: wrongIdx };
+      }
+      subjectBuckets.set(t.subjectName, cur);
+    });
+
+    const attempted = correctCount + incorrectCount;
+    const accuracyPercent = attempted > 0 ? Math.round((correctCount / attempted) * 100) : 0;
+
+    return {
+      id: 'sample-preview-attempt',
+      userId: 'preview',
+      testId: sampleTest.id,
+      testTitle: `${sampleTest.title} (Interactive Sample Scorecard)`,
+      destination: sampleTest.destination,
+      cohortId: sampleTest.cohortId,
+      score: totalScore,
+      maxScore: totalMax,
+      correctCount,
+      incorrectCount,
+      unattemptedCount,
+      accuracyPercent,
+      totalTimeSeconds: totalTime,
+      avgTimePerQuestion: Math.round(totalTime / Math.max(1, sampleQs.length)),
+      iqScore: 118,
+      subjectScores: Array.from(subjectBuckets.entries()).map(([subjectName, v]) => {
+        const subAtt = v.correct + v.incorrect;
+        const subTotal = v.correct + v.incorrect + v.unattempted;
+        return {
+          subjectName,
+          total: subTotal,
+          score: v.score,
+          maxScore: v.maxScore,
+          correct: v.correct,
+          incorrect: v.incorrect,
+          unattempted: v.unattempted,
+          accuracyPercent: subAtt > 0 ? Math.round((v.correct / subAtt) * 100) : 0,
+          avgTimeSeconds: Math.round(v.time / Math.max(1, subTotal)),
+        };
+      }),
+      chapterScores: [],
+      paceSummary: {
+        tooFastCount: timings.filter((t) => t.paceCategory === 'Too Fast').length,
+        optimalCount: timings.filter((t) => t.paceCategory === 'Optimal Pace').length,
+        tooSlowCount: timings.filter((t) => t.paceCategory === 'Too Slow').length,
+        unattemptedCount,
+        rushingFlagNote: 'Balanced pace with a few rapid guesses to review.',
+      },
+      questionTimings: timings,
+      answers,
+      submittedAtIso: new Date().toISOString(),
+    };
+  }, [mockTests, questions, cohortId]);
+
+  const activeAttempt = useMemo(() => {
+    if (sortedAttempts.length === 0) {
+      return showSamplePreview ? samplePreviewAttempt : null;
+    }
+    if (selectedAttemptId) {
+      return sortedAttempts.find((a) => a.id === selectedAttemptId) ?? sortedAttempts[0];
+    }
+    return sortedAttempts[0];
+  }, [sortedAttempts, selectedAttemptId, showSamplePreview, samplePreviewAttempt]);
+
+  const trendData = useMemo(
+    () =>
+      [...sortedAttempts]
+        .reverse()
+        .slice(-10)
+        .map((a, idx) => {
+          const pct = estimatePercentileAndRank(a.score, a.maxScore, activeCohortLabel).predictedPercentile;
+          return {
+            name: `T${idx + 1}`,
+            title: a.testTitle,
+            accuracy: a.accuracyPercent,
+            percentile: pct,
+            scorePct: a.maxScore > 0 ? Math.round((a.score / a.maxScore) * 100) : 0,
+          };
+        }),
+    [sortedAttempts, activeCohortLabel]
+  );
 
   return (
     <PageLayout>
       <SeoHead
-        title="Student Performance Analytics & IQ Score — PREPSKM.IN"
-        description="Real cumulative student performance analytics built exclusively from your submitted CBT Mock Tests and Chapter DPPs."
+        title="Pro Test Analysis & Percentile Insights | PREPSKM.IN"
+        description="Quizrr-style JEE & NEET test analysis dashboard with predicted percentile, subject accuracy, attempt & time breakdown, difficulty analysis, and instant AI reports."
         canonicalPath="/analytics"
-        noIndex
       />
 
-      <ResponsiveContainer className="py-5 sm:py-8 space-y-5 sm:space-y-6">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-3">
-          <div>
+      <ResponsiveContainer className="py-6 sm:py-8 space-y-6">
+        {/* Page Header + Attempt Picker */}
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+          <div className="space-y-1">
             <p className="text-xs font-bold uppercase tracking-wider text-[#F97316]">
-              100% Real Attempt Diagnostics + Gemini AI Coach
+              Deep Performance Intelligence · {activeCohortLabel}
             </p>
-            <h1 className="font-display text-2xl sm:text-3xl font-extrabold text-[#0B1B3B] dark:text-white mt-0.5">
-              Student Performance Analytics
+            <h1 className="font-display text-3xl sm:text-4xl font-extrabold text-[#0B1B3B] dark:text-white tracking-tight">
+              Test Analysis Dashboard
             </h1>
-            <p className="mt-1 text-xs sm:text-sm text-slate-600 dark:text-slate-400">
-              Every graph, radar chart, and past test solution updates live from your CBT Mock Tests and DPP submissions.
+            <p className="text-base text-slate-600 dark:text-slate-400">
+              Inspect overall score, predicted percentile, attempt quality, difficulty tiers, and step-by-step solutions.
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <ReusableButton variant="primary" size="sm" to="/cbt-mocks">
-              Take CBT Mock
+
+          <div className="flex flex-wrap items-center gap-3 shrink-0">
+            {sortedAttempts.length > 0 && (
+              <div className="min-w-[240px]">
+                <label htmlFor="attempt-selector" className="sr-only">
+                  Select test attempt to analyze
+                </label>
+                <select
+                  id="attempt-selector"
+                  value={activeAttempt?.id ?? ''}
+                  onChange={(e) => {
+                    playClick();
+                    setSelectedAttemptId(e.target.value);
+                  }}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#111A2E] text-sm font-semibold text-[#0B1B3B] dark:text-white"
+                >
+                  {sortedAttempts.map((att) => (
+                    <option key={att.id} value={att.id}>
+                      {att.testTitle} ({att.score}/{att.maxScore})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <ReusableButton variant="secondary" size="sm" to="/mistakes">
+              <BookMarked className="w-4 h-4" />
+              Mistake Notebook
             </ReusableButton>
-            <ReusableButton variant="secondary" size="sm" to="/dpp">
-              Solve Chapter DPP
+
+            <ReusableButton variant="primary" size="sm" to="/cbt-mocks">
+              <ClipboardCheck className="w-4 h-4" />
+              Take New Test
             </ReusableButton>
           </div>
         </div>
 
-        {/* Gemini AI Study & IQ Strategist */}
-        <GeminiMentorPanel
-          studentName={profile?.displayName || 'Student'}
-          cohortLabel={activeCohortLabel}
-          attemptsCount={orderedAttempts.length}
-          averageAccuracy={summary.overallAccuracy}
-          averageIqScore={summary.averageIqScore}
-          latestIqScore={summary.latestIqScore}
-          paceSummary={paceTotals}
-          subjectPerformance={subjectAggregate.map((s) => ({
-            subject: s.subject,
-            accuracy: s.accuracy,
-            scorePct: s.scorePct,
-          }))}
-          weakChapters={chapterAggregate.slice(0, 6).map((c) => ({
-            chapterName: c.chapterName,
-            subjectName: c.subjectName,
-            accuracy: c.accuracy,
-          }))}
-          weeklyCompletionPercent={weeklyCompletion.completionPercent}
-        />
-
-        {orderedAttempts.length === 0 ? (
-          <ReusableCard className="py-14 text-center max-w-2xl mx-auto space-y-4">
-            <BarChart3 className="w-12 h-12 text-[#2563EB] mx-auto" />
-            <h2 className="font-display text-xl font-bold text-[#0B1B3B] dark:text-white">
-              No Test Attempts Recorded Yet
-            </h2>
-            <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400 max-w-lg mx-auto leading-relaxed">
-              PREPSKM.IN never displays fabricated or placeholder charts. Complete your first CBT Mock Test or Chapter DPP to unlock all 8 performance visualizations, Subject Mastery Radar, weak-chapter diagnostics, and Exam IQ analytics.
-            </p>
-            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-              <ReusableButton variant="primary" to="/cbt-mocks">
-                Start JEE Main CBT Mock #01
-              </ReusableButton>
-              <ReusableButton variant="secondary" to="/dpp">
-                Try Electrostatics DPP #01
-              </ReusableButton>
-            </div>
-          </ReusableCard>
-        ) : (
+        {/* Main Analysis Content OR Clean Empty State with Sample Scorecard Toggle */}
+        {activeAttempt ? (
           <>
-            {/* Cumulative KPI Strip */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-4">
-              <ReusableCard padding="sm">
-                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                  <Target className="w-3.5 h-3.5 text-[#2563EB] dark:text-sky-400" />
-                  Tests Taken
-                </p>
-                <p className="mt-1.5 font-mono text-2xl font-bold tabular-nums text-[#0B1B3B] dark:text-white">
-                  {summary.totalTests}
-                </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 tabular-nums">
-                  {summary.totalCbts} CBT · {summary.totalDpps} DPP
-                </p>
-              </ReusableCard>
-
-              <ReusableCard padding="sm">
-                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                  <TrendingUp className="w-3.5 h-3.5 text-[#10B981]" />
-                  Avg / Highest
-                </p>
-                <p className="mt-1.5 font-mono text-2xl font-bold tabular-nums text-[#0B1B3B] dark:text-white">
-                  {summary.averageScore}
-                </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 tabular-nums">
-                  Best: {summary.highestScore}
-                  {summary.scoreDeltaFromPrevious !== null && (
-                    <span className="ml-1 text-[#10B981]">
-                      ({summary.scoreDeltaFromPrevious >= 0 ? '+' : ''}
-                      {summary.scoreDeltaFromPrevious})
-                    </span>
-                  )}
-                </p>
-              </ReusableCard>
-
-              <ReusableCard padding="sm">
-                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                  <Award className="w-3.5 h-3.5 text-[#F97316]" />
-                  Accuracy
-                </p>
-                <p className="mt-1.5 font-mono text-2xl font-bold tabular-nums text-[#10B981]">
-                  {summary.overallAccuracy}%
-                </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 tabular-nums">
-                  {summary.cumulativeCorrect}✓ · {summary.cumulativeIncorrect}✗
-                </p>
-              </ReusableCard>
-
-              <ReusableCard padding="sm">
-                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5 text-slate-500" />
-                  Avg Pace
-                </p>
-                <p className="mt-1.5 font-mono text-2xl font-bold tabular-nums text-[#0B1B3B] dark:text-white">
-                  {summary.averageTimePerQuestion}s
-                </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 tabular-nums">
-                  Opt {paceTotals.optimal} · Fast {paceTotals.tooFast}
-                </p>
-              </ReusableCard>
-
-              <ReusableCard padding="sm" className="border-blue-200 dark:border-blue-800/80">
-                <p className="text-xs font-semibold text-[#2563EB] dark:text-sky-400 flex items-center gap-1.5">
-                  <Activity className="w-3.5 h-3.5" />
-                  IQ Score
-                </p>
-                <p className="mt-1.5 font-mono text-2xl font-bold tabular-nums text-[#2563EB] dark:text-sky-300">
-                  {summary.latestIqScore}
-                  <span className="text-xs font-medium text-slate-500">/150</span>
-                </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 tabular-nums">
-                  Avg IQ: {summary.averageIqScore}
-                </p>
-              </ReusableCard>
-
-              <ReusableCard
-                padding="sm"
-                className={
-                  totalRoomExitWarnings > 0
-                    ? 'border-amber-300 dark:border-amber-700'
-                    : 'border-emerald-200 dark:border-emerald-800/70'
-                }
-              >
-                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                  <ShieldCheck className="w-3.5 h-3.5 text-[#10B981]" />
-                  Room Focus
-                </p>
-                <p
-                  className={`mt-1.5 font-mono text-2xl font-bold tabular-nums ${
-                    totalRoomExitWarnings > 0 ? 'text-[#F97316]' : 'text-[#10B981]'
-                  }`}
-                >
-                  {totalRoomExitWarnings === 0 ? '100%' : `${totalRoomExitWarnings} W`}
-                </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  {totalRoomExitWarnings === 0 ? 'Zero exit warnings' : 'Exit warnings logged'}
-                </p>
-              </ReusableCard>
-            </div>
-
-            {/* Transparent IQ & Pace Heuristic Formula Card */}
-            <ReusableCard padding="sm">
-              <div className="flex items-start gap-3">
-                <Info className="w-5 h-5 text-[#2563EB] dark:text-sky-400 shrink-0 mt-0.5" />
-                <div className="space-y-1 text-xs sm:text-sm text-slate-600 dark:text-slate-300">
-                  <p className="font-semibold text-[#0B1B3B] dark:text-white">
-                    Transparent IQ Score & Pace Efficiency Heuristic
-                  </p>
-                  <p>
-                    Official Exam Score is strictly computed from your marking scheme (+4/−1 or DPP rules). Separately, the IQ Score (40–150) combines your accuracy with question-level solving pace: responses under{' '}
-                    <strong className="font-mono">{iqConfig.tooFastThresholdSec}s</strong> are tagged{' '}
-                    <strong>Too Fast</strong>,{' '}
-                    <strong className="font-mono">
-                      {iqConfig.optimalMinSec}s–{iqConfig.optimalMaxSec}s
-                    </strong>{' '}
-                    as <strong>Optimal Pace</strong>, and above{' '}
-                    <strong className="font-mono">{iqConfig.tooSlowThresholdSec}s</strong> as{' '}
-                    <strong>Too Slow</strong>.
-                  </p>
-                </div>
+            {showSamplePreview && sortedAttempts.length === 0 && (
+              <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-sm text-[#0B1B3B] dark:text-sky-200">
+                <span>
+                  Viewing an interactive sample scorecard. Submit any CBT Mock Test to see your real score, rank, and Mistake Notebook populated automatically.
+                </span>
+                <ReusableButton variant="primary" size="sm" to="/cbt-mocks">
+                  Start Real CBT Mock
+                </ReusableButton>
               </div>
-            </ReusableCard>
+            )}
 
-            {/* 8 Interactive Recharts Graphs */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Chart 1: Official Score Progression */}
-              <ReusableCard padding="sm" className="space-y-3">
-                <h2 className="font-display text-base font-bold text-[#0B1B3B] dark:text-white">
-                  1. Official Score Progression Across Tests
-                </h2>
-                <div className="h-60 w-full">
+            <ProTestAnalysisDashboard
+              key={activeAttempt.id}
+              attempt={activeAttempt}
+              questions={questions}
+              iqConfig={iqConfig}
+              examCategory={activeCohortLabel}
+            />
+
+            {/* Multi-Test Trajectory Chart (when student has 2+ attempts) */}
+            {trendData.length >= 2 && (
+              <ReusableCard className="space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h2 className="font-display text-lg font-bold text-[#0B1B3B] dark:text-white flex items-center gap-2">
+                      <TrendingUp className="w-5 h-5 text-[#2563EB]" />
+                      Mock Test Trajectory (Last {trendData.length} Tests)
+                    </h2>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">
+                      Track your accuracy and predicted percentile momentum across tests
+                    </p>
+                  </div>
+                  <ReusableButton variant="secondary" size="sm" to="/preps-ai">
+                    <Sparkles className="w-4 h-4 text-[#2563EB]" />
+                    Analyze Trajectory with Preps AI
+                  </ReusableButton>
+                </div>
+
+                <div className="h-64 w-full">
                   <RechartsContainer width="100%" height="100%">
-                    <LineChart data={progressionSeries} margin={{ top: 8, right: 16, left: -10, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#94A3B8" opacity={0.25} />
-                      <XAxis dataKey="label" tick={{ fontSize: 12 }} />
-                      <YAxis tick={{ fontSize: 12 }} />
+                    <LineChart data={trendData} margin={{ top: 8, right: 16, left: -12, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#94A3B8" opacity={0.22} />
+                      <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                      <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} />
                       <Tooltip />
-                      <Legend />
                       <Line
                         type="monotone"
-                        dataKey="score"
-                        name="Official Score"
-                        stroke="#2563EB"
+                        dataKey="accuracy"
+                        name="Accuracy %"
+                        stroke="#10B981"
                         strokeWidth={2.5}
                         dot={{ r: 4 }}
                       />
                       <Line
                         type="monotone"
-                        dataKey="maxScore"
-                        name="Max Marks"
-                        stroke="#94A3B8"
-                        strokeDasharray="4 4"
-                      />
-                    </LineChart>
-                  </RechartsContainer>
-                </div>
-              </ReusableCard>
-
-              {/* Chart 2: Subject Mastery Radar Chart */}
-              <ReusableCard padding="sm" className="space-y-3">
-                <h2 className="font-display text-base font-bold text-[#0B1B3B] dark:text-white">
-                  2. Subject Mastery Radar (Accuracy % vs Score %)
-                </h2>
-                <div className="h-60 w-full">
-                  <RechartsContainer width="100%" height="100%">
-                    <RadarChart data={subjectAggregate} cx="50%" cy="50%" outerRadius="72%">
-                      <PolarGrid stroke="#94A3B8" opacity={0.35} />
-                      <PolarAngleAxis dataKey="subject" tick={{ fontSize: 12 }} />
-                      <PolarRadiusAxis domain={[0, 100]} tick={{ fontSize: 10 }} />
-                      <Radar
-                        name="Accuracy %"
-                        dataKey="accuracy"
-                        stroke="#10B981"
-                        fill="#10B981"
-                        fillOpacity={0.28}
-                      />
-                      <Radar
-                        name="Score %"
-                        dataKey="scorePct"
-                        stroke="#2563EB"
-                        fill="#2563EB"
-                        fillOpacity={0.22}
-                      />
-                      <Legend />
-                      <Tooltip />
-                    </RadarChart>
-                  </RechartsContainer>
-                </div>
-              </ReusableCard>
-
-              {/* Chart 3: Accuracy % Over Time */}
-              <ReusableCard padding="sm" className="space-y-3">
-                <h2 className="font-display text-base font-bold text-[#0B1B3B] dark:text-white">
-                  3. Accuracy Percentage Trend
-                </h2>
-                <div className="h-60 w-full">
-                  <RechartsContainer width="100%" height="100%">
-                    <AreaChart data={progressionSeries} margin={{ top: 8, right: 16, left: -10, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#94A3B8" opacity={0.25} />
-                      <XAxis dataKey="label" tick={{ fontSize: 12 }} />
-                      <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} />
-                      <Tooltip formatter={(v) => [`${v}%`, 'Accuracy']} />
-                      <Area
-                        type="monotone"
-                        dataKey="accuracy"
-                        name="Accuracy %"
-                        stroke="#10B981"
-                        fill="#10B981"
-                        fillOpacity={0.2}
-                        strokeWidth={2.5}
-                      />
-                    </AreaChart>
-                  </RechartsContainer>
-                </div>
-              </ReusableCard>
-
-              {/* Chart 4: Correct vs Incorrect vs Unattempted */}
-              <ReusableCard padding="sm" className="space-y-3">
-                <h2 className="font-display text-base font-bold text-[#0B1B3B] dark:text-white">
-                  4. Correct vs Incorrect vs Skipped Breakdown
-                </h2>
-                <div className="h-60 w-full">
-                  <RechartsContainer width="100%" height="100%">
-                    <BarChart data={progressionSeries} margin={{ top: 8, right: 16, left: -10, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#94A3B8" opacity={0.25} />
-                      <XAxis dataKey="label" tick={{ fontSize: 12 }} />
-                      <YAxis tick={{ fontSize: 12 }} />
-                      <Tooltip />
-                      <Legend />
-                      <Bar dataKey="correct" name="Correct" stackId="a" fill="#10B981" />
-                      <Bar dataKey="incorrect" name="Incorrect" stackId="a" fill="#EF4444" />
-                      <Bar dataKey="unattempted" name="Skipped" stackId="a" fill="#94A3B8" radius={[6, 6, 0, 0]} />
-                    </BarChart>
-                  </RechartsContainer>
-                </div>
-              </ReusableCard>
-
-              {/* Chart 5: Subject-Wise Performance */}
-              <ReusableCard padding="sm" className="space-y-3">
-                <h2 className="font-display text-base font-bold text-[#0B1B3B] dark:text-white">
-                  5. Subject-Wise Accuracy (%)
-                </h2>
-                <div className="h-60 w-full">
-                  <RechartsContainer width="100%" height="100%">
-                    <BarChart data={subjectAggregate} margin={{ top: 8, right: 16, left: -10, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#94A3B8" opacity={0.25} />
-                      <XAxis dataKey="subject" tick={{ fontSize: 12 }} />
-                      <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} />
-                      <Tooltip formatter={(v) => [`${v}%`, 'Accuracy']} />
-                      <Bar dataKey="accuracy" name="Accuracy %" fill="#2563EB" radius={[8, 8, 0, 0]} />
-                    </BarChart>
-                  </RechartsContainer>
-                </div>
-              </ReusableCard>
-
-              {/* Chart 6: Time per Question vs Accuracy */}
-              <ReusableCard padding="sm" className="space-y-3">
-                <h2 className="font-display text-base font-bold text-[#0B1B3B] dark:text-white">
-                  6. Avg Time per Question (s) vs Accuracy (%)
-                </h2>
-                <div className="h-60 w-full">
-                  <RechartsContainer width="100%" height="100%">
-                    <ScatterChart margin={{ top: 8, right: 16, left: -10, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#94A3B8" opacity={0.25} />
-                      <XAxis type="number" dataKey="avgTime" name="Avg Time" unit="s" tick={{ fontSize: 12 }} />
-                      <YAxis type="number" dataKey="accuracy" name="Accuracy" unit="%" domain={[0, 100]} tick={{ fontSize: 12 }} />
-                      <ZAxis range={[70, 160]} />
-                      <Tooltip cursor={{ strokeDasharray: '3 3' }} />
-                      <Scatter name="Test Attempts" data={progressionSeries} fill="#F97316" />
-                    </ScatterChart>
-                  </RechartsContainer>
-                </div>
-              </ReusableCard>
-
-              {/* Chart 7: IQ Score Progression */}
-              <ReusableCard padding="sm" className="space-y-3">
-                <h2 className="font-display text-base font-bold text-[#0B1B3B] dark:text-white">
-                  7. IQ Score Progression (Pace & Precision Index)
-                </h2>
-                <div className="h-60 w-full">
-                  <RechartsContainer width="100%" height="100%">
-                    <LineChart data={progressionSeries} margin={{ top: 8, right: 16, left: -10, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#94A3B8" opacity={0.25} />
-                      <XAxis dataKey="label" tick={{ fontSize: 12 }} />
-                      <YAxis domain={[40, 150]} tick={{ fontSize: 12 }} />
-                      <Tooltip />
-                      <Line
-                        type="monotone"
-                        dataKey="iqScore"
-                        name="IQ Score"
+                        dataKey="percentile"
+                        name="Predicted %ile"
                         stroke="#2563EB"
                         strokeWidth={2.5}
                         dot={{ r: 4 }}
                       />
                     </LineChart>
                   </RechartsContainer>
-                </div>
-              </ReusableCard>
-
-              {/* Chart 8: Cumulative Multi-Test Growth Curve */}
-              <ReusableCard padding="sm" className="space-y-3">
-                <h2 className="font-display text-base font-bold text-[#0B1B3B] dark:text-white">
-                  8. Cumulative Multi-Test Mastery Growth (%)
-                </h2>
-                <div className="h-60 w-full">
-                  <RechartsContainer width="100%" height="100%">
-                    <AreaChart data={progressionSeries} margin={{ top: 8, right: 16, left: -10, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#94A3B8" opacity={0.25} />
-                      <XAxis dataKey="label" tick={{ fontSize: 12 }} />
-                      <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} />
-                      <Tooltip formatter={(v) => [`${v}%`, 'Cumulative Marks %']} />
-                      <Area
-                        type="monotone"
-                        dataKey="cumulativePct"
-                        name="Cumulative Score %"
-                        stroke="#F97316"
-                        fill="#F97316"
-                        fillOpacity={0.18}
-                        strokeWidth={2.5}
-                      />
-                    </AreaChart>
-                  </RechartsContainer>
-                </div>
-              </ReusableCard>
-            </div>
-
-            {/* Chapter-Wise Diagnostics */}
-            {chapterAggregate.length > 0 && (
-              <ReusableCard padding="sm" className="space-y-3">
-                <h2 className="font-display text-base font-bold text-[#0B1B3B] dark:text-white">
-                  Chapter Mastery Diagnostics (Lowest Accuracy First)
-                </h2>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm text-left">
-                    <thead>
-                      <tr className="border-b border-slate-200 dark:border-slate-800 text-xs uppercase text-slate-500 dark:text-slate-400">
-                        <th className="py-2 pr-4">Chapter</th>
-                        <th className="py-2 px-3">Subject</th>
-                        <th className="py-2 px-3">Correct</th>
-                        <th className="py-2 px-3">Incorrect</th>
-                        <th className="py-2 pl-3">Accuracy</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/70 tabular-nums">
-                      {chapterAggregate.map((ch) => (
-                        <tr key={`${ch.subjectName}-${ch.chapterName}`}>
-                          <td className="py-2.5 pr-4 font-semibold text-slate-900 dark:text-white">
-                            {ch.chapterName}
-                          </td>
-                          <td className="py-2.5 px-3 text-slate-600 dark:text-slate-300">
-                            {ch.subjectName}
-                          </td>
-                          <td className="py-2.5 px-3 text-emerald-700 dark:text-emerald-400">
-                            {ch.correct}
-                          </td>
-                          <td className="py-2.5 px-3 text-rose-700 dark:text-rose-400">
-                            {ch.incorrect}
-                          </td>
-                          <td className="py-2.5 pl-3 font-mono font-bold">{ch.accuracy}%</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
                 </div>
               </ReusableCard>
             )}
-
-            {/* Complete Historical Attempt Ledger */}
-            <ReusableCard padding="sm" className="space-y-3">
-              <h2 className="font-display text-base font-bold text-[#0B1B3B] dark:text-white">
-                Complete Attempt History Ledger ({orderedAttempts.length})
-              </h2>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left">
-                  <thead>
-                    <tr className="border-b border-slate-200 dark:border-slate-800 text-xs uppercase text-slate-500 dark:text-slate-400">
-                      <th className="py-2 pr-4">Test / DPP</th>
-                      <th className="py-2 px-3">Type</th>
-                      <th className="py-2 px-3">Official Score</th>
-                      <th className="py-2 px-3">Accuracy</th>
-                      <th className="py-2 px-3">Avg Pace</th>
-                      <th className="py-2 px-3">IQ Score</th>
-                      <th className="py-2 px-3">Warnings</th>
-                      <th className="py-2 px-3">Submitted</th>
-                      <th className="py-2 pl-3 text-right">Solutions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/70 tabular-nums">
-                    {[...orderedAttempts].reverse().map((att) => (
-                      <tr key={att.id}>
-                        <td className="py-2.5 pr-4 font-semibold text-slate-900 dark:text-white">
-                          {att.testTitle}
-                        </td>
-                        <td className="py-2.5 px-3 text-xs uppercase font-semibold text-slate-500">
-                          {att.destination === 'cbt-mock' ? 'CBT' : 'DPP'}
-                        </td>
-                        <td className="py-2.5 px-3 font-mono font-bold text-[#0B1B3B] dark:text-sky-300">
-                          {att.score} / {att.maxScore}
-                        </td>
-                        <td className="py-2.5 px-3 font-semibold text-emerald-700 dark:text-emerald-400">
-                          {att.accuracyPercent}%
-                        </td>
-                        <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400">
-                          {att.avgTimePerQuestion}s/Q
-                        </td>
-                        <td className="py-2.5 px-3 font-mono font-semibold text-[#2563EB] dark:text-sky-400">
-                          {att.iqScore}/150
-                        </td>
-                        <td className="py-2.5 px-3 font-mono text-xs">
-                          {(att.roomExitWarnings ?? 0) > 0 ? (
-                            <span className="text-[#F97316] font-bold">{att.roomExitWarnings}</span>
-                          ) : (
-                            <span className="text-emerald-600 dark:text-emerald-400">0</span>
-                          )}
-                        </td>
-                        <td className="py-2.5 px-3 text-xs text-slate-500 dark:text-slate-400">
-                          {new Date(att.submittedAtIso).toLocaleDateString()}
-                        </td>
-                        <td className="py-2.5 pl-3 text-right">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              playClick();
-                              setReviewAttempt(att);
-                            }}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-[#2563EB] hover:bg-[#1D4ED8] text-white transition-colors"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                            Analysis &amp; Solutions
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </ReusableCard>
           </>
+        ) : (
+          <ReusableCard className="py-14 px-6 text-center space-y-5">
+            <div className="w-16 h-16 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-[#2563EB] dark:text-sky-400 flex items-center justify-center mx-auto">
+              <Award className="w-8 h-8" />
+            </div>
+            <div className="space-y-2 max-w-xl mx-auto">
+              <h2 className="font-display text-2xl font-extrabold text-[#0B1B3B] dark:text-white">
+                No CBT Mock Attempts Yet
+              </h2>
+              <p className="text-base text-slate-600 dark:text-slate-400">
+                Complete any JEE or NEET mock test to unlock your Predicted Percentile, Subject Movement charts, Attempt &amp; Time buckets, Difficulty Analysis, and AI Report.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+              <ReusableButton variant="accent" to="/cbt-mocks">
+                <ClipboardCheck className="w-4 h-4" />
+                Attempt Your First CBT Mock
+              </ReusableButton>
+              {samplePreviewAttempt && (
+                <ReusableButton
+                  variant="secondary"
+                  onClick={() => {
+                    playClick();
+                    setShowSamplePreview(true);
+                  }}
+                >
+                  <Activity className="w-4 h-4" />
+                  Preview Pro Analysis Demo
+                </ReusableButton>
+              )}
+            </div>
+          </ReusableCard>
         )}
       </ResponsiveContainer>
-
-      {reviewAttempt && (
-        <AttemptReviewModal
-          attempt={reviewAttempt}
-          questions={questions}
-          onClose={() => setReviewAttempt(null)}
-        />
-      )}
     </PageLayout>
   );
 }

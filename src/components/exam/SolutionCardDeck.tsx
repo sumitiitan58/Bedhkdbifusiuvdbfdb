@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, type PanInfo } from 'motion/react';
 import {
+  Bookmark,
+  BookmarkCheck,
   Check,
   CheckCircle2,
   ChevronLeft,
@@ -19,6 +21,7 @@ import type {
   TestQuestionRecord,
 } from '../../types';
 import type { GeminiQuestionExplanation } from '../../services/geminiClient';
+import { usePlatformData } from '../../context/PlatformDataContext';
 import { playClick } from '../../utils/soundEffects';
 import { QuestionZoomModal, type QuestionZoomPayload } from './QuestionZoomModal';
 
@@ -77,10 +80,12 @@ export function SolutionCardDeck({
   aiLoadingId,
   aiErrorById,
 }: SolutionCardDeckProps) {
+  const { bookmarkedQuestionIds, toggleQuestionBookmark } = usePlatformData();
   const [filterMode, setFilterMode] = useState<'all' | SolutionReviewStatus>('all');
   const [activeIndex, setActiveIndex] = useState(0);
   const [slideDir, setSlideDir] = useState<1 | -1>(1);
   const [zoomPayload, setZoomPayload] = useState<QuestionZoomPayload | null>(null);
+  const bookmarkSet = useMemo(() => new Set(bookmarkedQuestionIds), [bookmarkedQuestionIds]);
 
   const numberStripRef = useRef<HTMLDivElement | null>(null);
   const numberBtnRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -415,6 +420,32 @@ export function SolutionCardDeck({
                         Skipped (0)
                       </span>
                     )}
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        playClick();
+                        toggleQuestionBookmark(currentItem.question.id);
+                      }}
+                      aria-pressed={bookmarkSet.has(currentItem.question.id)}
+                      aria-label={
+                        bookmarkSet.has(currentItem.question.id)
+                          ? `Remove Question ${currentItem.question.questionNumber} from Important Vault`
+                          : `Bookmark Question ${currentItem.question.questionNumber} to Important Vault`
+                      }
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-semibold transition-colors ${
+                        bookmarkSet.has(currentItem.question.id)
+                          ? 'bg-[#F97316]/10 border-[#F97316] text-[#F97316]'
+                          : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-[#F97316] hover:text-[#F97316]'
+                      }`}
+                    >
+                      {bookmarkSet.has(currentItem.question.id) ? (
+                        <BookmarkCheck className="w-3.5 h-3.5" />
+                      ) : (
+                        <Bookmark className="w-3.5 h-3.5" />
+                      )}
+                      <span>{bookmarkSet.has(currentItem.question.id) ? 'Saved' : 'Save'}</span>
+                    </button>
                   </div>
                 </div>
 

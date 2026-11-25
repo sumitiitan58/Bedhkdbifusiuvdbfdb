@@ -7,6 +7,7 @@ import { AuthProvider } from './context/AuthContext';
 import { DownloadGateProvider } from './context/DownloadGateContext';
 import { PlatformDataProvider } from './context/PlatformDataContext';
 import { DownloadGateModal } from './components/monetization/DownloadGateModal';
+import { PrepsAiFloatingOrb } from './components/ai/PrepsAiFloatingOrb';
 
 const HomePage = lazy(() => import('./pages/HomePage'));
 const MaterialsPage = lazy(() => import('./pages/MaterialsPage'));
@@ -16,6 +17,8 @@ const CbtMocksPage = lazy(() => import('./pages/CbtMocksPage'));
 const CbtMockDetailPage = lazy(() => import('./pages/CbtMockDetailPage'));
 const DppPage = lazy(() => import('./pages/DppPage'));
 const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
+const MistakeNotebookPage = lazy(() => import('./pages/MistakeNotebookPage'));
+const PrepsAiPage = lazy(() => import('./pages/PrepsAiPage'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 const AboutPage = lazy(() => import('./pages/AboutPage'));
 const AdminPage = lazy(() => import('./pages/AdminPage'));
@@ -46,6 +49,8 @@ export default function App() {
                     <Route path="/dpp" element={<DppPage />} />
                     <Route path="/dpp/:classSlug/:chapterSlug" element={<CbtMockDetailPage />} />
                     <Route path="/analytics" element={<AnalyticsPage />} />
+                    <Route path="/mistakes" element={<MistakeNotebookPage />} />
+                    <Route path="/preps-ai" element={<PrepsAiPage />} />
                     <Route path="/profile" element={<ProfilePage />} />
                     <Route path="/about" element={<AboutPage />} />
                     <Route path="/admin" element={<AdminPage />} />
@@ -53,6 +58,7 @@ export default function App() {
                   </Routes>
                 </Suspense>
                 <DownloadGateModal />
+                <PrepsAiFloatingOrb />
               </BrowserRouter>
             </PlatformDataProvider>
           </DownloadGateProvider>

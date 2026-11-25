@@ -76,7 +76,7 @@ export default function CbtMocksPage() {
 
   if (activeTest) {
     return (
-      <PageLayout hideFooter>
+      <PageLayout hideFooter hideSidebar hideMobileNav>
         <SeoHead
           title={`${activeTest.title} — CBT Mock Exam | PREPSKM.IN`}
           description={`NTA-style Computer Based Test session for ${activeTest.title} on PREPSKM.IN.`}
@@ -165,7 +165,7 @@ export default function CbtMocksPage() {
             </ReusableButton>
           </ReusableCard>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             {publishedCbts.map((t) => {
               const linkedCount = questions.filter((q) => q.testId === t.id).length;
               const testAttempts = cbtAttempts.filter((a) => a.testId === t.id);
@@ -181,8 +181,8 @@ export default function CbtMocksPage() {
                 <ReusableCard
                   key={t.id}
                   interactive
-                  padding="sm"
-                  className="flex flex-col justify-between gap-4"
+                  padding="md"
+                  className="flex flex-col justify-between gap-5"
                 >
                   <div className="space-y-3">
                     <div className="flex items-center justify-between gap-2 text-xs font-semibold">

@@ -4,58 +4,74 @@ import { STUDENT_COHORTS } from '../services/platformRegistry';
 export const PUBLIC_NAV_ROUTES: NavRouteItem[] = [
   {
     path: '/',
-    label: 'Home',
-    shortDescription: 'Class tracks, chapter notes, CBT mocks & AI mentor',
-    showInPublicNav: true,
-  },
-  {
-    path: '/materials',
-    label: 'Materials',
-    shortDescription: 'Chapter notes, formula sheets, PYQs & videos',
+    label: 'Dashboard',
+    shortDescription: 'Study overview, daily streak, exam countdown & quick actions',
     showInPublicNav: true,
   },
   {
     path: '/cbt-mocks',
-    label: 'CBT Mocks',
-    shortDescription: 'NTA-style JEE & NEET computer-based tests',
+    label: 'All Tests (CBT)',
+    shortDescription: 'NTA-style JEE & NEET computer-based mock tests',
     showInPublicNav: true,
   },
   {
-    path: '/dpp',
-    label: 'DPP',
-    shortDescription: 'Chapter-wise Daily Practice Problems',
+    path: '/materials',
+    label: 'Study Materials',
+    shortDescription: 'Chapter-wise short notes, formula sheets, mind maps & PYQs',
     showInPublicNav: true,
   },
   {
     path: '/analytics',
-    label: 'Analytics',
-    shortDescription: 'Performance graphs, past solutions & Gemini AI IQ',
+    label: 'Test Analysis',
+    shortDescription: 'Pro-level scorecards, percentile, attempt & difficulty breakdown',
+    showInPublicNav: true,
+  },
+  {
+    path: '/mistakes',
+    label: 'Mistake Notebook',
+    shortDescription: 'Auto-saved wrong/unattempted questions & bookmarked vault',
+    showInPublicNav: true,
+  },
+  {
+    path: '/preps-ai',
+    label: 'Preps AI',
+    shortDescription: 'Voice & chat AI mentor grounded in your real mock scores',
     showInPublicNav: true,
   },
 ];
 
-export const MOBILE_BOTTOM_TABS: { path: RoutePath; label: string }[] = [
-  { path: '/', label: 'Home' },
-  { path: '/materials', label: 'Materials' },
-  { path: '/cbt-mocks', label: 'CBT' },
-  { path: '/analytics', label: 'Analytics' },
-  { path: '/profile', label: 'Profile' },
-];
-
-export const ALL_APP_ROUTES: NavRouteItem[] = [
-  ...PUBLIC_NAV_ROUTES,
+export const SECONDARY_SIDEBAR_ROUTES: NavRouteItem[] = [
+  {
+    path: '/dpp',
+    label: 'Chapter DPPs',
+    shortDescription: 'Timed chapter-wise Daily Practice Problems',
+    showInPublicNav: true,
+  },
   {
     path: '/profile',
-    label: 'Profile',
+    label: 'Profile & Track',
     shortDescription: 'Student profile, avatar, target exam & preferences',
     showInPublicNav: false,
   },
   {
     path: '/about',
-    label: 'About',
-    shortDescription: 'About PREPSKM.IN, @unfiltereddsumit, SEO & FAQs',
+    label: 'About Prepskm',
+    shortDescription: 'About PREPSKM.IN, @unfiltereddsumit & FAQs',
     showInPublicNav: false,
   },
+];
+
+export const MOBILE_BOTTOM_TABS: { path: RoutePath; label: string }[] = [
+  { path: '/', label: 'Home' },
+  { path: '/cbt-mocks', label: 'Tests' },
+  { path: '/materials', label: 'Notes' },
+  { path: '/analytics', label: 'Analysis' },
+  { path: '/mistakes', label: 'Mistakes' },
+];
+
+export const ALL_APP_ROUTES: NavRouteItem[] = [
+  ...PUBLIC_NAV_ROUTES,
+  ...SECONDARY_SIDEBAR_ROUTES,
   {
     path: '/admin',
     label: 'Admin',

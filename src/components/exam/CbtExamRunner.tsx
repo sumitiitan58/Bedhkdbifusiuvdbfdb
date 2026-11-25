@@ -17,19 +17,6 @@ import {
   X,
   ZoomIn,
 } from 'lucide-react';
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Legend,
-  Pie,
-  PieChart,
-  ResponsiveContainer as RechartsContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
 import type {
   MockTestRecord,
   QuestionPaletteState,
@@ -41,7 +28,6 @@ import { useAuth } from '../../context/AuthContext';
 import { usePlatformData } from '../../context/PlatformDataContext';
 import {
   evaluateFullAttempt,
-  evaluateSingleQuestion,
   getPaletteState,
   isQuestionAnswered,
 } from '../../utils/scoringEngine';
@@ -54,7 +40,7 @@ import { makeSafeDocId } from '../../services/firestoreService';
 import { ReusableButton } from '../ReusableButton';
 import { ReusableCard } from '../ReusableCard';
 import { QuestionZoomModal, type QuestionZoomPayload } from './QuestionZoomModal';
-import { SolutionCardDeck, type SolutionReviewItem } from './SolutionCardDeck';
+import { ProTestAnalysisDashboard } from '../analytics/ProTestAnalysisDashboard';
 
 interface CbtExamRunnerProps {
   test: MockTestRecord;
@@ -444,34 +430,6 @@ export function CbtExamRunner({ test, questions, onExit }: CbtExamRunnerProps) {
     return counts;
   }, [answers, markedIds, sortedQuestions, visitedIds]);
 
-  // Derived data for CBT Post-Submission Recharts visualizations
-  const resultCharts = useMemo(() => {
-    if (!submittedAttempt) return null;
-
-    const subjectChartData = submittedAttempt.subjectScores.map((s) => ({
-      subject: s.subjectName,
-      score: Math.max(0, s.score),
-      maxScore: s.maxScore,
-      accuracy: s.accuracyPercent,
-    }));
-
-    const questionTimeData = submittedAttempt.questionTimings.map((t) => ({
-      label: `Q${t.questionNumber}`,
-      seconds: t.timeSpentSeconds,
-      status: !t.answered ? 'Skipped' : t.isCorrect ? 'Correct' : 'Incorrect',
-      fill: !t.answered ? '#94A3B8' : t.isCorrect ? '#10B981' : '#EF4444',
-    }));
-
-    const paceDonutData = [
-      { name: 'Optimal Pace', value: submittedAttempt.paceSummary.optimalCount, fill: '#10B981' },
-      { name: 'Too Fast', value: submittedAttempt.paceSummary.tooFastCount, fill: '#F97316' },
-      { name: 'Too Slow', value: submittedAttempt.paceSummary.tooSlowCount, fill: '#2563EB' },
-      { name: 'Skipped', value: submittedAttempt.paceSummary.unattemptedCount, fill: '#94A3B8' },
-    ].filter((d) => d.value > 0);
-
-    return { subjectChartData, questionTimeData, paceDonutData };
-  }, [submittedAttempt]);
-
   if (sortedQuestions.length === 0) {
     return (
       <ReusableCard className="max-w-xl mx-auto my-10 text-center">
@@ -633,296 +591,33 @@ export function CbtExamRunner({ test, questions, onExit }: CbtExamRunnerProps) {
   }
 
   // ==================================================
-  // POST-SUBMISSION SCORE REPORT, GRAPHS & SOLUTIONS
+  // POST-SUBMISSION PRO TEST ANALYSIS & SOLUTIONS
   // ==================================================
   if (submittedAttempt) {
-    const warnings = submittedAttempt.roomExitWarnings ?? 0;
     return (
       <div className="space-y-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-[#F97316]">
-              {test.destination === 'cbt-mock' ? 'CBT Mock Test Result' : 'Chapter DPP Result'}
-            </p>
-            <h1 className="font-display text-2xl font-bold text-[#0B1B3B] dark:text-white mt-0.5">
-              {test.title}
-            </h1>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <ReusableButton variant="secondary" size="sm" onClick={handleReattempt}>
-              <RotateCcw className="w-4 h-4" />
-              Reattempt
-            </ReusableButton>
-            <ReusableButton variant="primary" size="sm" to="/analytics">
-              <BarChart3 className="w-4 h-4" />
-              Open Full Analytics
-            </ReusableButton>
-            <ReusableButton variant="ghost" size="sm" onClick={onExit}>
-              <ArrowLeft className="w-4 h-4" />
-              Back
-            </ReusableButton>
-          </div>
-        </div>
-
-        {/* Official Score + Integrity Strip */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          <ReusableCard padding="sm">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-              Official Exam Score
-            </p>
-            <p className="mt-2 font-mono text-3xl font-bold tabular-nums text-[#0B1B3B] dark:text-white">
-              {submittedAttempt.score}{' '}
-              <span className="text-base font-medium text-slate-500 dark:text-slate-400">
-                / {submittedAttempt.maxScore}
-              </span>
-            </p>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              Marking ({test.negativeMarkingEnabled ? `+${test.positiveMarks} / -${test.negativeMarks}` : `+${test.positiveMarks} / 0`})
-            </p>
-          </ReusableCard>
-
-          <ReusableCard padding="sm">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-              Accuracy & Counts
-            </p>
-            <p className="mt-2 font-mono text-3xl font-bold tabular-nums text-[#10B981]">
-              {submittedAttempt.accuracyPercent}%
-            </p>
-            <p className="mt-1 text-xs text-slate-600 dark:text-slate-400 tabular-nums">
-              {submittedAttempt.correctCount}✓ · {submittedAttempt.incorrectCount}✗ ·{' '}
-              {submittedAttempt.unattemptedCount} skip
-            </p>
-          </ReusableCard>
-
-          <ReusableCard padding="sm">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-              Time & Avg Pace
-            </p>
-            <p className="mt-2 font-mono text-3xl font-bold tabular-nums text-[#0B1B3B] dark:text-white">
-              {formatClock(submittedAttempt.totalTimeSeconds)}
-            </p>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 tabular-nums">
-              Avg {submittedAttempt.avgTimePerQuestion}s / question
-            </p>
-          </ReusableCard>
-
-          <ReusableCard padding="sm" className="border-blue-200 dark:border-blue-800/80">
-            <p className="text-xs font-semibold uppercase tracking-wide text-[#2563EB] dark:text-sky-400">
-              IQ Score (Separate)
-            </p>
-            <p className="mt-2 font-mono text-3xl font-bold tabular-nums text-[#2563EB] dark:text-sky-300">
-              {submittedAttempt.iqScore}{' '}
-              <span className="text-base font-medium text-slate-500 dark:text-slate-400">/ 150</span>
-            </p>
-            <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
-              Pace index only
-            </p>
-          </ReusableCard>
-
-          <ReusableCard
-            padding="sm"
-            className={warnings > 0 ? 'border-amber-300 dark:border-amber-700' : 'border-emerald-200 dark:border-emerald-800/70'}
-          >
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-              Room Integrity
-            </p>
-            <p
-              className={`mt-2 font-mono text-3xl font-bold tabular-nums ${
-                warnings > 0 ? 'text-[#F97316]' : 'text-[#10B981]'
-              }`}
-            >
-              {warnings}
-            </p>
-            <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
-              {warnings === 0 ? 'Clean focused attempt' : 'Room-exit warning(s)'}
-            </p>
-          </ReusableCard>
-        </div>
-
-        {/* 3 Interactive CBT Performance Graphs */}
-        {resultCharts && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-            {/* Graph 1: Subject Score vs Max Marks */}
-            <ReusableCard padding="sm" className="space-y-3">
-              <div>
-                <h2 className="font-display text-sm font-bold text-[#0B1B3B] dark:text-white">
-                  Subject Score vs Max Marks
-                </h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Sectional strength comparison
-                </p>
-              </div>
-              <div className="h-56 w-full">
-                <RechartsContainer width="100%" height="100%">
-                  <BarChart
-                    data={resultCharts.subjectChartData}
-                    margin={{ top: 8, right: 8, left: -16, bottom: 0 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" stroke="#94A3B8" opacity={0.22} />
-                    <XAxis dataKey="subject" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} />
-                    <Tooltip />
-                    <Legend wrapperStyle={{ fontSize: 11 }} />
-                    <Bar dataKey="score" name="Your Score" fill="#2563EB" radius={[6, 6, 0, 0]} />
-                    <Bar dataKey="maxScore" name="Max Marks" fill="#CBD5E1" radius={[6, 6, 0, 0]} />
-                  </BarChart>
-                </RechartsContainer>
-              </div>
-            </ReusableCard>
-
-            {/* Graph 2: Per-Question Time & Outcome */}
-            <ReusableCard padding="sm" className="space-y-3">
-              <div>
-                <h2 className="font-display text-sm font-bold text-[#0B1B3B] dark:text-white">
-                  Per-Question Time (s) & Outcome
-                </h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Green = Correct · Red = Wrong · Slate = Skipped
-                </p>
-              </div>
-              <div className="h-56 w-full">
-                <RechartsContainer width="100%" height="100%">
-                  <BarChart
-                    data={resultCharts.questionTimeData}
-                    margin={{ top: 8, right: 8, left: -16, bottom: 0 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" stroke="#94A3B8" opacity={0.22} />
-                    <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-                    <YAxis unit="s" tick={{ fontSize: 11 }} />
-                    <Tooltip
-                      formatter={(val, _name, item) => [
-                        `${val}s (${(item?.payload as { status?: string })?.status ?? ''})`,
-                        'Time Spent',
-                      ]}
-                    />
-                    <Bar dataKey="seconds" name="Seconds" radius={[6, 6, 0, 0]}>
-                      {resultCharts.questionTimeData.map((entry) => (
-                        <Cell key={entry.label} fill={entry.fill} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </RechartsContainer>
-              </div>
-            </ReusableCard>
-
-            {/* Graph 3: Pace Distribution Donut */}
-            <ReusableCard padding="sm" className="space-y-3">
-              <div>
-                <h2 className="font-display text-sm font-bold text-[#0B1B3B] dark:text-white">
-                  Solving Pace Distribution
-                </h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Optimal vs Fast vs Slow vs Skipped
-                </p>
-              </div>
-              <div className="h-56 w-full">
-                <RechartsContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={resultCharts.paceDonutData}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={44}
-                      outerRadius={74}
-                      paddingAngle={3}
-                    >
-                      {resultCharts.paceDonutData.map((entry) => (
-                        <Cell key={entry.name} fill={entry.fill} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend wrapperStyle={{ fontSize: 11 }} />
-                  </PieChart>
-                </RechartsContainer>
-              </div>
-            </ReusableCard>
-          </div>
-        )}
-
-        {/* Pace Heuristic Note */}
-        <ReusableCard padding="sm">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <h2 className="font-display text-sm font-bold text-[#0B1B3B] dark:text-white">
-                Solving Pace Heuristic
-              </h2>
-              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                {submittedAttempt.paceSummary.rushingFlagNote}
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-4 text-xs font-medium tabular-nums text-slate-600 dark:text-slate-300 shrink-0">
-              <span>Optimal Pace: {submittedAttempt.paceSummary.optimalCount}</span>
-              <span>Too Fast: {submittedAttempt.paceSummary.tooFastCount}</span>
-              <span>Too Slow: {submittedAttempt.paceSummary.tooSlowCount}</span>
-              <span>Skipped: {submittedAttempt.paceSummary.unattemptedCount}</span>
-            </div>
-          </div>
-        </ReusableCard>
-
-        {/* Subject-Wise Breakdown */}
-        <ReusableCard padding="sm">
-          <h2 className="font-display text-base font-bold text-[#0B1B3B] dark:text-white mb-3">
-            Subject-Wise Breakdown
-          </h2>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-800 text-xs uppercase text-slate-500 dark:text-slate-400">
-                  <th className="py-2 pr-4">Subject</th>
-                  <th className="py-2 px-3">Score</th>
-                  <th className="py-2 px-3">Correct</th>
-                  <th className="py-2 px-3">Incorrect</th>
-                  <th className="py-2 px-3">Skipped</th>
-                  <th className="py-2 px-3">Accuracy</th>
-                  <th className="py-2 pl-3">Avg Time</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/70 tabular-nums">
-                {submittedAttempt.subjectScores.map((s) => (
-                  <tr key={s.subjectName}>
-                    <td className="py-2.5 pr-4 font-semibold text-slate-900 dark:text-slate-100">
-                      {s.subjectName}
-                    </td>
-                    <td className="py-2.5 px-3 font-mono font-semibold text-[#0B1B3B] dark:text-sky-300">
-                      {s.score} / {s.maxScore}
-                    </td>
-                    <td className="py-2.5 px-3 text-emerald-700 dark:text-emerald-400">{s.correct}</td>
-                    <td className="py-2.5 px-3 text-rose-700 dark:text-rose-400">{s.incorrect}</td>
-                    <td className="py-2.5 px-3 text-slate-500">{s.unattempted}</td>
-                    <td className="py-2.5 px-3 font-medium">{s.accuracyPercent}%</td>
-                    <td className="py-2.5 pl-3 text-slate-600 dark:text-slate-400">{s.avgTimeSeconds}s</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </ReusableCard>
-
-        {/* Detailed Solutions — Swipeable Stacked Cards with Top Question Number Strip */}
-        {test.showSolutionsAfterSubmit && (
-          <SolutionCardDeck
-            title="Question-by-Question Review & Solutions"
-            items={sortedQuestions.map<SolutionReviewItem>((q) => {
-              const studentAns = submittedAttempt.answers[q.id];
-              const evalRes = evaluateSingleQuestion(q, studentAns, test);
-              const timing = submittedAttempt.questionTimings.find((t) => t.questionId === q.id);
-              const status = !evalRes.answered
-                ? 'skipped'
-                : evalRes.isCorrect
-                  ? 'correct'
-                  : 'wrong';
-              return {
-                question: q,
-                studentAnswer: studentAns,
-                status,
-                deltaMarks: evalRes.deltaMarks,
-                timing,
-              };
-            })}
-          />
-        )}
+        <ProTestAnalysisDashboard
+          attempt={submittedAttempt}
+          questions={sortedQuestions}
+          iqConfig={iqConfig}
+          examCategory={test.examType ?? test.examCategory}
+          headerActions={
+            <>
+              <ReusableButton variant="secondary" size="sm" onClick={handleReattempt}>
+                <RotateCcw className="w-4 h-4" />
+                Reattempt
+              </ReusableButton>
+              <ReusableButton variant="secondary" size="sm" to="/analytics">
+                <BarChart3 className="w-4 h-4" />
+                All Analytics
+              </ReusableButton>
+              <ReusableButton variant="ghost" size="sm" onClick={onExit}>
+                <ArrowLeft className="w-4 h-4" />
+                Back
+              </ReusableButton>
+            </>
+          }
+        />
       </div>
     );
   }

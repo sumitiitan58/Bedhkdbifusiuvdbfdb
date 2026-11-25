@@ -33,13 +33,26 @@ export default defineConfig(() => {
       },
     ],
     resolve: {
-      dedupe: ['react', 'react-dom'],
+      dedupe: ['react', 'react-dom', 'react-router', 'react-router-dom'],
       alias: {
         '@': path.resolve(rootDir, '.'),
+        react: path.resolve(rootDir, 'node_modules/react'),
+        'react-dom': path.resolve(rootDir, 'node_modules/react-dom'),
       },
     },
     optimizeDeps: {
-      include: ['react', 'react-dom', 'motion/react', 'recharts', 'react-router-dom'],
+      include: [
+        'react',
+        'react/jsx-runtime',
+        'react/jsx-dev-runtime',
+        'react-dom',
+        'react-dom/client',
+        'react-router',
+        'react-router-dom',
+        'motion/react',
+        'recharts',
+        'lucide-react',
+      ],
     },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.

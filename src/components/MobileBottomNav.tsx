@@ -1,15 +1,15 @@
 import { Link, useLocation } from 'react-router-dom';
-import { BarChart3, BookOpen, ClipboardCheck, Home, UserCircle2 } from 'lucide-react';
+import { BarChart3, BookMarked, BookOpen, ClipboardCheck, Home } from 'lucide-react';
 import { MOBILE_BOTTOM_TABS, isRouteActive } from '../utils/navigation';
 import { playNav } from '../utils/soundEffects';
 import type { RoutePath } from '../types';
 
 const TAB_ICONS: Record<string, typeof Home> = {
   '/': Home,
-  '/materials': BookOpen,
   '/cbt-mocks': ClipboardCheck,
+  '/materials': BookOpen,
   '/analytics': BarChart3,
-  '/profile': UserCircle2,
+  '/mistakes': BookMarked,
 };
 
 export function MobileBottomNav() {

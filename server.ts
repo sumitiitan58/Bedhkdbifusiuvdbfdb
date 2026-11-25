@@ -115,10 +115,28 @@ function resolveRouteSeo(reqPath: string): RouteSeoSnapshot | null {
 
   if (cleanPath === '/analytics') {
     return {
-      title: 'AI IQ & Performance Analytics | PREPSKM.IN',
+      title: 'Pro Test Analysis & Percentile Insights | PREPSKM.IN',
       description:
-        'Review past test solutions, Subject Mastery Radar, Exam IQ Score, and pacing insights on PREPSKM.IN.',
+        'Review past test solutions, predicted percentile, attempt & time breakdown, difficulty analysis, and AI performance reports on PREPSKM.IN.',
       canonicalPath: '/analytics',
+    };
+  }
+
+  if (cleanPath === '/mistakes') {
+    return {
+      title: 'Auto Mistake Notebook & Question Vault | PREPSKM.IN',
+      description:
+        'Re-attempt wrong and unattempted JEE/NEET questions automatically saved from your CBT mocks and review bookmarked tricky problems on PREPSKM.IN.',
+      canonicalPath: '/mistakes',
+    };
+  }
+
+  if (cleanPath === '/preps-ai') {
+    return {
+      title: 'Preps AI — Voice & Chat JEE/NEET Study Mentor | PREPSKM.IN',
+      description:
+        'Ask doubts, generate weak-chapter study plans, and analyze your mock test progress with Preps AI voice & chat mentor on PREPSKM.IN.',
+      canonicalPath: '/preps-ai',
     };
   }
 
@@ -848,6 +866,143 @@ async function createApp() {
 
       const parsed = JSON.parse((response.text ?? '{}').trim());
       res.json({ ok: true, explanation: parsed });
+    } catch (err) {
+      const { status, message } = formatGeminiError(err);
+      res.status(status).json({ ok: false, error: message });
+    }
+  });
+
+  // 4. Preps AI Context-Aware Conversational & Voice Mentor
+  app.post('/api/gemini/chat', async (req, res) => {
+    try {
+      const ai = getGeminiClient();
+      const {
+        message = '',
+        history = [],
+        studentContext = {},
+        voiceMode = false,
+      } = req.body ?? {};
+
+      const cleanMessage = String(message).trim();
+      if (!cleanMessage) {
+        res.status(400).json({ ok: false, error: 'Please ask a question or say something to Preps AI.' });
+        return;
+      }
+
+      const recentHistory = Array.isArray(history)
+        ? history
+            .slice(-8)
+            .map((m: { role?: string; text?: string }) => {
+              const speaker = m.role === 'assistant' ? 'Preps AI' : 'Student';
+              return `${speaker}: ${String(m.text ?? '').slice(0, 600)}`;
+            })
+            .join('\n')
+        : '';
+
+      const prompt = [
+        'STUDENT LIVE PERFORMANCE CONTEXT (ground your answer in these real numbers when relevant):',
+        JSON.stringify(studentContext, null, 2),
+        recentHistory ? `\nRECENT CONVERSATION:\n${recentHistory}` : '',
+        `\nSTUDENT MESSAGE:\n${cleanMessage.slice(0, 1500)}`,
+      ]
+        .filter(Boolean)
+        .join('\n');
+
+      const response = await ai.models.generateContent({
+        model: GEMINI_MODEL,
+        contents: prompt,
+        config: {
+          systemInstruction:
+            'You are Preps AI, the personal JEE Main, JEE Advanced, NEET UG & CBSE Board mentor inside PREPSKM.IN. ' +
+            'You speak naturally in the language the student uses (English or natural Hinglish — e.g. if the student asks in Hindi/Hinglish like "Mera latest test ka progress kaisa hai?" or "Maths mein marks kyun kat rahe hain?", reply in warm, crisp Hinglish; if in English, reply in clear English). ' +
+            'ALWAYS cite the student\'s real numbers from STUDENT LIVE PERFORMANCE CONTEXT (their latest test score, predicted percentile, negative marks lost, subject accuracy, weak chapters, streak, or unresolved mistakes) whenever they ask about their progress or scores. ' +
+            'If totalAttempts is 0, clearly tell them they haven\'t submitted a CBT mock yet and recommend taking their first mock test or revising a high-weightage chapter. ' +
+            (voiceMode
+              ? 'Keep the reply concise (under 85 words, clean spoken sentences without markdown bullets or asterisks) so it sounds great read aloud via speech synthesis. '
+              : 'Keep replies well-structured, concise (under 180 words), practical, and free of fluff. ') +
+            'Also provide 2-3 short, actionable follow-up question chips.',
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              reply: {
+                type: Type.STRING,
+                description: 'Direct, helpful, data-grounded response from Preps AI.',
+              },
+              suggestedFollowUps: {
+                type: Type.ARRAY,
+                items: { type: Type.STRING },
+                description: '2 to 3 concise follow-up questions the student can tap next.',
+              },
+            },
+            required: ['reply', 'suggestedFollowUps'],
+          },
+        },
+      });
+
+      const parsed = JSON.parse((response.text ?? '{}').trim()) as {
+        reply?: string;
+        suggestedFollowUps?: string[];
+      };
+
+      res.json({
+        ok: true,
+        reply: parsed.reply || 'I could not generate a response right now. Please try again.',
+        suggestedFollowUps: Array.isArray(parsed.suggestedFollowUps)
+          ? parsed.suggestedFollowUps.slice(0, 3)
+          : [],
+      });
+    } catch (err) {
+      const { status, message } = formatGeminiError(err);
+      res.status(status).json({ ok: false, error: message });
+    }
+  });
+
+  // 5. Instant AI Performance Report for a Specific CBT / DPP Test Attempt
+  app.post('/api/gemini/test-report', async (req, res) => {
+    try {
+      const ai = getGeminiClient();
+      const {
+        testTitle = 'Mock Test',
+        cohortLabel = 'JEE Main',
+        metrics = {},
+        subjectScores = [],
+        attemptBuckets = {},
+        difficultyBreakdown = [],
+      } = req.body ?? {};
+
+      const prompt = [
+        `Test: ${testTitle} (${cohortLabel})`,
+        `Overall Metrics: ${JSON.stringify(metrics)}`,
+        `Subject Breakdown: ${JSON.stringify(subjectScores)}`,
+        `Attempt & Time Buckets: ${JSON.stringify(attemptBuckets)}`,
+        `Difficulty Breakdown: ${JSON.stringify(difficultyBreakdown)}`,
+        'Generate a sharp, Quizrr-style post-test executive report covering score verdict, biggest mark-leak source (negative marks / silly mistakes / overtime), top 3 immediate fixes before next mock, and a realistic target score jump.',
+      ].join('\n');
+
+      const response = await ai.models.generateContent({
+        model: GEMINI_MODEL,
+        contents: prompt,
+        config: {
+          systemInstruction:
+            'You are a top JEE/NEET exam analyst at PREPSKM.IN. Produce a concise, numbers-first post-test AI Report in strict JSON.',
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              verdict: { type: Type.STRING },
+              markLeakAnalysis: { type: Type.STRING },
+              strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
+              immediateFixes: { type: Type.ARRAY, items: { type: Type.STRING } },
+              nextMockTarget: { type: Type.STRING },
+            },
+            required: ['verdict', 'markLeakAnalysis', 'strengths', 'immediateFixes', 'nextMockTarget'],
+          },
+        },
+      });
+
+      const parsed = JSON.parse((response.text ?? '{}').trim());
+      res.json({ ok: true, report: parsed });
     } catch (err) {
       const { status, message } = formatGeminiError(err);
       res.status(status).json({ ok: false, error: message });

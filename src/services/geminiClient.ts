@@ -90,3 +90,46 @@ export async function requestGeminiQuestionExplanation(payload: {
   );
   return data.explanation;
 }
+
+export interface PrepsAiChatMessage {
+  role: 'user' | 'assistant';
+  text: string;
+}
+
+export interface PrepsAiChatResponse {
+  reply: string;
+  suggestedFollowUps: string[];
+}
+
+export async function requestPrepsAiChat(payload: {
+  message: string;
+  history: PrepsAiChatMessage[];
+  studentContext: unknown;
+  voiceMode?: boolean;
+}): Promise<PrepsAiChatResponse> {
+  const data = await postJson<PrepsAiChatResponse>('/api/gemini/chat', payload);
+  return {
+    reply: data.reply,
+    suggestedFollowUps: data.suggestedFollowUps ?? [],
+  };
+}
+
+export interface TestAiReport {
+  verdict: string;
+  markLeakAnalysis: string;
+  strengths: string[];
+  immediateFixes: string[];
+  nextMockTarget: string;
+}
+
+export async function requestTestAiReport(payload: {
+  testTitle: string;
+  cohortLabel: string;
+  metrics: unknown;
+  subjectScores: unknown;
+  attemptBuckets: unknown;
+  difficultyBreakdown: unknown;
+}): Promise<TestAiReport> {
+  const data = await postJson<{ report: TestAiReport }>('/api/gemini/test-report', payload);
+  return data.report;
+}

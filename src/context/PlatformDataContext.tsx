@@ -50,8 +50,22 @@ import {
 import { DEFAULT_IQ_CONFIG } from '../utils/scoringEngine';
 import { createDefaultWeeklySchedule } from '../utils/weeklySchedule';
 
+import {
+  getDefaultTargetExamDate,
+  toLocalDateKey,
+} from '../utils/streakTracker';
+
 const GUEST_PROGRESS_KEY = 'prepskm_guest_progress_v2';
 const GUEST_ATTEMPTS_KEY = 'prepskm_guest_attempts_v2';
+const RETENTION_STATE_PREFIX = 'prepskm_retention_v1_';
+
+interface StudentRetentionState {
+  bookmarkedQuestionIds: string[];
+  resolvedMistakeIds: string[];
+  activeStudyDates: string[];
+  targetExamDate: string;
+  targetExamLabel: string;
+}
 
 function readLocal<T>(key: string, fallback: T): T {
   try {
@@ -95,6 +109,11 @@ export interface PlatformDataContextValue {
   isUsingStarterCatalog: boolean;
   progress: UserProgressData;
   attempts: TestAttemptRecord[];
+  bookmarkedQuestionIds: string[];
+  resolvedMistakeIds: string[];
+  activeStudyDates: string[];
+  targetExamDate: string;
+  targetExamLabel: string;
   togglePlannerDay: (day: number) => void;
   toggleWeeklyTask: (taskId: string) => void;
   addWeeklyTask: (task: Omit<WeeklyScheduleItem, 'id'>) => void;
@@ -107,12 +126,16 @@ export interface PlatformDataContextValue {
   logFocusMinutes: (minutes: number) => void;
   importBackupProgress: (data: Partial<UserProgressData>) => void;
   recordAttempt: (attempt: TestAttemptRecord) => Promise<void>;
+  toggleQuestionBookmark: (questionId: string) => void;
+  toggleMistakeResolved: (questionId: string) => void;
+  recordDailyActivity: (dateIso?: string) => void;
+  setTargetExam: (dateIso: string, label?: string) => void;
 }
 
 const PlatformDataContext = createContext<PlatformDataContextValue | null>(null);
 
 export function PlatformDataProvider({ children }: { children: ReactNode }) {
-  const { firebaseUser, isAdmin, authReady } = useAuth();
+  const { firebaseUser, isAdmin, authReady, cohortId } = useAuth();
 
   const [fsClassGroups, setFsClassGroups] = useState<ClassGroupRecord[]>([]);
   const [fsSubjects, setFsSubjects] = useState<SubjectRecord[]>([]);
@@ -129,6 +152,118 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
   );
   const [attempts, setAttempts] = useState<TestAttemptRecord[]>(() =>
     readLocal<TestAttemptRecord[]>(GUEST_ATTEMPTS_KEY, [])
+  );
+
+  const retentionKey = `${RETENTION_STATE_PREFIX}${firebaseUser?.uid ?? 'guest'}`;
+  const defaultTarget = useMemo(() => getDefaultTargetExamDate(cohortId), [cohortId]);
+
+  const [retention, setRetention] = useState<StudentRetentionState>(() => {
+    const saved = readLocal<Partial<StudentRetentionState> | null>(retentionKey, null);
+    const today = toLocalDateKey();
+    return {
+      bookmarkedQuestionIds: Array.isArray(saved?.bookmarkedQuestionIds)
+        ? saved.bookmarkedQuestionIds
+        : [],
+      resolvedMistakeIds: Array.isArray(saved?.resolvedMistakeIds)
+        ? saved.resolvedMistakeIds
+        : [],
+      activeStudyDates:
+        Array.isArray(saved?.activeStudyDates) && saved.activeStudyDates.length > 0
+          ? saved.activeStudyDates
+          : [today],
+      targetExamDate: saved?.targetExamDate || defaultTarget.dateIso,
+      targetExamLabel: saved?.targetExamLabel || defaultTarget.label,
+    };
+  });
+
+  useEffect(() => {
+    const saved = readLocal<Partial<StudentRetentionState> | null>(retentionKey, null);
+    const today = toLocalDateKey();
+    setRetention({
+      bookmarkedQuestionIds: Array.isArray(saved?.bookmarkedQuestionIds)
+        ? saved.bookmarkedQuestionIds
+        : [],
+      resolvedMistakeIds: Array.isArray(saved?.resolvedMistakeIds)
+        ? saved.resolvedMistakeIds
+        : [],
+      activeStudyDates:
+        Array.isArray(saved?.activeStudyDates) && saved.activeStudyDates.length > 0
+          ? saved.activeStudyDates
+          : [today],
+      targetExamDate: saved?.targetExamDate || defaultTarget.dateIso,
+      targetExamLabel: saved?.targetExamLabel || defaultTarget.label,
+    });
+  }, [retentionKey, defaultTarget.dateIso, defaultTarget.label]);
+
+  const persistRetention = useCallback(
+    (updater: (prev: StudentRetentionState) => StudentRetentionState) => {
+      setRetention((prev) => {
+        const next = updater(prev);
+        try {
+          window.localStorage.setItem(retentionKey, JSON.stringify(next));
+        } catch {
+          // ignore storage quota errors
+        }
+        return next;
+      });
+    },
+    [retentionKey]
+  );
+
+  const recordDailyActivity = useCallback(
+    (dateIso?: string) => {
+      const key = (dateIso || toLocalDateKey()).slice(0, 10);
+      persistRetention((prev) => {
+        if (prev.activeStudyDates.includes(key)) return prev;
+        return {
+          ...prev,
+          activeStudyDates: [...prev.activeStudyDates, key].slice(-365),
+        };
+      });
+    },
+    [persistRetention]
+  );
+
+  const toggleQuestionBookmark = useCallback(
+    (questionId: string) => {
+      persistRetention((prev) => {
+        const exists = prev.bookmarkedQuestionIds.includes(questionId);
+        return {
+          ...prev,
+          bookmarkedQuestionIds: exists
+            ? prev.bookmarkedQuestionIds.filter((id) => id !== questionId)
+            : [questionId, ...prev.bookmarkedQuestionIds].slice(0, 500),
+        };
+      });
+    },
+    [persistRetention]
+  );
+
+  const toggleMistakeResolved = useCallback(
+    (questionId: string) => {
+      persistRetention((prev) => {
+        const exists = prev.resolvedMistakeIds.includes(questionId);
+        return {
+          ...prev,
+          resolvedMistakeIds: exists
+            ? prev.resolvedMistakeIds.filter((id) => id !== questionId)
+            : [questionId, ...prev.resolvedMistakeIds].slice(0, 500),
+        };
+      });
+    },
+    [persistRetention]
+  );
+
+  const setTargetExam = useCallback(
+    (dateIso: string, label?: string) => {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(dateIso)) return;
+      persistRetention((prev) => ({
+        ...prev,
+        targetExamDate: dateIso,
+        targetExamLabel: label?.trim() || prev.targetExamLabel,
+      }));
+    },
+    [persistRetention]
   );
 
   useEffect(() => {
@@ -328,6 +463,7 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
 
   const recordMaterialView = useCallback(
     (materialId: string) => {
+      recordDailyActivity();
       persistProgress((prev) => ({
         ...prev,
         recentMaterials: [
@@ -336,18 +472,19 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
         ].slice(0, 20),
       }));
     },
-    [persistProgress]
+    [persistProgress, recordDailyActivity]
   );
 
   const logFocusMinutes = useCallback(
     (minutes: number) => {
       if (minutes <= 0) return;
+      recordDailyActivity();
       persistProgress((prev) => ({
         ...prev,
         focusSessionsMinutes: prev.focusSessionsMinutes + minutes,
       }));
     },
-    [persistProgress]
+    [persistProgress, recordDailyActivity]
   );
 
   const importBackupProgress = useCallback(
@@ -374,6 +511,7 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
 
   const recordAttempt = useCallback(
     async (attempt: TestAttemptRecord) => {
+      recordDailyActivity();
       if (firebaseUser) {
         const payload = { ...attempt, userId: firebaseUser.uid };
         await saveTestAttemptToFirestore(payload);
@@ -389,7 +527,7 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
         });
       }
     },
-    [firebaseUser]
+    [firebaseUser, recordDailyActivity]
   );
 
   const classGroups = useMemo(
@@ -437,6 +575,11 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
       isUsingStarterCatalog,
       progress,
       attempts,
+      bookmarkedQuestionIds: retention.bookmarkedQuestionIds,
+      resolvedMistakeIds: retention.resolvedMistakeIds,
+      activeStudyDates: retention.activeStudyDates,
+      targetExamDate: retention.targetExamDate,
+      targetExamLabel: retention.targetExamLabel,
       togglePlannerDay,
       toggleWeeklyTask,
       addWeeklyTask,
@@ -449,6 +592,10 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
       logFocusMinutes,
       importBackupProgress,
       recordAttempt,
+      toggleQuestionBookmark,
+      toggleMistakeResolved,
+      recordDailyActivity,
+      setTargetExam,
     }),
     [
       classGroups,
@@ -460,6 +607,7 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
       isUsingStarterCatalog,
       progress,
       attempts,
+      retention,
       togglePlannerDay,
       toggleWeeklyTask,
       addWeeklyTask,
@@ -472,6 +620,10 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
       logFocusMinutes,
       importBackupProgress,
       recordAttempt,
+      toggleQuestionBookmark,
+      toggleMistakeResolved,
+      recordDailyActivity,
+      setTargetExam,
     ]
   );
 

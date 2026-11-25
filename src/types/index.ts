@@ -7,6 +7,8 @@ export type RoutePath =
   | '/cbt-mocks'
   | '/dpp'
   | '/analytics'
+  | '/mistakes'
+  | '/preps-ai'
   | '/profile'
   | '/about'
   | '/admin';
