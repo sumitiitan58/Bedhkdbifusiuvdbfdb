@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { LoadingScreen } from './components/LoadingScreen';
 import { ThemeProvider } from './context/ThemeProvider';
@@ -44,12 +44,15 @@ export default function App() {
                     <Route path="/pyqs/:slug" element={<MaterialDetailPage />} />
                     <Route path="/lectures" element={<LecturesPage />} />
                     <Route path="/cbt-mocks" element={<CbtMocksPage />} />
+                    <Route path="/tests" element={<Navigate to="/cbt-mocks" replace />} />
                     <Route path="/cbt-mocks/:examSlug/:testSlug" element={<CbtMockDetailPage />} />
                     <Route path="/cbt-mocks/:slug" element={<CbtMockDetailPage />} />
                     <Route path="/dpp" element={<DppPage />} />
                     <Route path="/dpp/:classSlug/:chapterSlug" element={<CbtMockDetailPage />} />
                     <Route path="/analytics" element={<AnalyticsPage />} />
+                    <Route path="/analysis" element={<Navigate to="/analytics" replace />} />
                     <Route path="/mistakes" element={<MistakeNotebookPage />} />
+                    <Route path="/mistake-notebook" element={<Navigate to="/mistakes" replace />} />
                     <Route path="/preps-ai" element={<PrepsAiPage />} />
                     <Route path="/profile" element={<ProfilePage />} />
                     <Route path="/about" element={<AboutPage />} />

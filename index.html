@@ -13,10 +13,10 @@
     <link rel="manifest" href="/site.webmanifest" />
     <link rel="canonical" href="https://prepskm.in/" />
 
-    <title>Prepskm - Free JEE &amp; NEET Study Material, CBT Mocks &amp; AI Prep</title>
+    <title>Prepskm — Free JEE, NEET &amp; Board Notes, CBT Mocks</title>
     <meta
       name="description"
-      content="Prepskm provides free chapter-wise notes, NCERT PYQs, daily practice problems (DPPs), and NTA-pattern CBT mock tests for JEE Main, JEE Advanced &amp; NEET."
+      content="Free JEE Main, JEE Advanced, NEET UG &amp; Class 9-12 chapter notes, formula sheets, daily practice problems (DPPs), and NTA CBT mock tests on Prepskm."
     />
     <meta
       name="keywords"
@@ -31,10 +31,10 @@
     <meta property="og:locale" content="en_IN" />
     <meta property="og:site_name" content="Prepskm" />
     <meta property="og:url" content="https://prepskm.in/" />
-    <meta property="og:title" content="Prepskm - Free JEE &amp; NEET Study Material, CBT Mocks &amp; AI Prep" />
+    <meta property="og:title" content="Prepskm — Free JEE, NEET &amp; Board Notes, CBT Mocks" />
     <meta
       property="og:description"
-      content="Prepskm provides free chapter-wise notes, NCERT PYQs, daily practice problems (DPPs), and NTA-pattern CBT mock tests for JEE Main, JEE Advanced &amp; NEET."
+      content="Free JEE Main, JEE Advanced, NEET UG &amp; Class 9-12 chapter notes, formula sheets, daily practice problems (DPPs), and NTA CBT mock tests on Prepskm."
     />
     <meta property="og:image" content="https://prepskm.in/assets/prepskm-og-card.png" />
     <meta property="og:image:width" content="1200" />
@@ -45,10 +45,10 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@unfiltereddsumit" />
     <meta name="twitter:creator" content="@unfiltereddsumit" />
-    <meta name="twitter:title" content="Prepskm - Free JEE &amp; NEET Study Material, CBT Mocks &amp; AI Prep" />
+    <meta name="twitter:title" content="Prepskm — Free JEE, NEET &amp; Board Notes, CBT Mocks" />
     <meta
       name="twitter:description"
-      content="Free chapter-wise notes, NCERT PYQs, daily practice problems (DPPs), and NTA-pattern CBT mock tests for JEE Main, JEE Advanced &amp; NEET."
+      content="Free JEE Main, JEE Advanced, NEET UG &amp; Class 9-12 chapter notes, formula sheets, daily practice problems (DPPs), and NTA CBT mock tests on Prepskm."
     />
     <meta name="twitter:image" content="https://prepskm.in/assets/prepskm-og-card.png" />
 
@@ -130,22 +130,22 @@
               {
                 "@type": "SiteNavigationElement",
                 "position": 4,
-                "name": "AI IQ & Performance Analytics",
-                "description": "Past test analysis, solutions, Subject Mastery Radar & Gemini AI Mentor",
+                "name": "Test Analysis & Percentile Insights",
+                "description": "Past test analysis, solutions, Subject Mastery Radar, and AI performance reports",
                 "url": "https://prepskm.in/analytics"
               },
               {
                 "@type": "SiteNavigationElement",
                 "position": 5,
-                "name": "Student Profile & Class Tracks",
-                "description": "Customize Class 9–12 Board, JEE & NEET tracks and Google cloud sync",
-                "url": "https://prepskm.in/profile"
+                "name": "Preps AI Study Mentor",
+                "description": "Ask JEE, NEET & Board doubts in English or Hinglish with step-by-step explanations",
+                "url": "https://prepskm.in/preps-ai"
               },
               {
                 "@type": "SiteNavigationElement",
                 "position": 6,
-                "name": "About Prepskm (@unfiltereddsumit)",
-                "description": "Mission, official social links @unfiltereddsumit, and student FAQs",
+                "name": "About Prepskm",
+                "description": "How PREPSKM.IN helps Class 9–12, JEE & NEET students, official @unfiltereddsumit socials, and FAQs",
                 "url": "https://prepskm.in/about"
               }
             ]
@@ -173,6 +173,22 @@
       href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=IBM+Plex+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap"
       rel="stylesheet"
     />
+    <style id="prepskm-block-netlify-badge">
+      iframe[src*="netlify"],
+      [id*="netlify"],
+      [class*="netlify"],
+      [data-netlify-deploy-id],
+      [data-netlify-deploy-preview],
+      .netlify-drawer,
+      #netlify-drawer,
+      #netlify-identity-widget {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+        z-index: -9999 !important;
+      }
+    </style>
     <script>
       (function () {
         try {
@@ -182,6 +198,51 @@
             document.documentElement.classList.add('dark');
           }
         } catch (e) {}
+
+        var NETLIFY_SELECTOR =
+          'iframe[src*="netlify"], [id*="netlify"], [class*="netlify"], [data-netlify-deploy-id], [data-netlify-deploy-preview], .netlify-drawer, #netlify-drawer, #netlify-identity-widget';
+
+        function removeNetlifyWidgets(root) {
+          if (!root || !root.querySelectorAll) return;
+          try {
+            var nodes = root.querySelectorAll(NETLIFY_SELECTOR);
+            for (var i = 0; i < nodes.length; i++) {
+              var el = nodes[i];
+              var tag = el.tagName;
+              if (tag === 'STYLE' || tag === 'SCRIPT' || tag === 'HTML' || tag === 'HEAD' || tag === 'BODY') continue;
+              if (el.id === 'root' || (el.closest && el.closest('#root'))) continue;
+              el.remove();
+            }
+          } catch (e) {}
+        }
+
+        if (typeof MutationObserver !== 'undefined') {
+          var observer = new MutationObserver(function (mutations) {
+            for (var i = 0; i < mutations.length; i++) {
+              var added = mutations[i].addedNodes;
+              for (var j = 0; j < added.length; j++) {
+                var node = added[j];
+                if (!node || node.nodeType !== 1) continue;
+                var tag = node.tagName;
+                if (tag === 'STYLE' || tag === 'SCRIPT' || node.id === 'root') continue;
+                if (node.matches && node.matches(NETLIFY_SELECTOR) && !(node.closest && node.closest('#root'))) {
+                  node.remove();
+                } else if (node.querySelectorAll) {
+                  removeNetlifyWidgets(node);
+                }
+              }
+            }
+          });
+          observer.observe(document.documentElement, { childList: true, subtree: true });
+        }
+
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', function () {
+            removeNetlifyWidgets(document);
+          });
+        } else {
+          removeNetlifyWidgets(document);
+        }
       })();
     </script>
   </head>
@@ -199,9 +260,9 @@
             <a href="/materials" style="color:#2563EB;text-decoration:none;">Study Materials</a>
             <a href="/cbt-mocks" style="color:#2563EB;text-decoration:none;">CBT Mocks</a>
             <a href="/dpp" style="color:#2563EB;text-decoration:none;">Chapter DPPs</a>
-            <a href="/analytics" style="color:#2563EB;text-decoration:none;">AI Analytics</a>
-            <a href="/profile" style="color:#2563EB;text-decoration:none;">Student Profile</a>
-            <a href="/about" style="color:#2563EB;text-decoration:none;">About @unfiltereddsumit</a>
+            <a href="/analytics" style="color:#2563EB;text-decoration:none;">Test Analysis</a>
+            <a href="/preps-ai" style="color:#2563EB;text-decoration:none;">Preps AI</a>
+            <a href="/about" style="color:#2563EB;text-decoration:none;">About Prepskm</a>
           </nav>
         </header>
 

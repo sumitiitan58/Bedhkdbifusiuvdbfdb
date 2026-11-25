@@ -1,18 +1,17 @@
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import {
   Award,
   BookOpen,
-  CheckCircle2,
   ChevronDown,
   ClipboardCheck,
+  Compass,
   ExternalLink,
-  Globe,
+  FileSpreadsheet,
   LineChart,
   Mail,
-  Search,
   ShieldCheck,
+  Sparkles,
   Target,
   UserCheck,
 } from 'lucide-react';
@@ -25,27 +24,46 @@ import { SeoHead } from '../components/SeoHead';
 import { BRAND_CONFIG } from '../assets/brand';
 import { usePlatformData } from '../context/PlatformDataContext';
 import { playClick } from '../utils/soundEffects';
+import { ABOUT_FAQS } from '../data/seoContent';
 
-const FAQS = [
+export { ABOUT_FAQS };
+
+const STUDY_METHODOLOGY = [
   {
-    q: 'Who created PREPSKM.IN and where can I follow official updates?',
-    a: 'PREPSKM.IN is built by Sumit (@unfiltereddsumit) to give Class 9–12 Board, JEE Main, JEE Advanced, and NEET UG students a clean, distraction-free study portal. Follow @unfiltereddsumit across Instagram, YouTube, X (Twitter), Telegram, and GitHub.',
+    step: '01',
+    icon: BookOpen,
+    title: 'Master High-Yield Chapters First',
+    description:
+      'Start every chapter with concise NCERT-aligned short notes, formula sheets, and mind maps structured cleanly by class track and subject.',
+    route: '/materials',
+    cta: 'Browse Notes',
   },
   {
-    q: 'Can I review my past CBT Mock Test analysis and full solutions anytime?',
-    a: 'Yes! Open the Analytics or CBT Mocks page and click "Analysis & Solutions" on any past test attempt to inspect your Official Score, Exam IQ, Subject graphs, full Question-by-Question Solutions, and instant Gemini AI explanations.',
+    step: '02',
+    icon: FileSpreadsheet,
+    title: 'Lock In Speed with Chapter DPPs',
+    description:
+      'Build problem-solving reflexes through timed Daily Practice Problems covering Single MCQ, Multi-Correct, and Integer numerical patterns.',
+    route: '/dpp',
+    cta: 'Solve DPPs',
   },
   {
-    q: 'How does the CBT Mock Test Room-Exit Warning work?',
-    a: 'Switching tabs, minimizing the browser, or leaving the test window during a live CBT mock triggers an instant Room-Exit Warning alert with sound and logs focus integrity on your final scorecard.',
+    step: '03',
+    icon: ClipboardCheck,
+    title: 'Simulate Real NTA Exam Pressure',
+    description:
+      'Attempt full-length JEE Main (300 marks) and NEET UG (720 marks) CBT mocks with +4/-1 marking, live question palette, and focus integrity alerts.',
+    route: '/cbt-mocks',
+    cta: 'Start CBT Mock',
   },
   {
-    q: 'Can I download chapter PDFs and video lecture notes?',
-    a: 'Yes. All chapter PDFs, Short Notes, Formula Sheets, PYQs, and PDF attachments tagged underneath Concept Videos have direct Download PDF buttons. Videos stream smoothly in-app for focused viewing.',
-  },
-  {
-    q: 'How does the Gemini AI IQ & Priority Coach help me?',
-    a: 'Gemini AI reads your real mock accuracy, solving pace, weak chapters, and target class track to clearly tell you Kya Jaruri Hai (high-yield priorities), Kya Jaruri Nahi Hai (what to stop wasting time on), and a 7-day revision roadmap.',
+    step: '04',
+    icon: Sparkles,
+    title: 'Eliminate Repeat Mistakes with Preps AI',
+    description:
+      'Turn wrong and skipped questions into an automated Mistake Notebook, inspect time-per-question analytics, and get step-by-step fixes from Preps AI.',
+    route: '/preps-ai',
+    cta: 'Ask Preps AI',
   },
 ];
 
@@ -59,14 +77,14 @@ export default function AboutPage() {
       '@graph': [
         {
           '@type': 'AboutPage',
-          name: 'About PREPSKM.IN — Created by @unfiltereddsumit',
+          name: 'About Prepskm (@unfiltereddsumit)',
           url: 'https://prepskm.in/about',
           description:
-            'Official About page for PREPSKM.IN by @unfiltereddsumit — India’s structured JEE Main, JEE Advanced, NEET UG, and Class 9–12 Board preparation ecosystem.',
+            'Meet Sumit (@unfiltereddsumit) and discover how PREPSKM.IN helps JEE, NEET & Class 9-12 students master NCERT notes, DPPs, and NTA CBT mocks.',
         },
         {
           '@type': 'FAQPage',
-          mainEntity: FAQS.map((item) => ({
+          mainEntity: ABOUT_FAQS.map((item) => ({
             '@type': 'Question',
             name: item.q,
             acceptedAnswer: {
@@ -83,10 +101,10 @@ export default function AboutPage() {
   return (
     <PageLayout>
       <SeoHead
-        title="About PREPSKM.IN (@unfiltereddsumit) — JEE, NEET & Board Study Hub"
-        description="Official PREPSKM.IN by @unfiltereddsumit — Explore our mission, official @unfiltereddsumit social accounts, Google Search sitelinks, NTA CBT mocks, and FAQs."
+        title="About Prepskm (@unfiltereddsumit) | JEE & NEET Hub"
+        description="Meet Sumit (@unfiltereddsumit) and discover how PREPSKM.IN helps JEE, NEET & Class 9-12 students master NCERT notes, DPPs, and NTA CBT mocks."
         canonicalPath="/about"
-        keywords="About PREPSKM, prepskm.in, unfiltereddsumit, JEE preparation platform, NEET UG CBT mock tests, CBSE board study materials"
+        keywords="About Prepskm, prepskm.in, unfiltereddsumit, JEE Main preparation, NEET UG CBT mock tests, Class 9-12 board notes"
         jsonLd={aboutJsonLd}
       />
 
@@ -106,16 +124,20 @@ export default function AboutPage() {
               Built to turn daily consistency into top JEE, NEET &amp; Board ranks.
             </h1>
             <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 leading-relaxed">
-              PREPSKM.IN brings together Monday–Sunday weekly schedules, chapter-wise PDFs &amp; concept
-              videos with attached notes, NTA-style CBT exam rooms with room-exit warnings, past test
-              solution archives, and Gemini AI IQ coaching — all in one fast, distraction-free portal.
+              PREPSKM.IN brings together chapter-wise concise notes and formula sheets, timed
+              Daily Practice Problems (DPPs), authentic NTA-pattern CBT mock tests, automated
+              Mistake Notebooks, and Preps AI mentoring — all in one fast, distraction-free study
+              workspace.
             </p>
             <div className="flex flex-wrap gap-2.5 pt-1">
               <ReusableButton variant="primary" size="sm" to="/materials">
-                Explore Chapters
+                Explore Study Materials
               </ReusableButton>
               <ReusableButton variant="secondary" size="sm" to="/cbt-mocks">
-                Try CBT Mock
+                Try NTA CBT Mock
+              </ReusableButton>
+              <ReusableButton variant="ghost" size="sm" to="/preps-ai">
+                Ask Preps AI
               </ReusableButton>
             </div>
           </div>
@@ -124,6 +146,111 @@ export default function AboutPage() {
             <BrandLogo variant="hero" className="w-full max-w-xs sm:max-w-sm" />
           </div>
         </motion.section>
+
+        {/* How PREPSKM.IN Helps You Crack JEE, NEET & Boards */}
+        <motion.section
+          initial={{ opacity: 0, y: 14 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.15 }}
+          transition={{ duration: 0.25 }}
+          aria-labelledby="methodology-heading"
+          className="space-y-4"
+        >
+          <div className="space-y-1">
+            <p className="text-xs font-bold uppercase tracking-wider text-[#2563EB] dark:text-sky-400 flex items-center gap-1.5">
+              <Compass className="w-3.5 h-3.5" />
+              Proven 4-Step Study Methodology
+            </p>
+            <h2
+              id="methodology-heading"
+              className="font-display text-xl sm:text-2xl font-bold text-[#0B1B3B] dark:text-white"
+            >
+              How PREPSKM.IN Helps You Crack JEE, NEET &amp; Boards
+            </h2>
+            <p className="text-sm text-slate-600 dark:text-slate-400 max-w-3xl">
+              Instead of scattering your preparation across disconnected PDFs and random video
+              playlists, follow one structured loop from concept revision to exam-day mastery.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {STUDY_METHODOLOGY.map((item) => {
+              const Icon = item.icon;
+              return (
+                <ReusableCard
+                  key={item.step}
+                  padding="sm"
+                  className="flex flex-col justify-between gap-4 border-slate-200/90 dark:border-slate-800"
+                >
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="h-9 w-9 rounded-xl bg-blue-50 dark:bg-blue-950/50 text-[#2563EB] dark:text-sky-400 inline-flex items-center justify-center">
+                        <Icon className="w-4 h-4" />
+                      </span>
+                      <span className="font-mono text-xs font-bold text-slate-400 dark:text-slate-500 tabular-nums">
+                        STEP {item.step}
+                      </span>
+                    </div>
+                    <h3 className="font-display text-sm sm:text-base font-bold text-[#0B1B3B] dark:text-white leading-snug">
+                      {item.title}
+                    </h3>
+                    <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                      {item.description}
+                    </p>
+                  </div>
+                  <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+                    <ReusableButton variant="ghost" size="sm" to={item.route} className="px-0">
+                      {item.cta} →
+                    </ReusableButton>
+                  </div>
+                </ReusableCard>
+              );
+            })}
+          </div>
+        </motion.section>
+
+        {/* Compact Core Numbers */}
+        <section aria-label="Platform highlights" className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+          <ReusableCard padding="sm" className="space-y-1.5">
+            <Target className="w-4 h-4 text-[#2563EB]" />
+            <h2 className="font-display text-base font-bold text-[#0B1B3B] dark:text-white tabular-nums">
+              {allCohorts.length}+ Class Tracks
+            </h2>
+            <p className="text-xs text-slate-600 dark:text-slate-400">
+              Class 9–12 Boards, JEE Main &amp; Advanced, NEET UG &amp; Droppers.
+            </p>
+          </ReusableCard>
+
+          <ReusableCard padding="sm" className="space-y-1.5">
+            <BookOpen className="w-4 h-4 text-[#F97316]" />
+            <h2 className="font-display text-base font-bold text-[#0B1B3B] dark:text-white tabular-nums">
+              {chapters.length}+ Chapters
+            </h2>
+            <p className="text-xs text-slate-600 dark:text-slate-400">
+              NCERT-aligned short notes, formula sheets, mind maps &amp; PYQs.
+            </p>
+          </ReusableCard>
+
+          <ReusableCard padding="sm" className="space-y-1.5">
+            <ClipboardCheck className="w-4 h-4 text-[#10B981]" />
+            <h2 className="font-display text-base font-bold text-[#0B1B3B] dark:text-white tabular-nums">
+              {mockTests.length}+ CBT Mocks &amp; DPPs
+            </h2>
+            <p className="text-xs text-slate-600 dark:text-slate-400">
+              NTA interface with syllabus preview, +4/-1 marking &amp; instant solutions.
+            </p>
+          </ReusableCard>
+
+          <ReusableCard padding="sm" className="space-y-1.5">
+            <LineChart className="w-4 h-4 text-indigo-500" />
+            <h2 className="font-display text-base font-bold text-[#0B1B3B] dark:text-white">
+              Preps AI &amp; Analytics
+            </h2>
+            <p className="text-xs text-slate-600 dark:text-slate-400">
+              Pacing diagnosis, mistake fixing &amp; personalized 7-day study plans.
+            </p>
+          </ReusableCard>
+        </section>
 
         {/* Official Creator & All @unfiltereddsumit Accounts */}
         <motion.section
@@ -140,14 +267,14 @@ export default function AboutPage() {
                 </span>
                 <div>
                   <p className="text-[11px] font-bold uppercase tracking-wider text-[#F97316]">
-                    Official Creator &amp; Community Links
+                    Official Creator &amp; Community Channels
                   </p>
                   <h2 className="font-display text-base sm:text-lg font-bold text-[#0B1B3B] dark:text-white">
-                    Follow {BRAND_CONFIG.creatorHandle} Everywhere
+                    Connect with {BRAND_CONFIG.creatorHandle}
                   </h2>
                 </div>
               </div>
-              <span className="font-mono text-xs font-bold px-2.5 py-1 rounded-lg bg-[#0B1B3B] text-white dark:bg-[#2563EB]">
+              <span className="font-mono text-xs font-bold text-[#0B1B3B] dark:text-sky-300">
                 {BRAND_CONFIG.creatorHandle}
               </span>
             </div>
@@ -177,150 +304,7 @@ export default function AboutPage() {
           </ReusableCard>
         </motion.section>
 
-        {/* Google Search Rich Result & Sitelinks Live Preview */}
-        <motion.section
-          initial={{ opacity: 0, y: 14 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.15 }}
-          transition={{ duration: 0.25 }}
-          className="space-y-3"
-        >
-          <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-[#2563EB] dark:text-sky-400 flex items-center gap-1.5">
-              <Globe className="w-3.5 h-3.5" />
-              Google Search SEO &amp; Sitelinks Architecture
-            </p>
-            <h2 className="font-display text-lg sm:text-xl font-bold text-[#0B1B3B] dark:text-white mt-0.5">
-              How PREPSKM.IN Appears on Google Search
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
-              Configured with Schema.org WebSite, EducationalOrganization, SiteNavigationElement, XML Sitemap, and square brand favicon so Google displays your emblem, clean student description, and clickable sub-options.
-            </p>
-          </div>
-
-          <ReusableCard padding="sm" className="bg-white dark:bg-[#14171F] border-slate-200 dark:border-slate-800 space-y-4">
-            {/* Simulated Google Search Bar */}
-            <div className="flex items-center gap-2.5 px-3.5 py-2 rounded-full bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 max-w-md">
-              <Search className="w-4 h-4 text-slate-400 shrink-0" />
-              <span className="text-xs sm:text-sm font-medium text-slate-800 dark:text-slate-100">
-                prepskm.in
-              </span>
-            </div>
-
-            {/* Main SERP Snippet */}
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-2.5">
-                <span className="h-7 w-7 rounded-full bg-white border border-slate-200 flex items-center justify-center p-1 shrink-0">
-                  <img
-                    src={BRAND_CONFIG.logoPath}
-                    alt={BRAND_CONFIG.logoAlt}
-                    className="w-full h-full object-contain"
-                  />
-                </span>
-                <div className="leading-tight">
-                  <p className="text-xs font-semibold text-slate-900 dark:text-slate-100">
-                    PREPSKM.IN
-                  </p>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    https://prepskm.in
-                  </p>
-                </div>
-              </div>
-
-              <Link
-                to="/"
-                className="block text-base sm:text-lg font-semibold text-[#1a0dab] dark:text-[#8ab4f8] hover:underline leading-snug"
-              >
-                PREPSKM.IN — JEE, NEET &amp; Class 9–12 Study Platform by @unfiltereddsumit
-              </Link>
-              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 max-w-3xl leading-relaxed">
-                Official PREPSKM.IN by @unfiltereddsumit — Free JEE Main, JEE Advanced, NEET UG &amp;
-                Class 9–12 Board chapter notes, concept videos, NTA CBT mock tests, DPPs &amp; Gemini
-                AI IQ analytics.
-              </p>
-            </div>
-
-            {/* Google Sitelinks Options Below Main Result */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
-              {BRAND_CONFIG.googleSitelinks.map((link) => (
-                <Link
-                  key={link.path}
-                  to={link.path}
-                  onClick={() => playClick()}
-                  className="p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors space-y-0.5"
-                >
-                  <p className="text-sm font-semibold text-[#1a0dab] dark:text-[#8ab4f8] hover:underline">
-                    {link.title}
-                  </p>
-                  <p className="text-xs text-slate-600 dark:text-slate-400 leading-snug">
-                    {link.description}
-                  </p>
-                </Link>
-              ))}
-            </div>
-
-            {/* Active SEO Technical Signals */}
-            <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
-              <span className="inline-flex items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5" /> sitemap.xml + robots.txt
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5" /> WebSite + SiteNavigationElement JSON-LD
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5" /> 192×192 Emblem Favicon
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5" /> @unfiltereddsumit Knowledge Graph sameAs
-              </span>
-            </div>
-          </ReusableCard>
-        </motion.section>
-
-        {/* Compact Core Pillars */}
-        <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <ReusableCard padding="sm" className="space-y-1.5">
-            <Target className="w-4 h-4 text-[#2563EB]" />
-            <h2 className="font-display text-sm font-bold text-[#0B1B3B] dark:text-white">
-              {allCohorts.length}+ Class Tracks
-            </h2>
-            <p className="text-xs text-slate-600 dark:text-slate-400">
-              Class 9–12 Boards, JEE, NEET &amp; Droppers.
-            </p>
-          </ReusableCard>
-
-          <ReusableCard padding="sm" className="space-y-1.5">
-            <BookOpen className="w-4 h-4 text-[#F97316]" />
-            <h2 className="font-display text-sm font-bold text-[#0B1B3B] dark:text-white">
-              {chapters.length}+ Chapters
-            </h2>
-            <p className="text-xs text-slate-600 dark:text-slate-400">
-              Downloadable PDFs &amp; Concept Videos with notes.
-            </p>
-          </ReusableCard>
-
-          <ReusableCard padding="sm" className="space-y-1.5">
-            <ClipboardCheck className="w-4 h-4 text-[#10B981]" />
-            <h2 className="font-display text-sm font-bold text-[#0B1B3B] dark:text-white">
-              {mockTests.length}+ CBT &amp; DPPs
-            </h2>
-            <p className="text-xs text-slate-600 dark:text-slate-400">
-              Syllabus viewer, Room-Exit warnings &amp; past solutions.
-            </p>
-          </ReusableCard>
-
-          <ReusableCard padding="sm" className="space-y-1.5">
-            <LineChart className="w-4 h-4 text-indigo-500" />
-            <h2 className="font-display text-sm font-bold text-[#0B1B3B] dark:text-white">
-              Gemini AI IQ Coach
-            </h2>
-            <p className="text-xs text-slate-600 dark:text-slate-400">
-              Tells you Kya Jaruri Hai &amp; what to skip.
-            </p>
-          </ReusableCard>
-        </section>
-
-        {/* FAQs + Contact */}
+        {/* FAQs + Privacy & Contact */}
         <section className="grid grid-cols-1 lg:grid-cols-12 gap-5">
           <ReusableCard padding="sm" className="lg:col-span-7 space-y-3">
             <div className="flex items-center gap-2 text-[#2563EB] dark:text-sky-400">
@@ -331,10 +315,10 @@ export default function AboutPage() {
             </div>
 
             <div className="divide-y divide-slate-200 dark:divide-slate-800">
-              {FAQS.map((item, idx) => {
+              {ABOUT_FAQS.map((item, idx) => {
                 const isOpen = openFaq === idx;
                 return (
-                  <div key={item.q} className="py-2.5">
+                  <div key={item.q} className="py-3">
                     <button
                       type="button"
                       onClick={() => {
@@ -342,7 +326,7 @@ export default function AboutPage() {
                         setOpenFaq(isOpen ? null : idx);
                       }}
                       aria-expanded={isOpen}
-                      className="w-full flex items-center justify-between gap-2 text-left font-display text-xs sm:text-sm font-bold text-[#0B1B3B] dark:text-white"
+                      className="w-full flex items-center justify-between gap-3 text-left font-display text-xs sm:text-sm font-bold text-[#0B1B3B] dark:text-white"
                     >
                       <span>{item.q}</span>
                       <ChevronDown
@@ -352,7 +336,7 @@ export default function AboutPage() {
                       />
                     </button>
                     {isOpen && (
-                      <p className="mt-1.5 text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                      <p className="mt-2 text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
                         {item.a}
                       </p>
                     )}
@@ -371,14 +355,15 @@ export default function AboutPage() {
                 </h2>
               </div>
               <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                Your CBT attempts, weekly routine, and profile data are safeguarded by owner-scoped
-                Firebase Auth &amp; Firestore rules. Zero distracting ads during exam or study sessions.
+                Your CBT attempts, Mistake Notebook, weekly routine, and profile preferences stay
+                private to your account via Firebase Authentication and owner-scoped cloud sync.
+                Study without popups or distracting interruptions during live mock tests.
               </p>
             </div>
 
             <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 space-y-1.5">
               <p className="text-[11px] font-bold uppercase tracking-wider text-[#2563EB] dark:text-sky-400">
-                Contact &amp; Official Desk
+                Student Support &amp; Feedback
               </p>
               <p className="text-xs sm:text-sm font-semibold text-[#0B1B3B] dark:text-white flex items-center gap-2">
                 <Mail className="w-4 h-4 text-[#F97316]" />
@@ -387,8 +372,9 @@ export default function AboutPage() {
                 </a>
               </p>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Creator Handle:{' '}
-                <strong className="font-mono text-[#F97316]">{BRAND_CONFIG.creatorHandle}</strong>
+                Built by{' '}
+                <strong className="font-mono text-[#F97316]">{BRAND_CONFIG.creatorHandle}</strong>{' '}
+                for Indian JEE, NEET &amp; Board aspirants.
               </p>
             </div>
           </ReusableCard>

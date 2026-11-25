@@ -96,8 +96,8 @@ export default function CbtMocksPage() {
   return (
     <PageLayout>
       <SeoHead
-        title="Free JEE Main & NEET UG NTA CBT Mock Tests (720 & 300 Marks) | PREPSKM.IN"
-        description="Attempt free full-syllabus NTA-pattern JEE Main (75 Qs / 300 Marks) and NEET UG (180 Qs / 720 Marks) CBT mock tests with +4/-1 marking, swipeable solutions, and subject-wise analytics on PREPSKM.IN."
+        title="Free JEE Main & NEET NTA CBT Mock Tests | Prepskm"
+        description="Attempt free full-syllabus NTA-pattern JEE Main (300 marks) and NEET UG (720 marks) CBT mock tests with +4/-1 marking, solutions, and rank analytics."
         canonicalPath="/cbt-mocks"
         keywords="NEET UG mock test free online, NEET 180 questions 720 marks CBT test, JEE Main full mock test NTA pattern, free NEET UG mock test 01 02 03 04 05, PREPSKM CBT mocks"
         jsonLd={{

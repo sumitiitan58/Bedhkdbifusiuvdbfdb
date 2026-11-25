@@ -126,8 +126,8 @@ export default function LecturesPage() {
   return (
     <PageLayout>
       <SeoHead
-        title="Video Lectures & Weekly Schedule — PREPSKM.IN"
-        description="Watch chapter-wise JEE, NEET, and Board video lectures with crisp thumbnails, descriptions, resume playback, and your Monday–Sunday weekly study timetable."
+        title="JEE & NEET Video Lectures & Schedule | Prepskm"
+        description="Watch chapter-wise JEE Main, NEET UG & Class 9-12 concept video lectures with resume playback, downloadable notes, and weekly study schedules."
         canonicalPath="/lectures"
         keywords="JEE video lectures, NEET concept videos, chapter lectures, weekly study timetable, PREPSKM lectures"
       />

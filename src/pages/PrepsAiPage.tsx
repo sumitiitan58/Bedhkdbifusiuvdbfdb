@@ -1,4 +1,5 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   BookMarked,
   Flame,
@@ -53,6 +54,7 @@ const STARTER_PROMPTS = [
 ];
 
 export default function PrepsAiPage() {
+  const location = useLocation();
   const { profile, firebaseUser, cohortId } = useAuth();
   const {
     allCohorts,
@@ -175,11 +177,23 @@ export default function PrepsAiPage() {
 
   sendRef.current = handleSend;
 
+  const prefillSentRef = useRef(false);
+  useEffect(() => {
+    const navState = location.state as
+      | { prefillPrompt?: string; mistakeSummary?: unknown }
+      | null
+      | undefined;
+    if (navState?.prefillPrompt && !prefillSentRef.current) {
+      prefillSentRef.current = true;
+      void handleSend(navState.prefillPrompt, false);
+    }
+  }, [handleSend, location.state]);
+
   return (
     <PageLayout>
       <SeoHead
-        title="Preps AI — Voice & Chat JEE/NEET Mentor | PREPSKM.IN"
-        description="Full-screen AI mentor for JEE and NEET aspirants. Ask doubts, build weak-chapter study plans, and get voice-powered mock test coaching grounded in your real scores."
+        title="Preps AI Mentor — Voice & Chat JEE/NEET Tutor | Prepskm"
+        description="Ask JEE, NEET & Board doubts, fix weak chapters, and analyze mock test scores with Preps AI voice and chat mentoring on PREPSKM.IN."
         canonicalPath="/preps-ai"
       />
 

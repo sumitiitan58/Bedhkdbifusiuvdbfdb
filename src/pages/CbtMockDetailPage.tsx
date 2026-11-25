@@ -112,13 +112,15 @@ export default function CbtMockDetailPage() {
     syllabusSummary,
   });
 
-  const pageTitle = isDpp
-    ? `${test.title} – ${cohortLabel} Chapter DPP | PREPSKM.IN`
-    : `${test.title} – ${cohortLabel} Free NTA CBT Mock Test | PREPSKM.IN`;
+  const suffix = isDpp ? 'DPP | Prepskm' : 'CBT Mock | Prepskm';
+  const rawTitle = `${test.title} – ${suffix}`;
+  const pageTitle =
+    rawTitle.length <= 60
+      ? rawTitle
+      : `${test.title.slice(0, Math.max(20, 56 - suffix.length)).trim()} – ${suffix}`;
 
-  const metaDesc =
-    test.seoDescription?.trim() ||
-    `Attempt ${test.title} free ${isDpp ? 'Chapter DPP' : 'NTA CBT Mock Test'} for ${cohortLabel} on PREPSKM.IN — ${totalQuestions} questions, ${test.durationMinutes} min, +${test.positiveMarks}/-${test.negativeMarkingEnabled ? test.negativeMarks : 0} marking & instant solutions.`;
+  const defaultDesc = `Attempt ${test.title} free ${isDpp ? 'Chapter DPP' : 'NTA CBT Mock'} for ${cohortLabel}: ${totalQuestions} Qs, ${test.durationMinutes} min, +${test.positiveMarks}/-${test.negativeMarkingEnabled ? test.negativeMarks : 0} marking & instant solutions.`;
+  const metaDesc = (test.seoDescription?.trim() || defaultDesc).slice(0, 155);
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -302,15 +304,26 @@ export default function CbtMockDetailPage() {
           </ReusableCard>
         </div>
 
-        {/* 150-Word SEO Overview (Search Indexing, visually hidden) */}
-        <section aria-label={`About ${test.title}`} className="sr-only">
-          <h2>About {test.title}</h2>
-          <p>{seoSummary}</p>
-          <nav aria-label="Related exam resources">
-            <Link to="/materials">Revise Chapter Concise Notes</Link>
-            <Link to="/dpp">Solve Daily Practice Problems</Link>
-          </nav>
-        </section>
+        {/* Visible Exam Pattern & Preparation Overview */}
+        <ReusableCard className="space-y-3 rounded-2xl border-slate-200/80">
+          <h2 className="font-display text-base font-bold text-[#0B1B3B] dark:text-white">
+            About {test.title}
+          </h2>
+          <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+            {seoSummary}
+          </p>
+          <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex flex-wrap gap-3 text-xs font-semibold">
+            <Link to="/materials" className="text-[#2563EB] dark:text-sky-400 hover:underline">
+              Revise Chapter Notes →
+            </Link>
+            <Link to="/dpp" className="text-[#2563EB] dark:text-sky-400 hover:underline">
+              Solve Daily Practice Problems →
+            </Link>
+            <Link to="/analytics" className="text-[#F97316] hover:underline">
+              View Test Analysis →
+            </Link>
+          </div>
+        </ReusableCard>
       </ResponsiveContainer>
     </PageLayout>
   );

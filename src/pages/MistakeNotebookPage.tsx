@@ -6,9 +6,11 @@ import {
   CheckCircle2,
   ClipboardCheck,
   Eye,
+  Loader2,
   RotateCcw,
   Search,
   Sparkles,
+  X,
   XCircle,
 } from 'lucide-react';
 import { PageLayout } from '../layouts/PageLayout';
@@ -16,10 +18,17 @@ import { ResponsiveContainer } from '../components/ResponsiveContainer';
 import { ReusableCard } from '../components/ReusableCard';
 import { ReusableButton } from '../components/ReusableButton';
 import { SeoHead } from '../components/SeoHead';
+import { useAuth } from '../context/AuthContext';
 import { usePlatformData } from '../context/PlatformDataContext';
+import { requestPrepsAiMessages } from '../services/geminiClient';
+import {
+  buildPrepsAiStudentContext,
+  computeExamCountdown,
+  computeStudyStreak,
+} from '../utils/streakTracker';
 import { extractMistakeEntries } from '../utils/testAnalysisEngine';
 import { evaluateSingleQuestion } from '../utils/scoringEngine';
-import { playClick, playSuccess } from '../utils/soundEffects';
+import { playAiSparkle, playClick, playSuccess } from '../utils/soundEffects';
 import type { StudentAnswerValue, TestQuestionRecord } from '../types';
 
 const OPTION_LETTERS = ['A', 'B', 'C', 'D'] as const;
@@ -30,6 +39,7 @@ interface ReattemptCardProps {
   statusTag: 'wrong' | 'unattempted' | 'vault';
   isResolved: boolean;
   isBookmarked: boolean;
+  studentContext: Record<string, unknown>;
   onToggleResolved?: () => void;
   onToggleBookmark: () => void;
 }
@@ -40,6 +50,7 @@ function InteractiveQuestionVaultCard({
   statusTag,
   isResolved,
   isBookmarked,
+  studentContext,
   onToggleResolved,
   onToggleBookmark,
 }: ReattemptCardProps) {
@@ -48,6 +59,9 @@ function InteractiveQuestionVaultCard({
   const [integerInput, setIntegerInput] = useState('');
   const [checkedResult, setCheckedResult] = useState<'correct' | 'wrong' | null>(null);
   const [showSolution, setShowSolution] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiReply, setAiReply] = useState('');
+  const [aiError, setAiError] = useState('');
 
   const handleCheck = () => {
     playClick();
@@ -87,6 +101,57 @@ function InteractiveQuestionVaultCard({
       : (question.correctOptionIndices ?? [])
           .map((i) => `Option ${OPTION_LETTERS[i]}`)
           .join(', ') || '—';
+
+  const handleAskPrepsAiForQuestion = async () => {
+    if (aiLoading) return;
+    playClick();
+    setAiLoading(true);
+    setAiError('');
+
+    const optionLines = (question.optionTexts ?? [])
+      .map((opt, idx) => `${OPTION_LETTERS[idx] ?? idx + 1}) ${opt}`)
+      .join(' | ');
+
+    const prompt = [
+      `Help me fix this ${question.subjectName}${question.chapterName ? ` (${question.chapterName})` : ''} mistake step-by-step.`,
+      question.questionText ? `Question: ${question.questionText}` : `Question #${question.questionNumber} (image-based problem)`,
+      optionLines ? `Options: ${optionLines}` : '',
+      `Official Answer: ${officialAnswerText}`,
+      question.solutionText ? `Reference Solution: ${question.solutionText}` : '',
+      'Explain the core concept, step-by-step solving method, and the exact exam trap to avoid next time.',
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    try {
+      const res = await requestPrepsAiMessages({
+        messages: [{ role: 'user', content: prompt }],
+        context: {
+          ...studentContext,
+          mistakeQuestion: {
+            subject: question.subjectName,
+            chapter: question.chapterName ?? 'Core Syllabus',
+            status: statusTag,
+            questionType: question.questionType,
+            questionText: question.questionText ?? '',
+            options: question.optionTexts ?? [],
+            officialAnswer: officialAnswerText,
+            solutionText: question.solutionText ?? '',
+          },
+        },
+      });
+      setAiReply(res.reply);
+      playAiSparkle();
+    } catch (err) {
+      setAiError(
+        err instanceof Error
+          ? err.message
+          : 'Preps AI could not analyze this question right now. Please try again.'
+      );
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   return (
     <ReusableCard className="space-y-5">
@@ -272,6 +337,19 @@ function InteractiveQuestionVaultCard({
             <Eye className="w-4 h-4" />
             {showSolution ? 'Hide Solution' : 'Reveal Solution'}
           </ReusableButton>
+          <ReusableButton
+            variant="secondary"
+            size="sm"
+            disabled={aiLoading}
+            onClick={() => void handleAskPrepsAiForQuestion()}
+          >
+            {aiLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin text-[#2563EB]" />
+            ) : (
+              <Sparkles className="w-4 h-4 text-[#2563EB]" />
+            )}
+            {aiLoading ? 'Analyzing...' : aiReply ? 'Refresh AI Fix' : 'Ask Preps AI'}
+          </ReusableButton>
           {checkedResult && (
             <button
               type="button"
@@ -325,14 +403,48 @@ function InteractiveQuestionVaultCard({
           </p>
         </div>
       )}
+
+      {/* Preps AI Step-by-Step Mistake Fix */}
+      {(aiReply || aiError) && (
+        <div className="p-4 rounded-xl bg-blue-50/70 dark:bg-blue-950/35 border border-blue-200/80 dark:border-blue-800/70 space-y-2 text-sm">
+          <div className="flex items-center justify-between gap-2">
+            <p className="font-display text-xs font-bold uppercase tracking-wider text-[#2563EB] dark:text-sky-400 flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5" />
+              Preps AI Step-by-Step Mistake Fix
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setAiReply('');
+                setAiError('');
+              }}
+              aria-label="Close Preps AI explanation"
+              className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          {aiError ? (
+            <p className="text-rose-700 dark:text-rose-300">{aiError}</p>
+          ) : (
+            <p className="text-slate-800 dark:text-slate-100 whitespace-pre-line leading-relaxed">
+              {aiReply}
+            </p>
+          )}
+        </div>
+      )}
     </ReusableCard>
   );
 }
 
 export default function MistakeNotebookPage() {
+  const { profile, firebaseUser, cohortId } = useAuth();
   const {
+    allCohorts,
     attempts,
     questions,
+    activeStudyDates,
+    targetExamDate,
     bookmarkedQuestionIds,
     resolvedMistakeIds,
     toggleQuestionBookmark,
@@ -343,6 +455,9 @@ export default function MistakeNotebookPage() {
   const [subjectFilter, setSubjectFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'wrong' | 'unattempted' | 'resolved'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [batchAiLoading, setBatchAiLoading] = useState(false);
+  const [batchAiReply, setBatchAiReply] = useState('');
+  const [batchAiError, setBatchAiError] = useState('');
 
   const resolvedSet = useMemo(() => new Set(resolvedMistakeIds), [resolvedMistakeIds]);
   const bookmarkSet = useMemo(() => new Set(bookmarkedQuestionIds), [bookmarkedQuestionIds]);
@@ -351,6 +466,34 @@ export default function MistakeNotebookPage() {
     () => extractMistakeEntries(attempts, questions),
     [attempts, questions]
   );
+
+  const studentContext = useMemo(() => {
+    const cohortLabel = allCohorts.find((c) => c.id === cohortId)?.label ?? 'Class 12 JEE';
+    const streak = computeStudyStreak(activeStudyDates);
+    const countdown = computeExamCountdown(targetExamDate);
+    const unresolvedMistakesCount = allMistakes.filter((m) => !resolvedSet.has(m.questionId)).length;
+
+    return buildPrepsAiStudentContext({
+      studentName: profile?.displayName || firebaseUser?.displayName || 'Student',
+      cohortLabel,
+      attempts,
+      currentStreakDays: streak.currentStreak,
+      targetExamDaysLeft: countdown.daysRemaining,
+      bookmarkedQuestionsCount: bookmarkedQuestionIds.length,
+      unresolvedMistakesCount,
+    });
+  }, [
+    activeStudyDates,
+    allCohorts,
+    allMistakes,
+    attempts,
+    bookmarkedQuestionIds.length,
+    cohortId,
+    firebaseUser?.displayName,
+    profile?.displayName,
+    resolvedSet,
+    targetExamDate,
+  ]);
 
   const vaultedQuestions = useMemo(() => {
     const qMap = new Map(questions.map((q) => [q.id, q]));
@@ -404,12 +547,62 @@ export default function MistakeNotebookPage() {
   const activeMistakesCount = allMistakes.filter((m) => !resolvedSet.has(m.questionId)).length;
   const masteredCount = allMistakes.filter((m) => resolvedSet.has(m.questionId)).length;
 
+  const handleAskPrepsAiFixMistakes = async () => {
+    if (batchAiLoading) return;
+    playClick();
+    setBatchAiLoading(true);
+    setBatchAiError('');
+
+    const activeSample = allMistakes
+      .filter((m) => !resolvedSet.has(m.questionId))
+      .slice(0, 6)
+      .map((m) => ({
+        subject: m.subjectName,
+        chapter: m.chapterName,
+        status: m.status,
+        occurrences: m.occurrences,
+        timeSpentSeconds: m.timeSpentSeconds,
+        questionSnippet: (m.question.questionText ?? '').slice(0, 180),
+      }));
+
+    const prompt =
+      activeSample.length > 0
+        ? `Analyze my ${activeMistakesCount} pending mistakes in my Mistake Notebook and give me a concrete step-by-step plan to fix these weak topics and reduce negative marking before my next CBT mock.`
+        : 'I have not logged any CBT mistakes yet. Give me a practical pre-exam mistake-prevention checklist for JEE/NEET CBT mocks so I avoid silly errors and negative marking.';
+
+    try {
+      const res = await requestPrepsAiMessages({
+        messages: [{ role: 'user', content: prompt }],
+        context: {
+          ...studentContext,
+          mistakeSummary: {
+            pendingMistakes: activeMistakesCount,
+            masteredMistakes: masteredCount,
+            bookmarkedCount: vaultedQuestions.length,
+            topPendingMistakes: activeSample,
+          },
+        },
+      });
+      setBatchAiReply(res.reply);
+      playAiSparkle();
+    } catch (err) {
+      setBatchAiError(
+        err instanceof Error
+          ? err.message
+          : 'Preps AI could not analyze your mistakes right now. Please try again.'
+      );
+    } finally {
+      setBatchAiLoading(false);
+    }
+  };
+
   return (
     <PageLayout>
       <SeoHead
-        title="Auto Mistake Notebook & Important Question Vault | PREPSKM.IN"
-        description="Re-attempt wrong and unattempted JEE/NEET questions automatically captured from CBT tests and revise your bookmarked tricky questions."
+        title="Mistake Notebook & Question Vault | PREPSKM.IN"
+        description="Re-attempt wrong and skipped JEE/NEET questions automatically captured from CBT mocks and get step-by-step Preps AI fixes on PREPSKM.IN."
         canonicalPath="/mistakes"
+        noIndex
       />
 
       <ResponsiveContainer className="py-6 sm:py-8 space-y-6">
@@ -428,9 +621,18 @@ export default function MistakeNotebookPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3 shrink-0">
-            <ReusableButton variant="secondary" size="sm" to="/preps-ai">
-              <Sparkles className="w-4 h-4 text-[#2563EB]" />
-              Ask Preps AI to Fix Mistakes
+            <ReusableButton
+              variant="secondary"
+              size="sm"
+              disabled={batchAiLoading}
+              onClick={() => void handleAskPrepsAiFixMistakes()}
+            >
+              {batchAiLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin text-[#2563EB]" />
+              ) : (
+                <Sparkles className="w-4 h-4 text-[#2563EB]" />
+              )}
+              {batchAiLoading ? 'Fixing Mistakes...' : 'Ask Preps AI to Fix Mistakes'}
             </ReusableButton>
             <ReusableButton variant="primary" size="sm" to="/cbt-mocks">
               <ClipboardCheck className="w-4 h-4" />
@@ -438,6 +640,42 @@ export default function MistakeNotebookPage() {
             </ReusableButton>
           </div>
         </div>
+
+        {(batchAiReply || batchAiError) && (
+          <ReusableCard className="bg-blue-50/70 dark:bg-blue-950/35 border-blue-200/90 dark:border-blue-800/80 space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-[#2563EB] dark:text-sky-400" />
+                <h2 className="font-display text-base font-bold text-[#0B1B3B] dark:text-white">
+                  Preps AI Mistake Fix Plan
+                </h2>
+              </div>
+              <div className="flex items-center gap-2">
+                <ReusableButton variant="ghost" size="sm" to="/preps-ai">
+                  Open Full Studio
+                </ReusableButton>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBatchAiReply('');
+                    setBatchAiError('');
+                  }}
+                  aria-label="Dismiss Preps AI mistake plan"
+                  className="p-1.5 rounded-lg text-slate-500 hover:bg-white/60 dark:hover:bg-slate-800"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+            {batchAiError ? (
+              <p className="text-sm text-rose-700 dark:text-rose-300">{batchAiError}</p>
+            ) : (
+              <p className="text-sm sm:text-base text-slate-800 dark:text-slate-100 whitespace-pre-line leading-relaxed">
+                {batchAiReply}
+              </p>
+            )}
+          </ReusableCard>
+        )}
 
         {/* Summary Strip */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 tabular-nums">
@@ -600,6 +838,7 @@ export default function MistakeNotebookPage() {
                   statusTag={entry.status}
                   isResolved={resolvedSet.has(entry.questionId)}
                   isBookmarked={bookmarkSet.has(entry.questionId)}
+                  studentContext={studentContext as unknown as Record<string, unknown>}
                   onToggleResolved={() => toggleMistakeResolved(entry.questionId)}
                   onToggleBookmark={() => toggleQuestionBookmark(entry.questionId)}
                 />
@@ -644,6 +883,7 @@ export default function MistakeNotebookPage() {
                 statusTag="vault"
                 isResolved={resolvedSet.has(q.id)}
                 isBookmarked={bookmarkSet.has(q.id)}
+                studentContext={studentContext as unknown as Record<string, unknown>}
                 onToggleBookmark={() => toggleQuestionBookmark(q.id)}
               />
             ))}

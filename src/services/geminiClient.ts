@@ -98,7 +98,25 @@ export interface PrepsAiChatMessage {
 
 export interface PrepsAiChatResponse {
   reply: string;
+  provider?: string;
   suggestedFollowUps: string[];
+}
+
+export async function requestPrepsAiMessages(payload: {
+  messages: Array<{ role: 'user' | 'assistant'; content: string }>;
+  context?: Record<string, unknown>;
+}): Promise<PrepsAiChatResponse> {
+  const data = await postJson<{
+    reply?: string;
+    provider?: string;
+    suggestedFollowUps?: string[];
+  }>('/.netlify/functions/preps-ai', payload);
+
+  return {
+    reply: data.reply || 'Preps AI could not generate a response right now. Please try again.',
+    provider: data.provider,
+    suggestedFollowUps: Array.isArray(data.suggestedFollowUps) ? data.suggestedFollowUps : [],
+  };
 }
 
 export async function requestPrepsAiChat(payload: {
@@ -107,11 +125,32 @@ export async function requestPrepsAiChat(payload: {
   studentContext: unknown;
   voiceMode?: boolean;
 }): Promise<PrepsAiChatResponse> {
-  const data = await postJson<PrepsAiChatResponse>('/api/gemini/chat', payload);
-  return {
-    reply: data.reply,
-    suggestedFollowUps: data.suggestedFollowUps ?? [],
-  };
+  const mappedHistory = (payload.history ?? [])
+    .filter((item) => item && typeof item.text === 'string' && item.text.trim())
+    .map((item) => ({
+      role: item.role,
+      content: item.text.trim(),
+    }));
+
+  const cleanMessage = payload.message.trim();
+  const last = mappedHistory[mappedHistory.length - 1];
+  const messages =
+    last && last.role === 'user' && last.content === cleanMessage
+      ? mappedHistory
+      : [...mappedHistory, { role: 'user' as const, content: cleanMessage }];
+
+  const baseContext =
+    payload.studentContext && typeof payload.studentContext === 'object'
+      ? (payload.studentContext as Record<string, unknown>)
+      : {};
+
+  return requestPrepsAiMessages({
+    messages,
+    context: {
+      ...baseContext,
+      voiceMode: Boolean(payload.voiceMode),
+    },
+  });
 }
 
 export interface TestAiReport {

@@ -68,13 +68,13 @@ export function Navbar({ onOpenSidebar, hideSidebarToggle = false }: NavbarProps
           </Link>
 
           <div className="hidden lg:flex items-center gap-3 min-w-0">
-            <span className="font-display text-base font-bold text-[#0B1B3B] dark:text-white truncate">
+            <span className="font-display text-base font-bold text-[#0B1B3B] dark:text-white shrink-0 whitespace-nowrap">
               {currentRouteMeta.label}
             </span>
-            <span aria-hidden="true" className="text-slate-300 dark:text-slate-700">
+            <span aria-hidden="true" className="text-slate-300 dark:text-slate-700 shrink-0">
               ·
             </span>
-            <span className="text-sm text-slate-500 dark:text-slate-400 truncate">
+            <span className="text-sm text-slate-500 dark:text-slate-400 truncate min-w-0">
               {currentRouteMeta.shortDescription}
             </span>
           </div>

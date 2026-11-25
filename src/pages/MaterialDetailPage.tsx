@@ -5,6 +5,7 @@ import {
   Bookmark,
   BookmarkCheck,
   BookOpen,
+  ChevronDown,
   ChevronRight,
   Download,
   Maximize2,
@@ -24,8 +25,10 @@ import { resolveAssetUrl } from '../utils/instantUpload';
 import {
   buildMaterialSeoSummary,
   CANONICAL_ORIGIN,
+  generateCleanSlug,
   getHierarchicalMaterialPath,
   getMaterialSlug,
+  resolveSubjectSlug,
   stripChapterNumberPrefix,
 } from '../utils/seoHelpers';
 import { playClick } from '../utils/soundEffects';
@@ -38,7 +41,7 @@ function getFriendlyResourceTypeLabel(sectionName?: string, title?: string): str
 }
 
 export default function MaterialDetailPage() {
-  const { slug, classSlug, chapterSlug } = useParams<{
+  const { slug, classSlug, subjectSlug, chapterSlug } = useParams<{
     slug?: string;
     classSlug?: string;
     subjectSlug?: string;
@@ -61,18 +64,52 @@ export default function MaterialDetailPage() {
   const material = useMemo(() => {
     if (!activeSlug) return null;
     const normalized = activeSlug.toLowerCase();
-    return (
-      materials.find(
-        (m) =>
-          getMaterialSlug(m) === normalized ||
-          m.id.toLowerCase() === normalized ||
-          (m.seoSlug && m.seoSlug.toLowerCase() === normalized)
-      ) ?? null
+
+    const exact = materials.find(
+      (m) =>
+        getMaterialSlug(m) === normalized ||
+        m.id.toLowerCase() === normalized ||
+        (m.seoSlug && m.seoSlug.toLowerCase() === normalized)
     );
-  }, [materials, activeSlug]);
+    if (exact) return exact;
+
+    // Support clean chapter slug routes like /materials/class-12-jee/physics/electrostatics
+    const normalizedSub = subjectSlug?.toLowerCase();
+    const matchedChapter = chapters.find((ch) => {
+      const chSlug = generateCleanSlug(stripChapterNumberPrefix(ch.name));
+      const matchesName = chSlug === normalized || chSlug.includes(normalized);
+      if (!matchesName) return false;
+      if (normalizedSub) {
+        const subName = subjects.find((s) => s.id === ch.subjectId)?.name;
+        if (resolveSubjectSlug(ch.subjectId, subName) !== normalizedSub) return false;
+      }
+      if (classSlug && ch.cohorts.length > 0 && !ch.cohorts.includes(classSlug)) {
+        return false;
+      }
+      return true;
+    });
+
+    if (matchedChapter) {
+      const byChapter = materials.find((m) => m.chapterId === matchedChapter.id);
+      if (byChapter) return byChapter;
+    }
+
+    return (
+      materials.find((m) => {
+        const mSlug = getMaterialSlug(m);
+        if (!mSlug.includes(normalized)) return false;
+        if (normalizedSub) {
+          const subName = subjects.find((s) => s.id === m.subjectId)?.name;
+          if (resolveSubjectSlug(m.subjectId, subName) !== normalizedSub) return false;
+        }
+        return true;
+      }) ?? null
+    );
+  }, [materials, activeSlug, chapters, classSlug, subjectSlug, subjects]);
 
   const [resolvedUrl, setResolvedUrl] = useState<string>('');
   const [openFullScreen, setOpenFullScreen] = useState<boolean>(false);
+  const [openFaqIdx, setOpenFaqIdx] = useState<number | null>(0);
 
   useEffect(() => {
     let active = true;
@@ -159,11 +196,14 @@ export default function MaterialDetailPage() {
   const isImage = material.mediaType === 'image' || material.mimeType?.startsWith('image/');
 
   const resourceLabel = getFriendlyResourceTypeLabel(material.sectionName, material.title);
-  const pageTitle = `${cleanChapterName} ${resourceLabel} PDF – ${primaryCohortLabel} ${subjectName} | PREPSKM.IN`;
+  const rawSeoTitle = `${cleanChapterName} ${resourceLabel} – ${subjectName} | Prepskm`;
+  const pageTitle =
+    rawSeoTitle.length <= 60
+      ? rawSeoTitle
+      : `${cleanChapterName.slice(0, Math.max(18, 42 - resourceLabel.length)).trim()} ${resourceLabel} | Prepskm`;
 
-  const metaDescription =
-    material.seoDescription?.trim() ||
-    `Read full-screen & download free ${cleanChapterName} ${resourceLabel.toLowerCase()} PDF for ${primaryCohortLabel} ${subjectName} on PREPSKM.IN.`;
+  const defaultDesc = `Download free ${cleanChapterName} ${resourceLabel.toLowerCase()} PDF for ${primaryCohortLabel} ${subjectName}. Includes formulas, NCERT highlights, and exam revision tips.`;
+  const metaDescription = (material.seoDescription?.trim() || defaultDesc).slice(0, 155);
 
   const seoSummary = buildMaterialSeoSummary({
     title: material.title,
@@ -173,6 +213,21 @@ export default function MaterialDetailPage() {
     cohortLabels,
     description: material.description,
   });
+
+  const chapterFaqs = [
+    {
+      q: `Is this ${cleanChapterName} ${resourceLabel.toLowerCase()} PDF aligned with the latest NTA syllabus?`,
+      a: `Yes. This ${cleanChapterName} ${resourceLabel.toLowerCase()} for ${primaryCohortLabel} ${subjectName} follows the latest NCERT and NTA JEE/NEET syllabus, focusing on high-weightage formulas, core concepts, and common exam traps.`,
+    },
+    {
+      q: `Can I download ${cleanChapterName} notes for offline study on mobile or desktop?`,
+      a: `Yes. You can read every page inside the full-screen viewer or click the Download PDF button above to save ${cleanChapterName} ${resourceLabel.toLowerCase()} for offline revision.`,
+    },
+    {
+      q: `How should I practice ${cleanChapterName} after revising these notes?`,
+      a: `After reviewing the key formulas and concepts in ${cleanChapterName}, solve timed chapter-wise DPPs and attempt a full-syllabus NTA CBT mock test on PREPSKM.IN to build speed and eliminate negative marking.`,
+    },
+  ];
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -229,6 +284,17 @@ export default function MaterialDetailPage() {
             item: `${CANONICAL_ORIGIN}${routePath}`,
           },
         ],
+      },
+      {
+        '@type': 'FAQPage',
+        mainEntity: chapterFaqs.map((item) => ({
+          '@type': 'Question',
+          name: item.q,
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: item.a,
+          },
+        })),
       },
     ],
   };
@@ -405,23 +471,64 @@ export default function MaterialDetailPage() {
           />
         )}
 
-        {/* Semantic Key Concepts & Revision Checklist (SEO-only, visually hidden) */}
-        <section aria-label="Chapter SEO Overview" className="sr-only">
-          <h2>Key Concepts &amp; Formula Overview — {cleanChapterName}</h2>
-          <p>{seoSummary}</p>
-          <ul>
-            <li>High-resolution multi-page {resourceLabel} PDF for {cleanChapterName}</li>
-            <li>Aligned with latest NTA JEE Main, JEE Advanced, NEET UG &amp; NCERT syllabus</li>
-            <li>True full-screen PDF reader, instant bookmarking, and offline PDF download</li>
-          </ul>
-          <nav aria-label="Related study links">
-            <Link to="/cbt-mocks">Attempt NTA CBT Mock Tests</Link>
-            <Link to="/dpp">Practice Chapter-Wise DPPs</Link>
-            <Link to={`/materials?track=${encodeURIComponent(primaryCohortId)}`}>
-              Explore All {primaryCohortLabel} Notes
-            </Link>
-          </nav>
-        </section>
+        {/* Visible Topic Overview & Chapter Study FAQs (150-300 word SEO + student guide) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          <ReusableCard className="lg:col-span-7 space-y-3 rounded-2xl border-slate-200/80">
+            <h2 className="font-display text-lg font-bold text-[#0B1B3B] dark:text-white">
+              {cleanChapterName} Topic Overview &amp; Revision Guide
+            </h2>
+            <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+              {seoSummary}
+            </p>
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex flex-wrap gap-3 text-xs font-semibold">
+              <Link to="/cbt-mocks" className="text-[#2563EB] dark:text-sky-400 hover:underline">
+                Practice NTA CBT Mocks →
+              </Link>
+              <Link to="/dpp" className="text-[#2563EB] dark:text-sky-400 hover:underline">
+                Solve Chapter DPPs →
+              </Link>
+              <Link to="/preps-ai" className="text-[#F97316] hover:underline">
+                Ask Preps AI a Doubt →
+              </Link>
+            </div>
+          </ReusableCard>
+
+          <ReusableCard className="lg:col-span-5 space-y-3 rounded-2xl border-slate-200/80">
+            <h2 className="font-display text-lg font-bold text-[#0B1B3B] dark:text-white">
+              Chapter Study FAQs
+            </h2>
+            <div className="divide-y divide-slate-200 dark:divide-slate-800">
+              {chapterFaqs.map((item, idx) => {
+                const isOpen = openFaqIdx === idx;
+                return (
+                  <div key={item.q} className="py-2.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        playClick();
+                        setOpenFaqIdx(isOpen ? null : idx);
+                      }}
+                      aria-expanded={isOpen}
+                      className="w-full flex items-center justify-between gap-2 text-left text-xs sm:text-sm font-bold text-[#0B1B3B] dark:text-white"
+                    >
+                      <span>{item.q}</span>
+                      <ChevronDown
+                        className={`w-4 h-4 shrink-0 text-slate-500 transition-transform ${
+                          isOpen ? 'rotate-180 text-[#F97316]' : ''
+                        }`}
+                      />
+                    </button>
+                    {isOpen && (
+                      <p className="mt-1.5 text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                        {item.a}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </ReusableCard>
+        </div>
 
         {/* Related Crawlable Chapter Links */}
         {relatedMaterials.length > 0 && (

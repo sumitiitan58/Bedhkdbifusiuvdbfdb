@@ -280,6 +280,76 @@ export default async function handler(request) {
       return jsonResponse({ ok: true, explanation: parsed });
     }
 
+    if (path.endsWith('/test-report')) {
+      const {
+        testTitle = 'Mock Test',
+        cohortLabel = 'JEE Main',
+        metrics = {},
+        subjectScores = [],
+        attemptBuckets = {},
+        difficultyBreakdown = [],
+      } = body ?? {};
+
+      const prompt = [
+        `Test: ${testTitle} (${cohortLabel})`,
+        `Overall Metrics: ${JSON.stringify(metrics)}`,
+        `Subject Breakdown: ${JSON.stringify(subjectScores)}`,
+        `Attempt & Time Buckets: ${JSON.stringify(attemptBuckets)}`,
+        `Difficulty Breakdown: ${JSON.stringify(difficultyBreakdown)}`,
+        'Generate a sharp post-test executive report covering score verdict, biggest mark-leak source (negative marks / silly mistakes / overtime), top 3 immediate fixes before next mock, and a realistic target score jump.',
+      ].join('\n');
+
+      const response = await ai.models.generateContent({
+        model: GEMINI_MODEL,
+        contents: prompt,
+        config: {
+          systemInstruction:
+            'You are a top JEE/NEET exam analyst at PREPSKM.IN. Produce a concise, numbers-first post-test AI Report in strict JSON.',
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              verdict: { type: Type.STRING },
+              markLeakAnalysis: { type: Type.STRING },
+              strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
+              immediateFixes: { type: Type.ARRAY, items: { type: Type.STRING } },
+              nextMockTarget: { type: Type.STRING },
+            },
+            required: ['verdict', 'markLeakAnalysis', 'strengths', 'immediateFixes', 'nextMockTarget'],
+          },
+        },
+      });
+
+      const parsed = JSON.parse((response.text ?? '{}').trim());
+      return jsonResponse({ ok: true, report: parsed });
+    }
+
+    if (path.endsWith('/chat')) {
+      const { runPrepsAiWithFallback } = await import('./preps-ai.js');
+      const messages = Array.isArray(body?.messages)
+        ? body.messages
+        : [
+            ...(Array.isArray(body?.history)
+              ? body.history.map((h) => ({
+                  role: h?.role === 'assistant' ? 'assistant' : 'user',
+                  content: String(h?.content ?? h?.text ?? ''),
+                }))
+              : []),
+            ...(body?.message ? [{ role: 'user', content: String(body.message) }] : []),
+          ].filter((m) => m.content.trim());
+
+      const context = body?.context ?? body?.studentContext ?? {};
+      if (body?.voiceMode && context && typeof context === 'object') {
+        context.voiceMode = true;
+      }
+
+      const fallbackResult = await runPrepsAiWithFallback({ messages, context });
+      if (!fallbackResult.ok) {
+        return jsonResponse({ ok: false, error: fallbackResult.error }, 503);
+      }
+      return jsonResponse(fallbackResult, 200);
+    }
+
     return jsonResponse({ ok: false, error: 'Unknown Gemini API endpoint.' }, 404);
   } catch (err) {
     const { status, message } = formatGeminiError(err);

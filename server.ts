@@ -9,13 +9,25 @@ import {
   buildMaterialSeoSummary,
   buildMockTestSeoSummary,
   buildSitemapXml,
+  generateCleanSlug,
   getHierarchicalMaterialPath,
   getHierarchicalMockTestPath,
   getMaterialSlug,
   getMockTestSlug,
+  resolveSubjectSlug,
   stripChapterNumberPrefix,
   type SitemapUrlEntry,
 } from './src/utils/seoHelpers';
+import {
+  ABOUT_FAQS,
+  buildChapterFaqs,
+  buildChapterSeoDescription,
+  buildChapterSeoTitle,
+  buildFaqPageJsonLd,
+  buildTestSeoDescription,
+  buildTestSeoTitle,
+} from './src/data/seoContent';
+import { runPrepsAiWithFallback } from './netlify/functions/preps-ai.js';
 import {
   JEE_CONCISE_CHAPTERS,
   JEE_CONCISE_MATERIALS,
@@ -88,64 +100,78 @@ function resolveRouteSeo(reqPath: string): RouteSeoSnapshot | null {
 
   if (cleanPath === '/materials') {
     return {
-      title: 'JEE & NEET Chapter-Wise Study Materials & Concise Notes | PREPSKM.IN',
+      title: 'JEE & NEET Study Materials & Chapter Notes | Prepskm',
       description:
-        'Download free chapter-wise JEE Main, JEE Advanced, NEET UG & CBSE Board concise notes, formula sheets, and PYQ PDFs on PREPSKM.IN.',
+        'Download free chapter-wise JEE Main, JEE Advanced, NEET UG & CBSE Board concise notes, formula sheets, and PYQ PDFs organized by class and subject.',
       canonicalPath: '/materials',
     };
   }
 
-  if (cleanPath === '/cbt-mocks') {
+  if (cleanPath === '/cbt-mocks' || cleanPath === '/tests') {
     return {
-      title: 'NTA CBT Mock Test Engine - Prepskm',
+      title: 'Free NTA CBT Mock Tests for JEE & NEET | Prepskm',
       description:
-        'Attempt free NTA-pattern JEE Main, JEE Advanced & NEET CBT mock tests with +4/-1 marking and AI analysis on PREPSKM.IN.',
+        'Attempt free NTA-pattern JEE Main, JEE Advanced, NEET UG & Board CBT mock tests with +4/-1 marking, live timer, and full post-test analysis.',
       canonicalPath: '/cbt-mocks',
     };
   }
 
   if (cleanPath === '/dpp') {
     return {
-      title: 'Daily Practice Problems (DPP) for JEE & NEET - Prepskm',
+      title: 'Chapter-Wise Daily Practice Problems (DPP) | Prepskm',
       description:
-        'Solve timed chapter-wise Daily Practice Problems (DPPs) with instant evaluation, +4/-1 marking, and step-by-step solutions on PREPSKM.IN.',
+        'Solve timed JEE Main, JEE Advanced & NEET chapter-wise Daily Practice Problems (DPPs) with +4/-1 evaluation, instant scoring, and step-by-step solutions.',
       canonicalPath: '/dpp',
     };
   }
 
-  if (cleanPath === '/analytics') {
+  if (cleanPath === '/analytics' || cleanPath === '/analysis') {
     return {
-      title: 'Pro Test Analysis & Percentile Insights | PREPSKM.IN',
+      title: 'CBT Test Analysis & Percentile Insights | Prepskm',
       description:
-        'Review past test solutions, predicted percentile, attempt & time breakdown, difficulty analysis, and AI performance reports on PREPSKM.IN.',
+        'Review past JEE & NEET CBT mock solutions, predicted percentile, attempt speed breakdown, difficulty accuracy, and AI performance reports on Prepskm.',
       canonicalPath: '/analytics',
     };
   }
 
-  if (cleanPath === '/mistakes') {
+  if (cleanPath === '/mistakes' || cleanPath === '/mistake-notebook') {
     return {
-      title: 'Auto Mistake Notebook & Question Vault | PREPSKM.IN',
+      title: 'Mistake Notebook & Question Vault | Prepskm',
       description:
-        'Re-attempt wrong and unattempted JEE/NEET questions automatically saved from your CBT mocks and review bookmarked tricky problems on PREPSKM.IN.',
+        'Re-attempt wrong and skipped JEE/NEET questions saved automatically from your CBT mocks and DPPs, and get step-by-step Preps AI fixes.',
       canonicalPath: '/mistakes',
     };
   }
 
   if (cleanPath === '/preps-ai') {
     return {
-      title: 'Preps AI — Voice & Chat JEE/NEET Study Mentor | PREPSKM.IN',
+      title: 'Preps AI — JEE & NEET Voice & Chat Mentor | Prepskm',
       description:
-        'Ask doubts, generate weak-chapter study plans, and analyze your mock test progress with Preps AI voice & chat mentor on PREPSKM.IN.',
+        'Ask JEE Main, JEE Advanced, NEET UG & Board doubts in English or Hinglish. Get step-by-step solutions, mistake fixes, and 7-day study plans.',
       canonicalPath: '/preps-ai',
     };
   }
 
-  if (cleanPath === '/about') {
+  if (cleanPath === '/lectures') {
     return {
-      title: 'About Prepskm (@unfiltereddsumit) | PREPSKM.IN',
+      title: 'JEE, NEET & Board Concept Video Lectures | Prepskm',
       description:
-        'Learn about Prepskm, founded by Sumit (@unfiltereddsumit) to deliver free JEE, NEET & Board concise notes, CBT mocks, and DPPs.',
+        'Watch chapter-wise concept revision video lectures for Class 9–12 Boards, JEE Main, JEE Advanced, and NEET UG paired with concise notes and DPPs.',
+      canonicalPath: '/lectures',
+    };
+  }
+
+  if (cleanPath === '/about') {
+    const aboutFaqJsonLd = {
+      '@context': 'https://schema.org',
+      ...buildFaqPageJsonLd(ABOUT_FAQS),
+    };
+    return {
+      title: 'About Prepskm (@unfiltereddsumit) — JEE & NEET Prep',
+      description:
+        'Discover how PREPSKM.IN by Sumit (@unfiltereddsumit) helps Class 9–12, JEE & NEET students with free concise notes, DPPs, and NTA CBT mocks.',
       canonicalPath: '/about',
+      jsonLd: aboutFaqJsonLd,
     };
   }
 
@@ -155,12 +181,29 @@ function resolveRouteSeo(reqPath: string): RouteSeoSnapshot | null {
   const matSlug = (hierarchicalMatMatch?.[3] ?? flatMatMatch?.[1] ?? '').toLowerCase();
 
   if (matSlug) {
-    const material = ALL_STATIC_MATERIALS.find(
+    let material = ALL_STATIC_MATERIALS.find(
       (m) =>
         getMaterialSlug(m) === matSlug ||
         m.id.toLowerCase() === matSlug ||
         (m.seoSlug && m.seoSlug.toLowerCase() === matSlug)
     );
+
+    if (!material && hierarchicalMatMatch) {
+      const requestedClass = hierarchicalMatMatch[1].toLowerCase();
+      const requestedSubject = hierarchicalMatMatch[2].toLowerCase();
+      material = ALL_STATIC_MATERIALS.find((m) => {
+        const subjectSlug = resolveSubjectSlug(m.subjectId, getSubjectName(m.subjectId));
+        if (subjectSlug !== requestedSubject) return false;
+        const chapter = ALL_STATIC_CHAPTERS.find((c) => c.id === m.chapterId);
+        const chapterCleanSlug = generateCleanSlug(
+          stripChapterNumberPrefix(chapter?.name ?? m.title),
+          'chapter'
+        );
+        if (chapterCleanSlug !== matSlug) return false;
+        return m.cohorts.includes(requestedClass) || m.cohorts.length === 0;
+      });
+    }
+
     if (material) {
       const subjectName = getSubjectName(material.subjectId);
       const chapter = ALL_STATIC_CHAPTERS.find((c) => c.id === material.chapterId);
@@ -181,10 +224,14 @@ function resolveRouteSeo(reqPath: string): RouteSeoSnapshot | null {
         subjectName,
         cohortId: primaryCohortId,
       });
-      const title = `${cleanChapter} ${resourceLabel} PDF – ${primaryCohortLabel} ${subjectName} | PREPSKM.IN`;
-      const description =
-        material.seoDescription?.trim() ||
-        `Read full-screen & download free ${cleanChapter} ${resourceLabel.toLowerCase()} PDF for ${primaryCohortLabel} ${subjectName} on PREPSKM.IN.`;
+      const title = buildChapterSeoTitle(cleanChapter, resourceLabel, subjectName);
+      const description = buildChapterSeoDescription({
+        cleanChapterName: cleanChapter,
+        resourceLabel,
+        primaryCohortLabel,
+        subjectName,
+        customDescription: material.seoDescription,
+      });
       const summary = buildMaterialSeoSummary({
         title: material.title,
         subjectName,
@@ -192,6 +239,12 @@ function resolveRouteSeo(reqPath: string): RouteSeoSnapshot | null {
         sectionName: resourceLabel,
         cohortLabels: material.cohorts.map(getCohortLabel),
         description: material.description,
+      });
+      const chapterFaqs = buildChapterFaqs({
+        chapterName: cleanChapter,
+        subjectName,
+        cohortLabel: primaryCohortLabel,
+        resourceLabel,
       });
 
       const jsonLd = {
@@ -225,7 +278,7 @@ function resolveRouteSeo(reqPath: string): RouteSeoSnapshot | null {
               {
                 '@type': 'ListItem',
                 position: 2,
-                name: 'Chapter Notes & Study Materials',
+                name: 'Study Materials',
                 item: `${CANONICAL_ORIGIN}/materials`,
               },
               {
@@ -242,17 +295,18 @@ function resolveRouteSeo(reqPath: string): RouteSeoSnapshot | null {
               },
             ],
           },
+          buildFaqPageJsonLd(chapterFaqs),
         ],
       };
 
       const bodyHtml = `
       <div style="font-family:'DM Sans',system-ui,sans-serif;max-width:960px;margin:0 auto;padding:24px 16px;color:#0B1B3B;">
         <nav aria-label="Breadcrumb" style="font-size:13px;margin-bottom:12px;">
-          <a href="/">Home</a> &rsaquo; <a href="/materials">Chapter Notes</a> &rsaquo; <a href="/materials?track=${encodeURIComponent(primaryCohortId)}">${escapeHtml(primaryCohortLabel)}</a> &rsaquo; <span>${escapeHtml(cleanChapter)}</span>
+          <a href="/">Home</a> &rsaquo; <a href="/materials">Study Materials</a> &rsaquo; <a href="/materials?track=${encodeURIComponent(primaryCohortId)}">${escapeHtml(primaryCohortLabel)}</a> &rsaquo; <span>${escapeHtml(cleanChapter)}</span>
         </nav>
         <h1 style="font-size:28px;font-weight:800;margin:0 0 12px;">${escapeHtml(cleanChapter)} ${escapeHtml(resourceLabel)} PDF — ${escapeHtml(primaryCohortLabel)} ${escapeHtml(subjectName)}</h1>
         <p style="font-size:15px;line-height:1.6;color:#334155;">${escapeHtml(summary)}</p>
-        <h2 style="font-size:20px;font-weight:700;margin:20px 0 8px;">Key Concepts &amp; Formula Overview</h2>
+        <h2 style="font-size:20px;font-weight:700;margin:20px 0 8px;">Topic Overview &amp; Revision Guide</h2>
         <p style="font-size:14px;color:#475569;">${escapeHtml(material.description || description)}</p>
         <p style="margin-top:16px;"><a href="${escapeHtml(material.fileUrl)}">Download ${escapeHtml(material.fileName || material.title)} PDF</a></p>
       </div>`;
@@ -285,12 +339,15 @@ function resolveRouteSeo(reqPath: string): RouteSeoSnapshot | null {
       const isDpp = test.destination === 'dpp';
       const cohortLabel = getCohortLabel(test.cohortId);
       const canonicalPath = getHierarchicalMockTestPath(test);
-      const title = isDpp
-        ? `${test.title} – ${cohortLabel} Chapter DPP | PREPSKM.IN`
-        : `${test.title} – ${cohortLabel} Free NTA CBT Mock Test | PREPSKM.IN`;
-      const description =
-        test.seoDescription?.trim() ||
-        `Attempt ${test.title} free ${isDpp ? 'Chapter DPP' : 'NTA CBT Mock Test'} for ${cohortLabel} on PREPSKM.IN — ${test.totalQuestions} questions, ${test.durationMinutes} min & instant solutions.`;
+      const title = buildTestSeoTitle(test.title, isDpp);
+      const description = buildTestSeoDescription({
+        title: test.title,
+        isDpp,
+        cohortLabel,
+        totalQuestions: test.totalQuestions,
+        durationMinutes: test.durationMinutes,
+        customDescription: test.seoDescription,
+      });
       const summary = buildMockTestSeoSummary({
         title: test.title,
         examCategory: test.examType ?? test.examCategory,
@@ -468,7 +525,9 @@ async function createApp() {
       { loc: `${CANONICAL_ORIGIN}/materials`, lastmod: todayIso, changefreq: 'daily', priority: '0.95' },
       { loc: `${CANONICAL_ORIGIN}/dpp`, lastmod: todayIso, changefreq: 'daily', priority: '0.9' },
       { loc: `${CANONICAL_ORIGIN}/analytics`, lastmod: todayIso, changefreq: 'weekly', priority: '0.75' },
-      { loc: `${CANONICAL_ORIGIN}/about`, lastmod: todayIso, changefreq: 'monthly', priority: '0.6' },
+      { loc: `${CANONICAL_ORIGIN}/preps-ai`, lastmod: todayIso, changefreq: 'weekly', priority: '0.8' },
+      { loc: `${CANONICAL_ORIGIN}/lectures`, lastmod: todayIso, changefreq: 'weekly', priority: '0.75' },
+      { loc: `${CANONICAL_ORIGIN}/about`, lastmod: todayIso, changefreq: 'monthly', priority: '0.7' },
     ];
 
     // 1. Official 82 JEE Concise Notes + Starter Materials (hierarchical URLs)
@@ -872,89 +931,95 @@ async function createApp() {
     }
   });
 
-  // 4. Preps AI Context-Aware Conversational & Voice Mentor
-  app.post('/api/gemini/chat', async (req, res) => {
-    try {
-      const ai = getGeminiClient();
-      const {
-        message = '',
-        history = [],
-        studentContext = {},
-        voiceMode = false,
-      } = req.body ?? {};
+  // 4. Preps AI Multi-Provider Fallback Endpoint (mirrors netlify/functions/preps-ai.js for local & Node runtimes)
+  app.options(['/.netlify/functions/preps-ai', '/api/preps-ai'], (req, res) => {
+    const origin = req.headers.origin || 'https://prepskm.in';
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.status(204).end();
+  });
 
-      const cleanMessage = String(message).trim();
-      if (!cleanMessage) {
-        res.status(400).json({ ok: false, error: 'Please ask a question or say something to Preps AI.' });
+  app.post(['/.netlify/functions/preps-ai', '/api/preps-ai', '/api/gemini/chat'], async (req, res) => {
+    const origin = req.headers.origin || '';
+    if (
+      origin === 'https://prepskm.in' ||
+      origin === 'https://www.prepskm.in' ||
+      /^https:\/\/[a-z0-9-]+\.netlify\.app$/i.test(origin) ||
+      /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin)
+    ) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Vary', 'Origin');
+    }
+
+    try {
+      const body = (req.body ?? {}) as {
+        messages?: Array<{ role?: string; content?: string; text?: string }>;
+        context?: Record<string, unknown>;
+        message?: string;
+        history?: Array<{ role?: string; text?: string; content?: string }>;
+        studentContext?: Record<string, unknown>;
+        voiceMode?: boolean;
+      };
+
+      const normalizedMessages: Array<{ role: 'user' | 'assistant'; content: string }> = [];
+      if (Array.isArray(body.messages) && body.messages.length > 0) {
+        for (const item of body.messages.slice(-14)) {
+          const role = item?.role === 'assistant' || item?.role === 'model' ? 'assistant' : 'user';
+          const content = String(item?.content ?? item?.text ?? '').trim().slice(0, 3000);
+          if (content) normalizedMessages.push({ role, content });
+        }
+      } else {
+        if (Array.isArray(body.history)) {
+          for (const item of body.history.slice(-13)) {
+            const role = item?.role === 'assistant' || item?.role === 'model' ? 'assistant' : 'user';
+            const content = String(item?.content ?? item?.text ?? '').trim().slice(0, 3000);
+            if (content) normalizedMessages.push({ role, content });
+          }
+        }
+        const single = String(body.message ?? '').trim().slice(0, 3000);
+        if (single) {
+          normalizedMessages.push({ role: 'user', content: single });
+        }
+      }
+
+      if (normalizedMessages.length === 0) {
+        res.status(400).json({
+          ok: false,
+          error: 'Please ask a question or say something to Preps AI.',
+        });
         return;
       }
 
-      const recentHistory = Array.isArray(history)
-        ? history
-            .slice(-8)
-            .map((m: { role?: string; text?: string }) => {
-              const speaker = m.role === 'assistant' ? 'Preps AI' : 'Student';
-              return `${speaker}: ${String(m.text ?? '').slice(0, 600)}`;
-            })
-            .join('\n')
-        : '';
-
-      const prompt = [
-        'STUDENT LIVE PERFORMANCE CONTEXT (ground your answer in these real numbers when relevant):',
-        JSON.stringify(studentContext, null, 2),
-        recentHistory ? `\nRECENT CONVERSATION:\n${recentHistory}` : '',
-        `\nSTUDENT MESSAGE:\n${cleanMessage.slice(0, 1500)}`,
-      ]
-        .filter(Boolean)
-        .join('\n');
-
-      const response = await ai.models.generateContent({
-        model: GEMINI_MODEL,
-        contents: prompt,
-        config: {
-          systemInstruction:
-            'You are Preps AI, the personal JEE Main, JEE Advanced, NEET UG & CBSE Board mentor inside PREPSKM.IN. ' +
-            'You speak naturally in the language the student uses (English or natural Hinglish — e.g. if the student asks in Hindi/Hinglish like "Mera latest test ka progress kaisa hai?" or "Maths mein marks kyun kat rahe hain?", reply in warm, crisp Hinglish; if in English, reply in clear English). ' +
-            'ALWAYS cite the student\'s real numbers from STUDENT LIVE PERFORMANCE CONTEXT (their latest test score, predicted percentile, negative marks lost, subject accuracy, weak chapters, streak, or unresolved mistakes) whenever they ask about their progress or scores. ' +
-            'If totalAttempts is 0, clearly tell them they haven\'t submitted a CBT mock yet and recommend taking their first mock test or revising a high-weightage chapter. ' +
-            (voiceMode
-              ? 'Keep the reply concise (under 85 words, clean spoken sentences without markdown bullets or asterisks) so it sounds great read aloud via speech synthesis. '
-              : 'Keep replies well-structured, concise (under 180 words), practical, and free of fluff. ') +
-            'Also provide 2-3 short, actionable follow-up question chips.',
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              reply: {
-                type: Type.STRING,
-                description: 'Direct, helpful, data-grounded response from Preps AI.',
-              },
-              suggestedFollowUps: {
-                type: Type.ARRAY,
-                items: { type: Type.STRING },
-                description: '2 to 3 concise follow-up questions the student can tap next.',
-              },
-            },
-            required: ['reply', 'suggestedFollowUps'],
-          },
-        },
-      });
-
-      const parsed = JSON.parse((response.text ?? '{}').trim()) as {
-        reply?: string;
-        suggestedFollowUps?: string[];
+      const context = {
+        ...(body.context ?? body.studentContext ?? {}),
+        ...(body.voiceMode ? { voiceMode: true } : {}),
       };
 
-      res.json({
-        ok: true,
-        reply: parsed.reply || 'I could not generate a response right now. Please try again.',
-        suggestedFollowUps: Array.isArray(parsed.suggestedFollowUps)
-          ? parsed.suggestedFollowUps.slice(0, 3)
-          : [],
+      const result = await runPrepsAiWithFallback({
+        messages: normalizedMessages,
+        context,
       });
-    } catch (err) {
-      const { status, message } = formatGeminiError(err);
-      res.status(status).json({ ok: false, error: message });
+
+      if (!result.ok) {
+        res.status(503).json({
+          ok: false,
+          error: result.error,
+        });
+        return;
+      }
+
+      res.status(200).json({
+        ok: true,
+        reply: result.reply,
+        provider: result.provider,
+        suggestedFollowUps: result.suggestedFollowUps ?? [],
+      });
+    } catch {
+      res.status(503).json({
+        ok: false,
+        error: 'Preps AI is temporarily busy. Please try your question again in a moment.',
+      });
     }
   });
 
@@ -1041,6 +1106,14 @@ async function createApp() {
     app.use(express.static(distDir, { index: false }));
     const distIndexHtml = fs.readFileSync(path.join(distDir, 'index.html'), 'utf-8');
     app.get('*', (req, res) => {
+      const cleanRoute = req.path.replace(/^\/+|\/+$/g, '');
+      if (cleanRoute && !cleanRoute.includes('..')) {
+        const prerenderedPath = path.resolve(distDir, cleanRoute, 'index.html');
+        if (prerenderedPath.startsWith(distDir) && fs.existsSync(prerenderedPath)) {
+          res.status(200).set({ 'Content-Type': 'text/html; charset=utf-8' }).sendFile(prerenderedPath);
+          return;
+        }
+      }
       const seo = resolveRouteSeo(req.originalUrl);
       const html = seo ? injectRouteSeoIntoHtml(distIndexHtml, seo) : distIndexHtml;
       res.status(200).set({ 'Content-Type': 'text/html; charset=utf-8' }).send(html);

@@ -240,8 +240,8 @@ export default function AnalyticsPage() {
   return (
     <PageLayout>
       <SeoHead
-        title="Pro Test Analysis & Percentile Insights | PREPSKM.IN"
-        description="Quizrr-style JEE & NEET test analysis dashboard with predicted percentile, subject accuracy, attempt & time breakdown, difficulty analysis, and instant AI reports."
+        title="Test Analysis & Percentile Insights | Prepskm"
+        description="Review your JEE & NEET CBT mock scores, predicted percentile, subject accuracy, time pacing breakdown, and step-by-step solutions on PREPSKM.IN."
         canonicalPath="/analytics"
       />
 

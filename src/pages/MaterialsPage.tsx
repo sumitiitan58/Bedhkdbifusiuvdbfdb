@@ -44,7 +44,9 @@ import {
 } from '../utils/studyHierarchy';
 import {
   CANONICAL_ORIGIN,
+  generateCleanSlug,
   getHierarchicalMaterialPath,
+  resolveSubjectSlug,
   stripChapterNumberPrefix,
 } from '../utils/seoHelpers';
 import { playClick } from '../utils/soundEffects';
@@ -291,13 +293,15 @@ export default function MaterialsPage() {
     ? stripChapterNumberPrefix(activeChapter.name)
     : '';
 
-  const seoTitle = activeChapter
-    ? `${cleanActiveChapterName} Notes, Formula Sheet & PYQs – ${activeSubjectName} | Prepskm`
-    : `${selectedCohortLabel} Chapter-Wise Study Materials | Prepskm`;
+  const rawTitle = activeChapter
+    ? `${cleanActiveChapterName} Notes & PYQs – ${activeSubjectName} | Prepskm`
+    : `${selectedCohortLabel} Study Materials & Notes | Prepskm`;
+  const seoTitle =
+    rawTitle.length <= 60 ? rawTitle : `${rawTitle.slice(0, 49).trim()} | Prepskm`;
 
   const seoDescription = activeChapter
-    ? `Explore ${cleanActiveChapterName} (${activeSubjectName}) Short Notes, Formula Sheets, Mind Maps, and Chapter PYQs for ${selectedCohortLabel} on Prepskm.`
-    : `Structured chapter-first ${selectedCohortLabel} study library organized by Physics, Chemistry, Mathematics & Biology chapters on Prepskm.`;
+    ? `Download free ${cleanActiveChapterName} (${activeSubjectName}) short notes, formula sheets, mind maps, and PYQs for ${selectedCohortLabel} on PREPSKM.IN.`.slice(0, 155)
+    : `Browse chapter-wise ${selectedCohortLabel} study materials on PREPSKM.IN: Physics, Chemistry, Maths & Biology concise notes, formula sheets, and PYQs.`.slice(0, 155);
 
   const materialsJsonLd = useMemo(
     () => ({
@@ -842,11 +846,24 @@ export default function MaterialsPage() {
                     summaryParts.push(`${counts.byTab['chapter-pyqs']} PYQs`);
                   }
 
+                  const chapterMaterials = cohortMaterials.filter((m) => m.chapterId === ch.id);
+                  const primaryMat = chapterMaterials[0];
+                  const resolvedCohortSlug =
+                    selectedCohort !== 'all' ? selectedCohort : ch.cohorts[0] || 'class-12-jee';
+                  const resolvedSubSlug = resolveSubjectSlug(
+                    ch.subjectId,
+                    subjectMap.get(ch.subjectId)?.name
+                  );
+                  const chapterHref = primaryMat
+                    ? getHierarchicalMaterialPath(primaryMat, {
+                        subjectName: subjectMap.get(ch.subjectId)?.name,
+                        cohortId: resolvedCohortSlug,
+                      })
+                    : `/materials/${generateCleanSlug(resolvedCohortSlug)}/${resolvedSubSlug}/${generateCleanSlug(cleanTitle)}`;
+
                   return (
-                    <button
+                    <article
                       key={ch.id}
-                      type="button"
-                      onClick={() => handleSelectChapter(ch.id)}
                       className="group text-left bg-white dark:bg-[#111A2E] border border-slate-200/90 dark:border-slate-800 hover:border-[#2563EB] dark:hover:border-sky-400 rounded-2xl p-6 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 flex flex-col justify-between gap-4"
                     >
                       <div className="space-y-3">
@@ -860,7 +877,18 @@ export default function MaterialsPage() {
                         </div>
 
                         <h2 className="font-display text-lg font-bold text-[#0B1B3B] dark:text-white group-hover:text-[#2563EB] dark:group-hover:text-sky-400 transition-colors leading-snug">
-                          {cleanTitle}
+                          <Link
+                            to={chapterHref}
+                            onClick={(e) => {
+                              if (!e.metaKey && !e.ctrlKey && !e.shiftKey) {
+                                e.preventDefault();
+                                handleSelectChapter(ch.id);
+                              }
+                            }}
+                            className="hover:underline"
+                          >
+                            {cleanTitle}
+                          </Link>
                         </h2>
 
                         <p className="text-xs text-slate-500 dark:text-slate-400 tabular-nums">
@@ -870,16 +898,23 @@ export default function MaterialsPage() {
                         </p>
                       </div>
 
-                      <div className="pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs font-semibold">
-                        <span className="text-slate-600 dark:text-slate-300 tabular-nums">
+                      <div className="pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between gap-2 text-xs font-semibold">
+                        <button
+                          type="button"
+                          onClick={() => handleSelectChapter(ch.id)}
+                          className="text-slate-600 dark:text-slate-300 hover:text-[#2563EB] tabular-nums"
+                        >
                           {totalCount} {totalCount === 1 ? 'Resource' : 'Resources'} inside
-                        </span>
-                        <span className="inline-flex items-center gap-1 text-[#2563EB] dark:text-sky-400 group-hover:translate-x-0.5 transition-transform">
+                        </button>
+                        <Link
+                          to={chapterHref}
+                          className="inline-flex items-center gap-1 text-[#2563EB] dark:text-sky-400 group-hover:translate-x-0.5 transition-transform"
+                        >
                           Open Chapter
                           <ChevronRight className="w-4 h-4" />
-                        </span>
+                        </Link>
                       </div>
-                    </button>
+                    </article>
                   );
                 })}
               </div>

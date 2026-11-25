@@ -354,8 +354,8 @@ export default function HomePage() {
   return (
     <PageLayout>
       <SeoHead
-        title="Prepskm - Free JEE & NEET Study Material, CBT Mocks & AI Prep"
-        description="Prepskm provides free chapter-wise notes, NCERT PYQs, daily practice problems (DPPs), and NTA-pattern CBT mock tests for JEE Main, JEE Advanced & NEET."
+        title="Prepskm — Free JEE, NEET & Board Notes, CBT Mocks"
+        description="Free JEE Main, JEE Advanced, NEET UG & Class 9-12 chapter notes, formula sheets, daily practice problems (DPPs), and NTA CBT mock tests on Prepskm."
         canonicalPath="/"
         keywords="Prepskm, prepskm.in, prepskm mock test, unfiltereddsumit, JEE Main 2027, NEET UG, Class 11 JEE, Class 12 JEE, Class 12 NEET, concise chapter notes, NTA CBT mock tests, DPP"
       />

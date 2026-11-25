@@ -109,8 +109,8 @@ export default function DppPage() {
   return (
     <PageLayout>
       <SeoHead
-        title="Daily Practice Problems (DPP) for JEE & NEET - Prepskm"
-        description="Solve timed chapter-wise Daily Practice Problems (DPPs) with instant evaluation, +4/-1 marking, detailed solutions, and reattempt history on Prepskm."
+        title="Chapter-Wise DPPs for JEE & NEET | Prepskm"
+        description="Solve timed chapter-wise Daily Practice Problems (DPPs) for JEE, NEET & Boards with +4/-1 marking, step-by-step solutions, and instant analytics."
         canonicalPath="/dpp"
       />
 

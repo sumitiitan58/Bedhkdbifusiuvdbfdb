@@ -49,7 +49,10 @@ export function SeoHead({
     upsertMeta('property', 'og:site_name', BRAND_CONFIG.name);
     upsertMeta('property', 'og:type', 'website');
     upsertMeta('property', 'og:image', resolvedOgImage);
+    upsertMeta('property', 'og:image:alt', `${title} — ${BRAND_CONFIG.name}`);
     upsertMeta('name', 'twitter:card', 'summary_large_image');
+    upsertMeta('name', 'twitter:site', BRAND_CONFIG.creatorHandle);
+    upsertMeta('name', 'twitter:creator', BRAND_CONFIG.creatorHandle);
     upsertMeta('name', 'twitter:title', title);
     upsertMeta('name', 'twitter:description', description);
     upsertMeta('name', 'twitter:image', resolvedOgImage);
@@ -61,6 +64,9 @@ export function SeoHead({
       document.head.appendChild(canonicalLink);
     }
     canonicalLink.href = canonicalUrl;
+
+    // Remove static pre-rendered route JSON-LD before applying current SPA route JSON-LD
+    document.getElementById('prepskm-ssr-ld')?.remove();
 
     const ldId = 'prepskm-route-jsonld';
     const existingScript = document.getElementById(ldId);

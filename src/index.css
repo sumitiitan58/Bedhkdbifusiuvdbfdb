@@ -53,14 +53,20 @@
   text-wrap: balance;
 }
 
-/* Hide third-party hosting / Netlify preview drawer badges in bottom-right */
+/* Strictly block third-party Netlify preview badges, drawers, and iframes */
 iframe[src*="netlify"],
-#netlify-identity-widget,
+[id*="netlify"],
+[class*="netlify"],
+[data-netlify-deploy-id],
+[data-netlify-deploy-preview],
 .netlify-drawer,
-[data-netlify-deploy-preview] {
+#netlify-drawer,
+#netlify-identity-widget {
   display: none !important;
   visibility: hidden !important;
+  opacity: 0 !important;
   pointer-events: none !important;
+  z-index: -9999 !important;
 }
 
 @keyframes preps-orb-pulse {
