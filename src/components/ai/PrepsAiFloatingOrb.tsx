@@ -155,7 +155,7 @@ export function PrepsAiFloatingOrb() {
   }
 
   return (
-    <div className="fixed bottom-20 lg:bottom-6 right-4 sm:right-6 z-50 flex flex-col items-end gap-3">
+    <div className="fixed bottom-20 lg:bottom-6 right-3 sm:right-6 z-50 flex flex-col items-end gap-3 pointer-events-none">
       <AnimatePresence>
         {open && (
           <motion.section
@@ -164,7 +164,7 @@ export function PrepsAiFloatingOrb() {
             exit={{ opacity: 0, y: 12, scale: 0.96 }}
             transition={{ duration: 0.18, ease: 'easeOut' }}
             aria-label="Preps AI Assistant Drawer"
-            className="w-[calc(100vw-2rem)] sm:w-[390px] max-h-[75vh] bg-white dark:bg-[#0F182D] border border-slate-200 dark:border-slate-700/90 rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+            className="pointer-events-auto w-[calc(100vw-1.5rem)] sm:w-[390px] max-h-[70vh] sm:max-h-[75vh] bg-white dark:bg-[#0F182D] border border-slate-200 dark:border-slate-700/90 rounded-2xl shadow-2xl flex flex-col overflow-hidden"
           >
             {/* Header */}
             <div className="px-4 py-3.5 bg-[#0B1B3B] text-white flex items-center justify-between gap-2">
@@ -354,7 +354,7 @@ export function PrepsAiFloatingOrb() {
         )}
       </AnimatePresence>
 
-      {/* Persistent Floating Preps AI Orb Button (Bottom-Right Fixed) */}
+      {/* Persistent Floating Preps AI Orb Button (Bottom-Right Fixed — bottom-20 on mobile to clear bottom nav) */}
       <button
         type="button"
         onClick={() => {
@@ -363,9 +363,9 @@ export function PrepsAiFloatingOrb() {
         }}
         aria-expanded={open}
         aria-label={open ? 'Close Preps AI Assistant' : 'Open Preps AI Voice & Chat Assistant'}
-        className="preps-orb-pulse group inline-flex items-center gap-2.5 h-14 px-4 sm:px-5 rounded-full bg-gradient-to-r from-[#0B1B3B] via-[#1D4ED8] to-[#2563EB] text-white font-display font-bold text-sm shadow-xl border border-white/20 hover:scale-[1.03] active:scale-[0.98] transition-transform"
+        className="pointer-events-auto preps-orb-pulse group inline-flex items-center gap-2 sm:gap-2.5 h-12 sm:h-14 px-3.5 sm:px-5 rounded-full bg-gradient-to-r from-[#0B1B3B] via-[#1D4ED8] to-[#2563EB] text-white font-display font-bold text-xs sm:text-sm shadow-xl border border-white/20 hover:scale-[1.03] active:scale-[0.98] transition-transform"
       >
-        <span className="w-8 h-8 rounded-full bg-white/15 flex items-center justify-center shrink-0">
+        <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/15 flex items-center justify-center shrink-0">
           {voice.isListening ? (
             <Mic className="w-4 h-4 text-[#F97316] animate-pulse" />
           ) : (

@@ -22,6 +22,7 @@ import { ReusableCard } from '../components/ReusableCard';
 import { ReusableButton } from '../components/ReusableButton';
 import { SeoHead } from '../components/SeoHead';
 import { ProTestAnalysisDashboard } from '../components/analytics/ProTestAnalysisDashboard';
+import { AiPrepScoreCard } from '../components/analytics/AiPrepScoreCard';
 import { useAuth } from '../context/AuthContext';
 import { usePlatformData } from '../context/PlatformDataContext';
 import { estimatePercentileAndRank } from '../utils/testAnalysisEngine';
@@ -30,8 +31,17 @@ import { playClick } from '../utils/soundEffects';
 import type { TestAttemptRecord } from '../types';
 
 export default function AnalyticsPage() {
-  const { cohortId } = useAuth();
-  const { attempts, questions, iqConfig, allCohorts, mockTests } = usePlatformData();
+  const { cohortId, profile, firebaseUser } = useAuth();
+  const {
+    attempts,
+    questions,
+    chapters,
+    iqConfig,
+    allCohorts,
+    mockTests,
+    activeStudyDates,
+    resolvedMistakeIds,
+  } = usePlatformData();
 
   const sortedAttempts = useMemo(
     () =>
@@ -73,7 +83,7 @@ export default function AnalyticsPage() {
       const answered = mod !== 4;
       const isCorrect = mod === 0 || mod === 1 || mod === 2;
       const timeSpentSeconds =
-        mod === 2 ? 175 : mod === 3 ? 22 : mod === 4 ? 12 : 68;
+        mod === 2 ? 186 : mod === 3 ? 8 : mod === 4 ? 12 : 72;
       const paceCategory = !answered
         ? ('Unattempted' as const)
         : timeSpentSeconds > 135
@@ -285,6 +295,19 @@ export default function AnalyticsPage() {
             </ReusableButton>
           </div>
         </div>
+
+        {/* Dynamic AI Prep Score (0–1000) Gauge at Top of Test Analysis */}
+        <AiPrepScoreCard
+          attempts={sortedAttempts}
+          questions={questions}
+          chapters={chapters}
+          activeStudyDates={activeStudyDates}
+          resolvedMistakeIds={resolvedMistakeIds}
+          cohortLabel={activeCohortLabel}
+          studentName={profile?.displayName ?? firebaseUser?.displayName ?? 'Student'}
+          fallbackPreviewAttempt={showSamplePreview ? samplePreviewAttempt : null}
+          contextLabel="Test Analytics Readiness"
+        />
 
         {/* Main Analysis Content OR Clean Empty State with Sample Scorecard Toggle */}
         {activeAttempt ? (

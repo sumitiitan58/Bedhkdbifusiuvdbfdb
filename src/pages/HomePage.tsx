@@ -40,6 +40,7 @@ import { ReusableCard } from '../components/ReusableCard';
 import { ClassSubClassPicker } from '../components/ClassSubClassPicker';
 import { GeminiMentorPanel } from '../components/ai/GeminiMentorPanel';
 import { StreakTargetWidget } from '../components/dashboard/StreakTargetWidget';
+import { AiPrepScoreCard } from '../components/analytics/AiPrepScoreCard';
 import { SeoHead } from '../components/SeoHead';
 import { useAuth } from '../context/AuthContext';
 import { usePlatformData } from '../context/PlatformDataContext';
@@ -119,8 +120,12 @@ export default function HomePage() {
   } = useAuth();
   const {
     allCohorts,
+    chapters,
+    questions,
     progress,
     attempts,
+    activeStudyDates,
+    resolvedMistakeIds,
     togglePlannerDay,
     toggleWeeklyTask,
     addWeeklyTask,
@@ -515,6 +520,19 @@ export default function HomePage() {
       </section>
 
       <ResponsiveContainer className="py-8 sm:py-10 space-y-8 sm:space-y-10">
+        {/* Dynamic AI Prep Score (0–1000) Gauge + 4-Factor Breakdown + Google Workspace Sync */}
+        <motion.section {...REVEAL_PROPS} aria-label="AI Prep Score readiness gauge">
+          <AiPrepScoreCard
+            attempts={attempts}
+            questions={questions}
+            chapters={chapters}
+            activeStudyDates={activeStudyDates}
+            resolvedMistakeIds={resolvedMistakeIds}
+            cohortLabel={activeCohort?.label ?? 'Class 12 JEE'}
+            studentName={profile?.displayName ?? firebaseUser?.displayName ?? 'Student'}
+          />
+        </motion.section>
+
         {/* Daily Consistency Streak & Target Exam Countdown */}
         <motion.section {...REVEAL_PROPS} aria-label="Daily streak and exam countdown">
           <StreakTargetWidget />

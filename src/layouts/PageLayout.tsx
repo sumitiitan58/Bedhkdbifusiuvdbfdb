@@ -73,7 +73,7 @@ export function PageLayout({
           transition={{ duration: 0.2, ease: 'easeOut' }}
           className={`flex-1 w-full flex flex-col ${
             containerMode === 'contained' ? 'w-full max-w-[1440px] mx-auto px-4 md:px-8 py-6' : ''
-          } ${showBottomBar ? 'pb-20 lg:pb-0' : ''} ${className}`}
+          } ${showBottomBar ? 'pb-36 lg:pb-0' : ''} ${className}`}
         >
           {children}
         </motion.main>
