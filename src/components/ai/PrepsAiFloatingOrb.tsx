@@ -3,6 +3,8 @@ import { Link, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   ArrowUpRight,
+  ChevronDown,
+  ChevronUp,
   Loader2,
   Mic,
   MicOff,
@@ -24,14 +26,15 @@ import {
   computeExamCountdown,
   computeStudyStreak,
 } from '../../utils/streakTracker';
+import { computePrepScore } from '../../utils/prepScoreEngine';
 import { extractMistakeEntries } from '../../utils/testAnalysisEngine';
 import { usePrepsVoice } from '../../hooks/usePrepsVoice';
 import { playAiSparkle, playClick } from '../../utils/soundEffects';
 
 const QUICK_PROMPTS = [
-  'Mera latest test ka progress kaisa hai?',
-  'Maths mein marks kyun kat rahe hain?',
-  'Give me a 7-day weak chapter plan',
+  'Analyze my Prep Score & next 3 fixes',
+  'Mera latest test progress kaisa hai?',
+  '7-day weak chapter sprint',
 ];
 
 export function PrepsAiFloatingOrb() {
@@ -40,6 +43,7 @@ export function PrepsAiFloatingOrb() {
   const {
     allCohorts,
     attempts,
+    chapters,
     questions,
     activeStudyDates,
     targetExamDate,
@@ -48,13 +52,14 @@ export function PrepsAiFloatingOrb() {
   } = usePlatformData();
 
   const [open, setOpen] = useState(false);
+  const [contextExpanded, setContextExpanded] = useState(false);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [messages, setMessages] = useState<PrepsAiChatMessage[]>([
     {
       role: 'assistant',
-      text: 'Hi! I am Preps AI. Tap the mic or ask about your latest mock test progress, weak chapters, or any JEE/NEET concept.',
+      text: 'Hi! I am Preps AI. Ask any JEE/NEET doubt or tap a quick prompt — your live Prep Score, tests, and Mistake Notebook are synced.',
     },
   ]);
   const [followUps, setFollowUps] = useState<string[]>(QUICK_PROMPTS);
@@ -62,38 +67,66 @@ export function PrepsAiFloatingOrb() {
   const messagesRef = useRef<PrepsAiChatMessage[]>(messages);
   messagesRef.current = messages;
 
-  const studentContext = useMemo(() => {
-    const cohortLabel = allCohorts.find((c) => c.id === cohortId)?.label ?? 'Class 12 JEE';
-    const streak = computeStudyStreak(activeStudyDates);
-    const countdown = computeExamCountdown(targetExamDate);
+  const cohortLabel = useMemo(
+    () => allCohorts.find((c) => c.id === cohortId)?.label ?? 'Class 12 JEE',
+    [allCohorts, cohortId]
+  );
+
+  const streak = useMemo(() => computeStudyStreak(activeStudyDates), [activeStudyDates]);
+  const countdown = useMemo(() => computeExamCountdown(targetExamDate), [targetExamDate]);
+
+  const unresolvedMistakesCount = useMemo(() => {
     const resolvedSet = new Set(resolvedMistakeIds);
-    const unresolvedMistakesCount = extractMistakeEntries(attempts, questions).filter(
+    return extractMistakeEntries(attempts, questions).filter(
       (m) => !resolvedSet.has(m.questionId)
     ).length;
+  }, [attempts, questions, resolvedMistakeIds]);
 
-    return buildPrepsAiStudentContext({
-      studentName: profile?.displayName || firebaseUser?.displayName || 'Student',
-      cohortLabel,
+  const prepScore = useMemo(
+    () =>
+      computePrepScore({
+        attempts,
+        questions,
+        chapters,
+        activeStudyDates,
+        resolvedMistakeIds,
+        cohortLabel,
+      }),
+    [attempts, questions, chapters, activeStudyDates, resolvedMistakeIds, cohortLabel]
+  );
+
+  const studentContext = useMemo(
+    () => ({
+      ...buildPrepsAiStudentContext({
+        studentName: profile?.displayName || firebaseUser?.displayName || 'Student',
+        cohortLabel,
+        attempts,
+        currentStreakDays: streak.currentStreak,
+        targetExamDaysLeft: countdown.daysRemaining,
+        bookmarkedQuestionsCount: bookmarkedQuestionIds.length,
+        unresolvedMistakesCount,
+      }),
+      prepScore: prepScore.score,
+      prepScoreMax: 100,
+      prepTier: prepScore.tier,
+    }),
+    [
       attempts,
-      currentStreakDays: streak.currentStreak,
-      targetExamDaysLeft: countdown.daysRemaining,
-      bookmarkedQuestionsCount: bookmarkedQuestionIds.length,
+      bookmarkedQuestionIds.length,
+      cohortLabel,
+      countdown.daysRemaining,
+      firebaseUser?.displayName,
+      prepScore.score,
+      prepScore.tier,
+      profile?.displayName,
+      streak.currentStreak,
       unresolvedMistakesCount,
-    });
-  }, [
-    activeStudyDates,
-    allCohorts,
-    attempts,
-    bookmarkedQuestionIds.length,
-    cohortId,
-    firebaseUser?.displayName,
-    profile?.displayName,
-    questions,
-    resolvedMistakeIds,
-    targetExamDate,
-  ]);
+    ]
+  );
 
-  const sendMessageRef = useRef<(text: string, viaVoice?: boolean) => Promise<void>>(async () => {});
+  const sendMessageRef = useRef<(text: string, viaVoice?: boolean) => Promise<void>>(
+    async () => {}
+  );
 
   const voice = usePrepsVoice({
     onTranscriptReady: (transcript, viaVoice) => {
@@ -149,7 +182,6 @@ export function PrepsAiFloatingOrb() {
 
   sendMessageRef.current = handleSend;
 
-  // Hide on dedicated full-screen Preps AI page so there is no duplicate assistant
   if (location.pathname === '/preps-ai') {
     return null;
   }
@@ -157,39 +189,56 @@ export function PrepsAiFloatingOrb() {
   return (
     <div
       style={{ contain: 'layout style' }}
-      className="fixed bottom-20 lg:bottom-16 right-4 sm:right-6 z-50 flex flex-col items-end gap-3 pointer-events-none"
+      className="fixed bottom-20 lg:bottom-6 right-4 sm:right-6 z-50 flex flex-col items-end gap-2.5 pointer-events-none"
     >
       <AnimatePresence>
         {open && (
           <motion.section
-            initial={{ opacity: 0, y: 16, scale: 0.96 }}
+            initial={{ opacity: 0, y: 14, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 12, scale: 0.96 }}
-            transition={{ duration: 0.18, ease: 'easeOut' }}
-            aria-label="Preps AI Assistant Drawer"
-            className="pointer-events-auto w-[calc(100vw-1.5rem)] sm:w-[390px] max-h-[70vh] sm:max-h-[75vh] bg-white dark:bg-[#0F182D] border border-slate-200 dark:border-slate-700/90 rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+            exit={{ opacity: 0, y: 10, scale: 0.96 }}
+            transition={{ duration: 0.16, ease: 'easeOut' }}
+            aria-label="Preps AI Compact Widget"
+            className="pointer-events-auto w-[calc(100vw-1.5rem)] sm:w-[360px] max-h-[68vh] bg-white dark:bg-[#0F182D] border border-slate-200 dark:border-slate-700/90 rounded-2xl shadow-2xl flex flex-col overflow-hidden"
           >
-            {/* Header */}
-            <div className="px-4 py-3.5 bg-[#0B1B3B] text-white flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#2563EB] to-[#F97316] flex items-center justify-center shrink-0">
-                  <Sparkles className="w-4 h-4 text-white" />
+            {/* Slim Compact Header */}
+            <div className="px-3.5 py-2.5 bg-[#0B1B3B] text-white flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="w-7 h-7 rounded-lg bg-[#2563EB] flex items-center justify-center shrink-0">
+                  <Sparkles className="w-3.5 h-3.5 text-white" />
                 </span>
                 <div className="min-w-0">
-                  <h2 className="font-display text-sm font-bold leading-tight truncate">
-                    Preps AI Mentor
+                  <h2 className="font-display text-xs font-bold leading-tight truncate">
+                    Preps AI
                   </h2>
-                  <p className="text-[11px] text-sky-200 truncate">
+                  <p className="text-[11px] text-sky-200 truncate tabular-nums">
                     {voice.isListening
-                      ? 'Listening to your voice...'
-                      : voice.wakeWordEnabled
-                        ? 'Hands-free: say "Hello Preps"'
-                        : `${studentContext.totalAttempts} test(s) synced`}
+                      ? 'Listening...'
+                      : `Prep ${prepScore.score}/100 · ${cohortLabel}`}
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-1 shrink-0">
+              <div className="flex items-center gap-0.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={voice.toggleWakeWord}
+                  aria-pressed={voice.wakeWordEnabled}
+                  aria-label={
+                    voice.wakeWordEnabled
+                      ? 'Disable Hello Preps wake word'
+                      : 'Enable Hello Preps wake word'
+                  }
+                  title={voice.wakeWordEnabled ? '"Hello Preps" active' : 'Enable "Hello Preps"'}
+                  className={`p-1.5 rounded-lg transition-colors ${
+                    voice.wakeWordEnabled
+                      ? 'bg-emerald-600 text-white'
+                      : 'hover:bg-white/10 text-sky-200'
+                  }`}
+                >
+                  <Radio className="w-3.5 h-3.5" />
+                </button>
+
                 <button
                   type="button"
                   onClick={() => {
@@ -200,73 +249,99 @@ export function PrepsAiFloatingOrb() {
                     }
                   }}
                   aria-label={voice.autoSpeak ? 'Disable voice replies' : 'Enable voice replies'}
-                  title={voice.autoSpeak ? 'Voice output on' : 'Voice output muted'}
                   className="p-1.5 rounded-lg hover:bg-white/10 text-sky-200"
                 >
                   {voice.autoSpeak ? (
-                    <Volume2 className="w-4 h-4" />
+                    <Volume2 className="w-3.5 h-3.5" />
                   ) : (
-                    <VolumeX className="w-4 h-4" />
+                    <VolumeX className="w-3.5 h-3.5" />
                   )}
                 </button>
 
                 <Link
                   to="/preps-ai"
                   onClick={() => setOpen(false)}
-                  aria-label="Open full-screen Preps AI"
-                  title="Open full-screen Preps AI"
+                  aria-label="Expand Preps AI Studio"
                   className="p-1.5 rounded-lg hover:bg-white/10 text-sky-200"
                 >
-                  <ArrowUpRight className="w-4 h-4" />
+                  <ArrowUpRight className="w-3.5 h-3.5" />
                 </Link>
 
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
-                  aria-label="Close Preps AI drawer"
+                  aria-label="Close Preps AI widget"
                   className="p-1.5 rounded-lg hover:bg-white/10 text-white"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>
 
-            {/* Wake-word & Voice Bar */}
-            <div className="px-4 py-2 bg-slate-50 dark:bg-[#141F36] border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-2 text-xs">
+            {/* Accessible Collapsible Live Context Bar */}
+            <div className="bg-slate-50 dark:bg-[#141F36] border-b border-slate-200/80 dark:border-slate-800">
               <button
                 type="button"
-                onClick={voice.toggleWakeWord}
-                aria-pressed={voice.wakeWordEnabled}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-semibold transition-colors ${
-                  voice.wakeWordEnabled
-                    ? 'bg-emerald-600 text-white'
-                    : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-[#2563EB]'
-                }`}
+                onClick={() => setContextExpanded((prev) => !prev)}
+                aria-expanded={contextExpanded}
+                className="w-full px-3.5 py-2 flex items-center justify-between gap-2 text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:text-[#2563EB] dark:hover:text-sky-400 transition-colors tabular-nums"
               >
-                <Radio className="w-3.5 h-3.5" />
-                {voice.wakeWordEnabled ? '"Hello Preps" Active' : 'Enable "Hello Preps"'}
+                <span className="truncate">
+                  Live Context · Prep {prepScore.score}/100 · {streak.currentStreak}d Streak ·{' '}
+                  {unresolvedMistakesCount} Mistakes
+                </span>
+                {contextExpanded ? (
+                  <ChevronUp className="w-3.5 h-3.5 shrink-0" />
+                ) : (
+                  <ChevronDown className="w-3.5 h-3.5 shrink-0" />
+                )}
               </button>
 
-              {voice.isSpeaking && (
-                <button
-                  type="button"
-                  onClick={voice.stopSpeaking}
-                  className="text-xs font-semibold text-rose-600 dark:text-rose-400 hover:underline"
-                >
-                  Stop Audio
-                </button>
+              {contextExpanded && (
+                <div className="px-3.5 pb-2.5 pt-1 border-t border-slate-200/70 dark:border-slate-800 grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px] tabular-nums">
+                  <div>
+                    <span className="text-slate-400">Track: </span>
+                    <span className="font-semibold text-[#0B1B3B] dark:text-white">
+                      {cohortLabel}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400">Prep Score: </span>
+                    <span className="font-mono font-bold text-[#2563EB] dark:text-sky-400">
+                      {prepScore.score}/100
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400">Tests: </span>
+                    <span className="font-mono font-semibold text-[#0B1B3B] dark:text-white">
+                      {studentContext.totalAttempts} ({studentContext.averageAccuracy}% acc)
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400">Pending: </span>
+                    <span className="font-mono font-semibold text-rose-600 dark:text-rose-400">
+                      {unresolvedMistakesCount} mistakes
+                    </span>
+                  </div>
+                  {studentContext.latestTest && (
+                    <div className="col-span-2 truncate text-slate-500 dark:text-slate-400">
+                      Latest: {studentContext.latestTest.title} ({studentContext.latestTest.score}/
+                      {studentContext.latestTest.maxScore})
+                    </div>
+                  )}
+                </div>
               )}
             </div>
 
-            {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-[220px] max-h-[340px]">
+            {/* Compact Messages Area */}
+            <div className="flex-1 overflow-y-auto p-3.5 space-y-2.5 min-h-[190px] max-h-[280px]">
               {messages.map((msg, idx) => (
                 <div
                   key={idx}
                   className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
-                    className={`max-w-[88%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-line ${
+                    className={`max-w-[88%] rounded-2xl px-3 py-2 text-xs sm:text-sm leading-relaxed whitespace-pre-line ${
                       msg.role === 'user'
                         ? 'bg-[#2563EB] text-white rounded-br-sm'
                         : 'bg-slate-100 dark:bg-[#17233D] text-slate-800 dark:text-slate-100 rounded-bl-sm'
@@ -279,7 +354,7 @@ export function PrepsAiFloatingOrb() {
 
               {voice.liveTranscript && (
                 <div className="flex justify-end">
-                  <div className="max-w-[85%] rounded-2xl px-3.5 py-2 text-xs italic bg-blue-50 dark:bg-blue-950/50 text-[#2563EB] dark:text-sky-300 border border-blue-200 dark:border-blue-800">
+                  <div className="max-w-[85%] rounded-xl px-3 py-1.5 text-xs italic bg-blue-50 dark:bg-blue-950/50 text-[#2563EB] dark:text-sky-300 border border-blue-200 dark:border-blue-800">
                     Hearing: &ldquo;{voice.liveTranscript}&rdquo;
                   </div>
                 </div>
@@ -288,7 +363,7 @@ export function PrepsAiFloatingOrb() {
               {loading && (
                 <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
                   <Loader2 className="w-3.5 h-3.5 animate-spin text-[#2563EB]" />
-                  Preps AI is analyzing your stats...
+                  Thinking with your live stats...
                 </div>
               )}
 
@@ -299,36 +374,36 @@ export function PrepsAiFloatingOrb() {
               )}
             </div>
 
-            {/* Quick Prompt Chips */}
-            <div className="px-4 py-2 border-t border-slate-100 dark:border-slate-800 flex gap-1.5 overflow-x-auto">
+            {/* Quick Prompt Row */}
+            <div className="px-3 py-1.5 border-t border-slate-100 dark:border-slate-800 flex gap-1.5 overflow-x-auto">
               {followUps.map((chip) => (
                 <button
                   key={chip}
                   type="button"
                   disabled={loading}
                   onClick={() => void handleSend(chip, false)}
-                  className="shrink-0 text-xs font-medium px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800/90 text-slate-700 dark:text-slate-200 hover:bg-blue-50 hover:text-[#2563EB] dark:hover:bg-blue-950/60 dark:hover:text-sky-300 transition-colors"
+                  className="shrink-0 text-[11px] font-medium px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800/90 text-slate-700 dark:text-slate-200 hover:bg-blue-50 hover:text-[#2563EB] dark:hover:bg-blue-950/60 dark:hover:text-sky-300 transition-colors"
                 >
                   {chip}
                 </button>
               ))}
             </div>
 
-            {/* Input Bar */}
+            {/* Compact Input Bar */}
             <form
               onSubmit={(e) => {
                 e.preventDefault();
                 void handleSend(input, false);
               }}
-              className="p-3 border-t border-slate-200 dark:border-slate-800 flex items-center gap-2 bg-white dark:bg-[#0F182D]"
+              className="p-2.5 border-t border-slate-200 dark:border-slate-800 flex items-center gap-1.5 bg-white dark:bg-[#0F182D]"
             >
               <button
                 type="button"
                 onClick={voice.isListening ? voice.stopListening : voice.startListening}
                 aria-label={voice.isListening ? 'Stop voice input' : 'Start voice input'}
-                className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
                   voice.isListening
-                    ? 'bg-rose-600 text-white animate-pulse'
+                    ? 'bg-rose-600 text-white'
                     : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-blue-50 hover:text-[#2563EB]'
                 }`}
               >
@@ -339,16 +414,16 @@ export function PrepsAiFloatingOrb() {
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask Preps AI or tap mic..."
+                placeholder="Ask Preps AI..."
                 aria-label="Message Preps AI"
-                className="flex-1 min-w-0 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                className="flex-1 min-w-0 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
               />
 
               <button
                 type="submit"
                 disabled={loading || !input.trim()}
                 aria-label="Send message to Preps AI"
-                className="h-10 w-10 rounded-xl bg-[#2563EB] hover:bg-blue-700 disabled:opacity-45 text-white flex items-center justify-center shrink-0 transition-colors"
+                className="h-9 w-9 rounded-xl bg-[#2563EB] hover:bg-blue-700 disabled:opacity-45 text-white flex items-center justify-center shrink-0 transition-colors"
               >
                 <Send className="w-4 h-4" />
               </button>
@@ -357,7 +432,7 @@ export function PrepsAiFloatingOrb() {
         )}
       </AnimatePresence>
 
-      {/* Persistent Floating Preps AI Orb Button (Bottom-Right Fixed — bottom-20 on mobile to clear bottom nav) */}
+      {/* Compact Floating Preps AI Launcher */}
       <button
         type="button"
         onClick={() => {
@@ -365,17 +440,15 @@ export function PrepsAiFloatingOrb() {
           setOpen((prev) => !prev);
         }}
         aria-expanded={open}
-        aria-label={open ? 'Close Preps AI Assistant' : 'Open Preps AI Voice & Chat Assistant'}
-        className="pointer-events-auto preps-orb-pulse group inline-flex items-center gap-2 sm:gap-2.5 h-12 sm:h-14 px-3.5 sm:px-5 rounded-full bg-gradient-to-r from-[#0B1B3B] via-[#1D4ED8] to-[#2563EB] text-white font-display font-bold text-xs sm:text-sm shadow-xl border border-white/20 hover:scale-[1.03] active:scale-[0.98] transition-transform"
+        aria-label={open ? 'Close Preps AI Widget' : 'Open Preps AI Widget'}
+        className="pointer-events-auto inline-flex items-center gap-2 h-11 px-4 rounded-full bg-[#0B1B3B] hover:bg-[#162C5B] dark:bg-[#2563EB] dark:hover:bg-blue-700 text-white font-display font-bold text-xs shadow-lg border border-white/15 transition-colors"
       >
-        <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/15 flex items-center justify-center shrink-0">
-          {voice.isListening ? (
-            <Mic className="w-4 h-4 text-[#F97316] animate-pulse" />
-          ) : (
-            <Sparkles className="w-4 h-4 text-sky-200" />
-          )}
-        </span>
-        <span className="pr-0.5">Preps AI</span>
+        {voice.isListening ? (
+          <Mic className="w-4 h-4 text-[#F97316]" />
+        ) : (
+          <Sparkles className="w-4 h-4 text-sky-300" />
+        )}
+        <span>Preps AI</span>
       </button>
     </div>
   );

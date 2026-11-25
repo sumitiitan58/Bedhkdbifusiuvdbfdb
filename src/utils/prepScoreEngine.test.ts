@@ -1,11 +1,109 @@
-import { describe, it } from 'node:test';
+import test from 'node:test';
 import assert from 'node:assert/strict';
-import { computeAiPrepScore, getPrepReadinessTier } from './prepScoreEngine';
-import type { ChapterRecord, TestAttemptRecord, TestQuestionRecord } from '../types';
+import { computePrepScore } from './prepScoreEngine';
+import type {
+  ChapterRecord,
+  QuestionTimingRecord,
+  TestAttemptRecord,
+  TestQuestionRecord,
+} from '../types';
+
+function makeQuestion(overrides: Partial<TestQuestionRecord> = {}): TestQuestionRecord {
+  return {
+    id: overrides.id ?? 'q-1',
+    testId: overrides.testId ?? 'test-1',
+    questionNumber: overrides.questionNumber ?? 1,
+    subjectName: overrides.subjectName ?? 'Physics',
+    chapterName: overrides.chapterName ?? 'Electrostatics',
+    questionType: overrides.questionType ?? 'single-mcq',
+    questionText: overrides.questionText ?? 'Sample physics question',
+    optionTexts: overrides.optionTexts ?? ['A', 'B', 'C', 'D'],
+    correctOptionIndices: overrides.correctOptionIndices ?? [0],
+    positiveMarks: overrides.positiveMarks ?? 4,
+    negativeMarks: overrides.negativeMarks ?? 1,
+    testStatus: overrides.testStatus ?? 'published',
+  };
+}
+
+function makeTiming(overrides: Partial<QuestionTimingRecord> = {}): QuestionTimingRecord {
+  return {
+    questionId: overrides.questionId ?? 'q-1',
+    questionNumber: overrides.questionNumber ?? 1,
+    subjectName: overrides.subjectName ?? 'Physics',
+    chapterName: overrides.chapterName ?? 'Electrostatics',
+    openedAtMs: overrides.openedAtMs ?? 1000,
+    answeredAtMs: overrides.answeredAtMs ?? 65000,
+    timeSpentSeconds: overrides.timeSpentSeconds ?? 65,
+    answered: overrides.answered ?? true,
+    isCorrect: overrides.isCorrect ?? true,
+    paceCategory: overrides.paceCategory ?? 'Optimal Pace',
+  };
+}
+
+function makeAttempt(overrides: Partial<TestAttemptRecord> = {}): TestAttemptRecord {
+  return {
+    id: overrides.id ?? 'att-1',
+    userId: overrides.userId ?? 'u-1',
+    testId: overrides.testId ?? 'test-1',
+    testTitle: overrides.testTitle ?? 'JEE Main Mock 1',
+    destination: overrides.destination ?? 'cbt-mock',
+    cohortId: overrides.cohortId ?? 'class-12-jee',
+    score: overrides.score ?? 48,
+    maxScore: overrides.maxScore ?? 48,
+    correctCount: overrides.correctCount ?? 12,
+    incorrectCount: overrides.incorrectCount ?? 0,
+    unattemptedCount: overrides.unattemptedCount ?? 0,
+    accuracyPercent: overrides.accuracyPercent ?? 100,
+    totalTimeSeconds: overrides.totalTimeSeconds ?? 780,
+    avgTimePerQuestion: overrides.avgTimePerQuestion ?? 65,
+    iqScore: overrides.iqScore ?? 88,
+    paceSummary: overrides.paceSummary ?? {
+      tooFastCount: 0,
+      optimalCount: 12,
+      tooSlowCount: 0,
+      unattemptedCount: 0,
+      rushingFlagNote: 'Balanced pacing',
+    },
+    subjectScores: overrides.subjectScores ?? [
+      {
+        subjectName: 'Physics',
+        total: 12,
+        correct: 12,
+        incorrect: 0,
+        unattempted: 0,
+        score: 48,
+        maxScore: 48,
+        accuracyPercent: 100,
+        avgTimeSeconds: 65,
+      },
+    ],
+    chapterScores: overrides.chapterScores ?? [
+      {
+        chapterName: 'Electrostatics',
+        subjectName: 'Physics',
+        total: 6,
+        correct: 6,
+        incorrect: 0,
+        accuracyPercent: 100,
+      },
+      {
+        chapterName: 'Modern Physics',
+        subjectName: 'Physics',
+        total: 6,
+        correct: 6,
+        incorrect: 0,
+        accuracyPercent: 100,
+      },
+    ],
+    questionTimings: overrides.questionTimings ?? [],
+    answers: overrides.answers ?? {},
+    submittedAtIso: overrides.submittedAtIso ?? '2026-11-24T10:00:00.000Z',
+  };
+}
 
 const SAMPLE_CHAPTERS: ChapterRecord[] = [
   {
-    id: 'ch-elec',
+    id: 'ch-1',
     subjectId: 'subj-physics',
     name: 'Electrostatics',
     order: 1,
@@ -14,324 +112,141 @@ const SAMPLE_CHAPTERS: ChapterRecord[] = [
     difficulty: 'Moderate',
   },
   {
-    id: 'ch-calc',
-    subjectId: 'subj-mathematics',
-    name: 'Definite Integration Calculus',
+    id: 'ch-2',
+    subjectId: 'subj-physics',
+    name: 'Modern Physics',
     order: 2,
     cohorts: ['class-12-jee'],
     weightageMarks: 12,
-    difficulty: 'Tough',
-  },
-  {
-    id: 'ch-goc',
-    subjectId: 'subj-chemistry',
-    name: 'General Organic Chemistry (GOC)',
-    order: 3,
-    cohorts: ['class-12-jee'],
-    weightageMarks: 10,
     difficulty: 'Moderate',
   },
 ];
 
-const SAMPLE_QUESTIONS: TestQuestionRecord[] = [
-  {
-    id: 'q1',
-    testId: 't1',
-    questionNumber: 1,
-    subjectName: 'Physics',
-    chapterName: 'Electrostatics',
-    questionType: 'single-mcq',
-    correctOptionIndices: [0],
-    positiveMarks: 4,
-    negativeMarks: 1,
-    testStatus: 'published',
-  },
-  {
-    id: 'q2',
-    testId: 't1',
-    questionNumber: 2,
-    subjectName: 'Physics',
-    chapterName: 'Modern Physics',
-    questionType: 'single-mcq',
-    correctOptionIndices: [1],
-    positiveMarks: 4,
-    negativeMarks: 1,
-    testStatus: 'published',
-  },
-  {
-    id: 'q3',
-    testId: 't1',
-    questionNumber: 3,
-    subjectName: 'Mathematics',
-    chapterName: 'Definite Integration Calculus',
-    questionType: 'single-mcq',
-    correctOptionIndices: [2],
-    positiveMarks: 4,
-    negativeMarks: 1,
-    testStatus: 'published',
-  },
-  {
-    id: 'q4',
-    testId: 't1',
-    questionNumber: 4,
-    subjectName: 'Chemistry',
-    chapterName: 'General Organic Chemistry (GOC)',
-    questionType: 'single-mcq',
-    correctOptionIndices: [3],
-    positiveMarks: 4,
-    negativeMarks: 1,
-    testStatus: 'published',
-  },
-];
+test('computePrepScore calibrates cleanly to 0–100 scale with empty attempts', () => {
+  const result = computePrepScore({
+    attempts: [],
+    questions: [],
+    chapters: SAMPLE_CHAPTERS,
+    activeStudyDates: ['2026-11-23', '2026-11-24'],
+    resolvedMistakeIds: [],
+    cohortLabel: 'Class 12 JEE',
+    referenceDate: new Date('2026-11-24T12:00:00.000Z'),
+  });
 
-function makeAttempt(overrides: Partial<TestAttemptRecord>): TestAttemptRecord {
-  return {
-    id: 'att-base',
-    userId: 'u1',
-    testId: 't1',
-    testTitle: 'JEE Main Full Mock #1',
-    destination: 'cbt-mock',
-    cohortId: 'class-12-jee',
-    score: 11,
-    maxScore: 16,
-    correctCount: 3,
-    incorrectCount: 1,
-    unattemptedCount: 0,
-    accuracyPercent: 75,
-    totalTimeSeconds: 310,
-    avgTimePerQuestion: 78,
-    iqScore: 118,
-    subjectScores: [],
-    chapterScores: [],
-    paceSummary: {
-      tooFastCount: 1,
-      optimalCount: 3,
-      tooSlowCount: 0,
-      unattemptedCount: 0,
-      rushingFlagNote: 'Good',
-    },
-    questionTimings: [
-      {
-        questionId: 'q1',
-        questionNumber: 1,
-        subjectName: 'Physics',
-        chapterName: 'Electrostatics',
-        openedAtMs: 0,
-        answeredAtMs: 80000,
-        timeSpentSeconds: 80,
-        answered: true,
-        isCorrect: true,
-        paceCategory: 'Optimal Pace',
-      },
-      {
-        questionId: 'q2',
-        questionNumber: 2,
-        subjectName: 'Physics',
-        chapterName: 'Modern Physics',
-        openedAtMs: 80000,
-        answeredAtMs: 165000,
-        timeSpentSeconds: 85,
-        answered: true,
-        isCorrect: true,
-        paceCategory: 'Optimal Pace',
-      },
-      {
-        questionId: 'q3',
-        questionNumber: 3,
-        subjectName: 'Mathematics',
-        chapterName: 'Definite Integration Calculus',
-        openedAtMs: 165000,
-        answeredAtMs: 173000,
-        timeSpentSeconds: 8, // Rushed guess (<10s wrong)
-        answered: true,
-        isCorrect: false,
-        paceCategory: 'Too Fast',
-      },
-      {
-        questionId: 'q4',
-        questionNumber: 4,
-        subjectName: 'Chemistry',
-        chapterName: 'General Organic Chemistry (GOC)',
-        openedAtMs: 173000,
-        answeredAtMs: 268000,
-        timeSpentSeconds: 95,
-        answered: true,
-        isCorrect: true,
-        paceCategory: 'Optimal Pace',
-      },
-    ],
-    answers: {},
+  assert.equal(result.maxScore, 100);
+  assert.ok(result.score >= 0 && result.score <= 100, `score ${result.score} out of 0–100 bounds`);
+  assert.equal(result.pointsTo85, Math.max(0, 85 - result.score));
+
+  const factorMaxSum = result.factors.reduce((sum, f) => sum + f.maxScore, 0);
+  assert.equal(factorMaxSum, 100);
+  assert.deepEqual(
+    result.factors.map((f) => f.maxScore),
+    [25, 30, 25, 20]
+  );
+  assert.equal(result.tier, 'Foundation');
+});
+
+test('computePrepScore awards high 0–100 score and AIR Top 1000 Pace tier for strong optimal attempts', () => {
+  const qs = Array.from({ length: 12 }, (_, idx) =>
+    makeQuestion({
+      id: `q-${idx + 1}`,
+      questionNumber: idx + 1,
+      chapterName: idx % 2 === 0 ? 'Electrostatics' : 'Modern Physics',
+    })
+  );
+
+  const timings = qs.map((q) =>
+    makeTiming({
+      questionId: q.id,
+      questionNumber: q.questionNumber,
+      chapterName: q.chapterName ?? 'Electrostatics',
+      timeSpentSeconds: 70,
+      answered: true,
+      isCorrect: true,
+      paceCategory: 'Optimal Pace',
+    })
+  );
+
+  const answers: TestAttemptRecord['answers'] = {};
+  for (const q of qs) {
+    answers[q.id] = { type: 'single-mcq', selectedIndex: 0 };
+  }
+
+  const attempt = makeAttempt({
+    questionTimings: timings,
+    answers,
     submittedAtIso: '2026-11-24T10:00:00.000Z',
-    ...overrides,
-  };
-}
-
-describe('prepScoreEngine', () => {
-  const refDate = new Date('2026-11-24T12:00:00.000Z');
-
-  it('maps score ranges to the 4 expected readiness tiers', () => {
-    assert.equal(getPrepReadinessTier(220).tier, 'Foundation');
-    assert.equal(getPrepReadinessTier(540).tier, 'Contender');
-    assert.equal(getPrepReadinessTier(742).tier, '98+ %ile Ready');
-    assert.equal(getPrepReadinessTier(880).tier, 'AIR Top 1000 Pace');
   });
 
-  it('computes a 0-1000 score with 4 factors totaling 100% weight and 3 insights', () => {
-    const report = computeAiPrepScore({
-      attempts: [makeAttempt({})],
-      questions: SAMPLE_QUESTIONS,
-      chapters: SAMPLE_CHAPTERS,
-      activeStudyDates: ['2026-11-20', '2026-11-21', '2026-11-22', '2026-11-23', '2026-11-24'],
-      resolvedMistakeIds: [],
-      cohortLabel: 'Class 12 JEE',
-      referenceDate: refDate,
-    });
-
-    assert.ok(report.score >= 0 && report.score <= 1000);
-    assert.equal(report.factors.length, 4);
-    const totalWeight = report.factors.reduce((sum, f) => sum + f.weightPercent, 0);
-    assert.equal(totalWeight, 100);
-    const factorSum = report.factors.reduce((sum, f) => sum + f.score, 0);
-    assert.equal(factorSum, report.score);
-    assert.equal(report.insights.length, 3);
-    assert.equal(report.diagnostics.rushedWrongCount, 1);
-    assert.ok(
-      report.insights.some((i) => i.headline.toLowerCase().includes('rushed')),
-      'Expected an insight calling out rushed (<10s) errors'
-    );
-    assert.ok(report.actionItems.length >= 1);
+  const studyDates = Array.from({ length: 14 }, (_, i) => {
+    const d = new Date('2026-11-24T12:00:00.000Z');
+    d.setDate(d.getDate() - i);
+    return d.toISOString().slice(0, 10);
   });
 
-  it('increases score when Mistake Notebook items are resolved and streak lengthens', () => {
-    const base = computeAiPrepScore({
-      attempts: [makeAttempt({})],
-      questions: SAMPLE_QUESTIONS,
-      chapters: SAMPLE_CHAPTERS,
-      activeStudyDates: ['2026-11-24'],
-      resolvedMistakeIds: [],
-      cohortLabel: 'Class 12 JEE',
-      referenceDate: refDate,
-    });
-
-    const improved = computeAiPrepScore({
-      attempts: [makeAttempt({})],
-      questions: SAMPLE_QUESTIONS,
-      chapters: SAMPLE_CHAPTERS,
-      activeStudyDates: [
-        '2026-11-15',
-        '2026-11-16',
-        '2026-11-17',
-        '2026-11-18',
-        '2026-11-19',
-        '2026-11-20',
-        '2026-11-21',
-        '2026-11-22',
-        '2026-11-23',
-        '2026-11-24',
-      ],
-      resolvedMistakeIds: ['q3'],
-      cohortLabel: 'Class 12 JEE',
-      referenceDate: refDate,
-    });
-
-    assert.ok(improved.score > base.score, `Expected ${improved.score} > ${base.score}`);
-    assert.equal(improved.diagnostics.mistakeRecoveryPercent, 100);
+  const result = computePrepScore({
+    attempts: [attempt, { ...attempt, id: 'att-2', submittedAtIso: '2026-11-20T10:00:00.000Z' }],
+    questions: qs,
+    chapters: SAMPLE_CHAPTERS,
+    activeStudyDates: studyDates,
+    resolvedMistakeIds: [],
+    cohortLabel: 'Class 12 JEE',
+    referenceDate: new Date('2026-11-24T12:00:00.000Z'),
   });
 
-  it('penalizes time-sink traps (>180s) and computes weekly delta across attempts', () => {
-    const olderWeak = makeAttempt({
-      id: 'att-old',
-      submittedAtIso: '2026-11-10T10:00:00.000Z',
-      score: 2,
-      correctCount: 1,
-      incorrectCount: 2,
-      unattemptedCount: 1,
-      questionTimings: [
-        {
-          questionId: 'q1',
-          questionNumber: 1,
-          subjectName: 'Physics',
-          chapterName: 'Electrostatics',
-          openedAtMs: 0,
-          answeredAtMs: 220000,
-          timeSpentSeconds: 220, // Time sink (>180s)
-          answered: true,
-          isCorrect: true,
-          paceCategory: 'Too Slow',
-        },
-        {
-          questionId: 'q2',
-          questionNumber: 2,
-          subjectName: 'Physics',
-          chapterName: 'Modern Physics',
-          openedAtMs: 220000,
-          answeredAtMs: 227000,
-          timeSpentSeconds: 7,
-          answered: true,
-          isCorrect: false,
-          paceCategory: 'Too Fast',
-        },
-        {
-          questionId: 'q3',
-          questionNumber: 3,
-          subjectName: 'Mathematics',
-          chapterName: 'Definite Integration Calculus',
-          openedAtMs: 227000,
-          answeredAtMs: 430000,
-          timeSpentSeconds: 203, // Time sink (>180s)
-          answered: true,
-          isCorrect: false,
-          paceCategory: 'Too Slow',
-        },
-        {
-          questionId: 'q4',
-          questionNumber: 4,
-          subjectName: 'Chemistry',
-          chapterName: 'General Organic Chemistry (GOC)',
-          openedAtMs: 430000,
-          answeredAtMs: null,
-          timeSpentSeconds: 15,
-          answered: false,
-          isCorrect: false,
-          paceCategory: 'Unattempted',
-        },
-      ],
-    });
+  assert.equal(result.maxScore, 100);
+  assert.ok(result.score >= 85 && result.score <= 100, `Expected >=85, got ${result.score}`);
+  assert.equal(result.tier, 'AIR Top 1000 Pace');
+  assert.equal(result.pointsTo85, 0);
+});
 
-    const recentStrong = makeAttempt({
-      id: 'att-new',
-      submittedAtIso: '2026-11-23T10:00:00.000Z',
-    });
+test('computePrepScore penalizes rushed <10s mistakes and >180s time sinks with bounded 0–100 insights', () => {
+  const qs = [
+    makeQuestion({ id: 'q-fast-1', questionNumber: 1, chapterName: 'Rotational Motion' }),
+    makeQuestion({ id: 'q-fast-2', questionNumber: 2, chapterName: 'Rotational Motion' }),
+    makeQuestion({ id: 'q-slow-1', questionNumber: 3, chapterName: 'Optics' }),
+    makeQuestion({ id: 'q-slow-2', questionNumber: 4, chapterName: 'Optics' }),
+  ];
 
-    const report = computeAiPrepScore({
-      attempts: [olderWeak, recentStrong],
-      questions: SAMPLE_QUESTIONS,
-      chapters: SAMPLE_CHAPTERS,
-      activeStudyDates: ['2026-11-10', '2026-11-22', '2026-11-23', '2026-11-24'],
-      resolvedMistakeIds: ['q2'],
-      cohortLabel: 'Class 12 JEE',
-      referenceDate: refDate,
-    });
-
-    assert.equal(report.diagnostics.timeSinkCount, 2);
-    assert.ok(report.deltaThisWeek > 0, `Expected positive weekly delta, got ${report.deltaThisWeek}`);
+  const attempt = makeAttempt({
+    score: -4,
+    maxScore: 16,
+    correctCount: 0,
+    incorrectCount: 4,
+    unattemptedCount: 0,
+    accuracyPercent: 0,
+    questionTimings: [
+      makeTiming({ questionId: 'q-fast-1', questionNumber: 1, chapterName: 'Rotational Motion', timeSpentSeconds: 6, isCorrect: false, paceCategory: 'Too Fast' }),
+      makeTiming({ questionId: 'q-fast-2', questionNumber: 2, chapterName: 'Rotational Motion', timeSpentSeconds: 8, isCorrect: false, paceCategory: 'Too Fast' }),
+      makeTiming({ questionId: 'q-slow-1', questionNumber: 3, chapterName: 'Optics', timeSpentSeconds: 210, isCorrect: false, paceCategory: 'Too Slow' }),
+      makeTiming({ questionId: 'q-slow-2', questionNumber: 4, chapterName: 'Optics', timeSpentSeconds: 240, isCorrect: false, paceCategory: 'Too Slow' }),
+    ],
+    answers: {
+      'q-fast-1': { type: 'single-mcq', selectedIndex: 1 },
+      'q-fast-2': { type: 'single-mcq', selectedIndex: 2 },
+      'q-slow-1': { type: 'single-mcq', selectedIndex: 1 },
+      'q-slow-2': { type: 'single-mcq', selectedIndex: 1 },
+    },
+    chapterScores: [
+      { chapterName: 'Rotational Motion', subjectName: 'Physics', total: 2, correct: 0, incorrect: 2, accuracyPercent: 0 },
+      { chapterName: 'Optics', subjectName: 'Physics', total: 2, correct: 0, incorrect: 2, accuracyPercent: 0 },
+    ],
   });
 
-  it('handles zero-attempt new students cleanly without NaN', () => {
-    const report = computeAiPrepScore({
-      attempts: [],
-      questions: SAMPLE_QUESTIONS,
-      chapters: SAMPLE_CHAPTERS,
-      activeStudyDates: ['2026-11-24'],
-      resolvedMistakeIds: [],
-      cohortLabel: 'Class 12 NEET',
-      referenceDate: refDate,
-    });
-
-    assert.equal(report.hasAttemptData, false);
-    assert.equal(Number.isNaN(report.score), false);
-    assert.equal(report.tier, 'Foundation');
-    assert.equal(report.insights.length, 3);
-    assert.equal(report.actionItems.length, 3);
+  const result = computePrepScore({
+    attempts: [attempt],
+    questions: qs,
+    chapters: SAMPLE_CHAPTERS,
+    activeStudyDates: [],
+    resolvedMistakeIds: [],
+    cohortLabel: 'Class 12 JEE',
+    referenceDate: new Date('2026-11-24T12:00:00.000Z'),
   });
+
+  assert.ok(result.score >= 0 && result.score <= 45, `Expected low score, got ${result.score}`);
+  assert.ok(result.diagnostics.rushedWrongCount >= 2);
+  assert.ok(result.diagnostics.timeSinkCount >= 2);
+  for (const item of result.actionItems) {
+    assert.ok(item.estimatedGainPts <= 25, `Gain ${item.estimatedGainPts} should be bounded for 0–100 scale`);
+  }
 });

@@ -9,16 +9,20 @@ export const ABOUT_FAQS: FaqItem[] = [
     a: 'PREPSKM.IN is built by Sumit (@unfiltereddsumit) to give Class 9–12 Board, JEE Main, JEE Advanced, and NEET UG students a fast, distraction-free study platform. You can follow @unfiltereddsumit on Instagram, YouTube, X (Twitter), Telegram, and GitHub.',
   },
   {
-    q: 'Are chapter-wise notes, DPPs, and CBT mock tests free to use?',
-    a: 'Yes. Students can read and download chapter-wise concise notes, formula sheets, and mind maps, solve timed chapter DPPs, and attempt full-syllabus NTA-pattern JEE and NEET CBT mock tests free of charge.',
+    q: 'How are Chapter DPPs integrated inside Study Materials?',
+    a: 'Timed Chapter DPPs are built directly into Study Materials. You can revise Short Notes, Formula Sheets, Mind Maps, and PYQs for any chapter and launch matching Chapter DPPs inline with +4/-1 NTA scoring and instant solutions.',
   },
   {
-    q: 'Can I review past CBT mock test analysis and step-by-step solutions anytime?',
-    a: 'Yes. Open Test Analysis or All Tests (CBT) and click "Analysis & Solutions" on any submitted attempt to inspect your official score, predicted percentile, subject-wise accuracy, pacing breakdown, and full solutions.',
+    q: 'How is the Prep Score (0–100) calculated?',
+    a: 'Your Prep Score is calibrated on a 0–100 scale across four weighted pillars: Pacing & Time Efficiency (25 pts), High-Yield Chapter Weightage (30 pts), Accuracy & Negative Control (25 pts), and Consistency & Mistake Recovery (20 pts). Scoring 85+ indicates AIR Top 1000 exam readiness.',
   },
   {
-    q: 'How does the Mistake Notebook and Preps AI mentor help improve exam scores?',
-    a: 'Every wrong or skipped question from your CBT mocks and DPPs is automatically saved to your Mistake Notebook for re-attempting. You can ask Preps AI in English or Hinglish to explain mistakes step-by-step and build a targeted 7-day revision plan.',
+    q: 'How do AI Error Analysis and Personalized Re-Attempt Sets work in Mistake Notebook?',
+    a: 'Every wrong or skipped question is automatically categorized by root cause (rushed slips, time-sinks, conceptual gaps, or skipped topics). You can generate targeted timed re-attempt sets from high-risk or weak chapters and ask Preps AI for step-by-step error fixes.',
+  },
+  {
+    q: 'Can I sync my test analytics to Google Sheets and manage study tasks in Google Tasks?',
+    a: 'Yes. From the Dashboard or Test Analysis page, you can export a 3-tab Prep Score & Test Analytics workbook to Google Sheets and manage study goals in Google Tasks. Every write action asks for your explicit confirmation first and keeps OAuth tokens strictly in memory.',
   },
   {
     q: 'How does the CBT Mock Test Room-Exit Warning work?',
@@ -44,7 +48,7 @@ export function buildChapterFaqs(params: {
     },
     {
       q: `How should I practice ${chapterName} after reading these notes?`,
-      a: `After revising ${chapterName}, solve timed chapter-wise Daily Practice Problems (DPPs) and attempt an NTA-pattern CBT Mock Test on PREPSKM.IN. Any incorrect or skipped problems automatically move to your Mistake Notebook for targeted re-attempts.`,
+      a: `After revising ${chapterName}, launch an inline Chapter DPP directly inside Study Materials and attempt an NTA-pattern CBT Mock Test on PREPSKM.IN. Incorrect or skipped questions automatically enter your AI Mistake Notebook for personalized re-attempt drills.`,
     },
   ];
 }

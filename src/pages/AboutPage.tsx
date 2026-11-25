@@ -32,38 +32,38 @@ const STUDY_METHODOLOGY = [
   {
     step: '01',
     icon: BookOpen,
-    title: 'Master High-Yield Chapters First',
+    title: 'Revise Notes & Solve Inline Chapter DPPs',
     description:
-      'Start every chapter with concise NCERT-aligned short notes, formula sheets, and mind maps structured cleanly by class track and subject.',
+      'Open any chapter for NCERT-aligned short notes, formula sheets, mind maps, and PYQs — then launch timed Chapter DPPs right inline without switching modules.',
     route: '/materials',
-    cta: 'Browse Notes',
+    cta: 'Open Notes & DPPs',
   },
   {
     step: '02',
-    icon: FileSpreadsheet,
-    title: 'Lock In Speed with Chapter DPPs',
-    description:
-      'Build problem-solving reflexes through timed Daily Practice Problems covering Single MCQ, Multi-Correct, and Integer numerical patterns.',
-    route: '/dpp',
-    cta: 'Solve DPPs',
-  },
-  {
-    step: '03',
     icon: ClipboardCheck,
-    title: 'Simulate Real NTA Exam Pressure',
+    title: 'Simulate Real NTA CBT Exam Pressure',
     description:
-      'Attempt full-length JEE Main (300 marks) and NEET UG (720 marks) CBT mocks with +4/-1 marking, live question palette, and focus integrity alerts.',
+      'Attempt full-length JEE Main (300 marks) and NEET UG (720 marks) CBT mocks with +4/-1 marking, live question palette, and room-exit focus alerts.',
     route: '/cbt-mocks',
     cta: 'Start CBT Mock',
   },
   {
+    step: '03',
+    icon: LineChart,
+    title: 'Track Prep Score (0–100) & Workspace Sync',
+    description:
+      'Measure exam readiness on a calibrated 0–100 Prep Score across pacing, weightage, accuracy, and recovery — and export 3-tab analytics to Google Sheets & Tasks.',
+    route: '/analytics',
+    cta: 'View Prep Score',
+  },
+  {
     step: '04',
     icon: Sparkles,
-    title: 'Eliminate Repeat Mistakes with Preps AI',
+    title: 'Fix Error Patterns with AI Mistake Vault',
     description:
-      'Turn wrong and skipped questions into an automated Mistake Notebook, inspect time-per-question analytics, and get step-by-step fixes from Preps AI.',
-    route: '/preps-ai',
-    cta: 'Ask Preps AI',
+      'Diagnose rushed slips, time-sinks, and conceptual gaps automatically, generate personalized timed re-attempt sets, and get instant step-by-step fixes from Preps AI.',
+    route: '/mistakes',
+    cta: 'Open Mistake Lab',
   },
 ];
 
@@ -80,7 +80,7 @@ export default function AboutPage() {
           name: 'About Prepskm (@unfiltereddsumit)',
           url: 'https://prepskm.in/about',
           description:
-            'Meet Sumit (@unfiltereddsumit) and discover how PREPSKM.IN helps JEE, NEET & Class 9-12 students master NCERT notes, DPPs, and NTA CBT mocks.',
+            'Discover how PREPSKM.IN by @unfiltereddsumit unites chapter notes, inline DPPs, NTA CBT mocks, Prep Score (0–100), AI Mistake Notebook & Google Workspace sync.',
         },
         {
           '@type': 'FAQPage',
@@ -102,9 +102,9 @@ export default function AboutPage() {
     <PageLayout>
       <SeoHead
         title="About Prepskm (@unfiltereddsumit) | JEE & NEET Hub"
-        description="Meet Sumit (@unfiltereddsumit) and discover how PREPSKM.IN helps JEE, NEET & Class 9-12 students master NCERT notes, DPPs, and NTA CBT mocks."
+        description="Meet Sumit (@unfiltereddsumit) and see how PREPSKM.IN combines chapter notes, inline DPPs, NTA CBT mocks, Prep Score (0–100), and AI Mistake Analysis."
         canonicalPath="/about"
-        keywords="About Prepskm, prepskm.in, unfiltereddsumit, JEE Main preparation, NEET UG CBT mock tests, Class 9-12 board notes"
+        keywords="About Prepskm, prepskm.in, unfiltereddsumit, Prep Score 0-100, JEE Main preparation, NEET UG CBT mock tests, inline Chapter DPPs, AI Mistake Notebook"
         jsonLd={aboutJsonLd}
       />
 
@@ -124,20 +124,20 @@ export default function AboutPage() {
               Built to turn daily consistency into top JEE, NEET &amp; Board ranks.
             </h1>
             <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 leading-relaxed">
-              PREPSKM.IN brings together chapter-wise concise notes and formula sheets, timed
-              Daily Practice Problems (DPPs), authentic NTA-pattern CBT mock tests, automated
-              Mistake Notebooks, and Preps AI mentoring — all in one fast, distraction-free study
-              workspace.
+              PREPSKM.IN brings together chapter-wise concise notes with inline Chapter DPPs,
+              authentic NTA-pattern CBT mock tests, a calibrated Prep Score (0–100) with Google
+              Sheets &amp; Tasks Workspace sync, an AI-powered Mistake Notebook with personalized
+              re-attempt sets, and a compact Preps AI study mentor.
             </p>
             <div className="flex flex-wrap gap-2.5 pt-1">
               <ReusableButton variant="primary" size="sm" to="/materials">
-                Explore Study Materials
+                Notes &amp; Inline DPPs
               </ReusableButton>
               <ReusableButton variant="secondary" size="sm" to="/cbt-mocks">
                 Try NTA CBT Mock
               </ReusableButton>
-              <ReusableButton variant="ghost" size="sm" to="/preps-ai">
-                Ask Preps AI
+              <ReusableButton variant="ghost" size="sm" to="/mistakes">
+                AI Mistake Lab
               </ReusableButton>
             </div>
           </div>
@@ -168,8 +168,9 @@ export default function AboutPage() {
               How PREPSKM.IN Helps You Crack JEE, NEET &amp; Boards
             </h2>
             <p className="text-sm text-slate-600 dark:text-slate-400 max-w-3xl">
-              Instead of scattering your preparation across disconnected PDFs and random video
-              playlists, follow one structured loop from concept revision to exam-day mastery.
+              Instead of scattering your preparation across disconnected PDFs, spreadsheets, and
+              random video playlists, follow one integrated loop from concept revision to exam-day
+              mastery.
             </p>
           </div>
 
@@ -209,7 +210,7 @@ export default function AboutPage() {
           </div>
         </motion.section>
 
-        {/* Compact Core Numbers */}
+        {/* Compact Core Numbers & Capabilities */}
         <section aria-label="Platform highlights" className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
           <ReusableCard padding="sm" className="space-y-1.5">
             <Target className="w-4 h-4 text-[#2563EB]" />
@@ -217,37 +218,37 @@ export default function AboutPage() {
               {allCohorts.length}+ Class Tracks
             </h2>
             <p className="text-xs text-slate-600 dark:text-slate-400">
-              Class 9–12 Boards, JEE Main &amp; Advanced, NEET UG &amp; Droppers.
+              Class 9–12 Boards, JEE Main &amp; Advanced, NEET UG &amp; Droppers with instant track switching.
             </p>
           </ReusableCard>
 
           <ReusableCard padding="sm" className="space-y-1.5">
             <BookOpen className="w-4 h-4 text-[#F97316]" />
             <h2 className="font-display text-base font-bold text-[#0B1B3B] dark:text-white tabular-nums">
-              {chapters.length}+ Chapters
+              {chapters.length}+ Chapters &amp; Inline DPPs
             </h2>
             <p className="text-xs text-slate-600 dark:text-slate-400">
-              NCERT-aligned short notes, formula sheets, mind maps &amp; PYQs.
+              Short notes, formula sheets, mind maps, PYQs, and timed Chapter DPPs unified in one workspace.
             </p>
           </ReusableCard>
 
           <ReusableCard padding="sm" className="space-y-1.5">
-            <ClipboardCheck className="w-4 h-4 text-[#10B981]" />
+            <FileSpreadsheet className="w-4 h-4 text-[#10B981]" />
             <h2 className="font-display text-base font-bold text-[#0B1B3B] dark:text-white tabular-nums">
-              {mockTests.length}+ CBT Mocks &amp; DPPs
+              Prep Score (0–100) + Workspace
             </h2>
             <p className="text-xs text-slate-600 dark:text-slate-400">
-              NTA interface with syllabus preview, +4/-1 marking &amp; instant solutions.
+              Calibrated 0–100 readiness index across {mockTests.length}+ CBT tests with Google Sheets &amp; Tasks sync.
             </p>
           </ReusableCard>
 
           <ReusableCard padding="sm" className="space-y-1.5">
-            <LineChart className="w-4 h-4 text-indigo-500" />
+            <Sparkles className="w-4 h-4 text-indigo-500" />
             <h2 className="font-display text-base font-bold text-[#0B1B3B] dark:text-white">
-              Preps AI &amp; Analytics
+              AI Mistake Lab &amp; Preps AI
             </h2>
             <p className="text-xs text-slate-600 dark:text-slate-400">
-              Pacing diagnosis, mistake fixing &amp; personalized 7-day study plans.
+              Root-cause error diagnosis, personalized timed re-attempt drills, and compact live-context AI mentoring.
             </p>
           </ReusableCard>
         </section>

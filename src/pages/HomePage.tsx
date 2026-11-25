@@ -343,10 +343,9 @@ export default function HomePage() {
 
   const focusMins = Math.floor(focusSecondsLeft / 60);
   const focusSecs = focusSecondsLeft % 60;
-  const targetYear = profile?.targetYear || '2027';
   const streamPillText = activeCohort
-    ? `${getStreamAbbrev(activeCohort.subjects, activeCohort.stream)} · ${targetYear} Target`
-    : `PCM · ${targetYear} Target`;
+    ? `${getStreamAbbrev(activeCohort.subjects, activeCohort.stream)} · ${activeCohort.stream}`
+    : 'PCM · JEE';
   const guestSyncHint = isGuest
     ? 'Sign in to sync your progress across devices'
     : undefined;
@@ -354,10 +353,10 @@ export default function HomePage() {
   return (
     <PageLayout>
       <SeoHead
-        title="Prepskm — Free JEE, NEET & Board Notes, CBT Mocks"
-        description="Free JEE Main, JEE Advanced, NEET UG & Class 9-12 chapter notes, formula sheets, daily practice problems (DPPs), and NTA CBT mock tests on Prepskm."
+        title="Prepskm — Free JEE, NEET & Board Notes, DPPs & CBT Mocks"
+        description="Free JEE, NEET & Class 9–12 chapter notes with inline DPPs, NTA CBT mock tests, Prep Score (0–100), AI Mistake Notebook & Google Workspace sync."
         canonicalPath="/"
-        keywords="Prepskm, prepskm.in, prepskm mock test, unfiltereddsumit, JEE Main 2027, NEET UG, Class 11 JEE, Class 12 JEE, Class 12 NEET, concise chapter notes, NTA CBT mock tests, DPP"
+        keywords="Prepskm, prepskm.in, prepskm mock test, unfiltereddsumit, Prep Score 0-100, JEE Main 2027, NEET UG, Class 12 JEE, concise chapter notes, inline Chapter DPPs, NTA CBT mock tests"
       />
 
       {/* Clean Light Hero Section */}
@@ -375,12 +374,12 @@ export default function HomePage() {
               </p>
 
               <h1 className="font-display text-2xl sm:text-4xl font-extrabold tracking-tight text-[#0B1B3B] dark:text-white leading-[1.15] text-balance">
-                Chapter-wise concise notes, DPPs &amp; NTA-grade CBT mocks.
+                Chapter-wise concise notes, inline DPPs &amp; NTA CBT mocks.
               </h1>
 
               <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 max-w-xl leading-relaxed">
-                Pick your class track, study verified chapter PDFs &amp; concise notes, attempt
-                NTA-pattern JEE/NEET CBT mock tests, review solutions, and track Exam IQ.
+                Pick your class track, study chapter PDFs with inline Chapter DPPs, attempt
+                NTA-pattern CBT mock tests, fix error patterns, and track your Prep Score (0–100).
               </p>
 
               <div className="flex flex-wrap items-center gap-3 pt-1">
@@ -389,7 +388,7 @@ export default function HomePage() {
                   <ArrowRight className="w-4 h-4" />
                 </ReusableButton>
                 <ReusableButton variant="secondary" size="md" to="/materials">
-                  Chapters &amp; Notes
+                  Notes &amp; Inline DPPs
                 </ReusableButton>
                 <ReusableButton variant="secondary" size="md" to="/mistakes">
                   Mistake Notebook
@@ -520,8 +519,8 @@ export default function HomePage() {
       </section>
 
       <ResponsiveContainer className="py-8 sm:py-10 space-y-8 sm:space-y-10">
-        {/* Dynamic AI Prep Score (0–1000) Gauge + 4-Factor Breakdown + Google Workspace Sync */}
-        <motion.section {...REVEAL_PROPS} aria-label="AI Prep Score readiness gauge">
+        {/* Dynamic Prep Score (0–100) Gauge + 4-Factor Breakdown + Google Workspace Sync */}
+        <motion.section {...REVEAL_PROPS} aria-label="Prep Score readiness gauge">
           <AiPrepScoreCard
             attempts={attempts}
             questions={questions}

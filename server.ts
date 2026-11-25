@@ -100,9 +100,9 @@ function resolveRouteSeo(reqPath: string): RouteSeoSnapshot | null {
 
   if (cleanPath === '/materials') {
     return {
-      title: 'JEE & NEET Study Materials & Chapter Notes | Prepskm',
+      title: 'Study Materials, Notes & Inline DPPs | Prepskm',
       description:
-        'Download free chapter-wise JEE Main, JEE Advanced, NEET UG & CBSE Board concise notes, formula sheets, and PYQ PDFs organized by class and subject.',
+        'Download free chapter-wise JEE, NEET & Board concise notes, formula sheets, and PYQs — plus launch timed Chapter DPPs directly inline on Prepskm.',
       canonicalPath: '/materials',
     };
   }
@@ -111,7 +111,7 @@ function resolveRouteSeo(reqPath: string): RouteSeoSnapshot | null {
     return {
       title: 'Free NTA CBT Mock Tests for JEE & NEET | Prepskm',
       description:
-        'Attempt free NTA-pattern JEE Main, JEE Advanced, NEET UG & Board CBT mock tests with +4/-1 marking, live timer, and full post-test analysis.',
+        'Attempt free NTA-pattern JEE Main, JEE Advanced, NEET UG & Board CBT mock tests with +4/-1 marking, live timer, and Prep Score (0–100) analysis.',
       canonicalPath: '/cbt-mocks',
     };
   }
@@ -127,27 +127,27 @@ function resolveRouteSeo(reqPath: string): RouteSeoSnapshot | null {
 
   if (cleanPath === '/analytics' || cleanPath === '/analysis') {
     return {
-      title: 'CBT Test Analysis & Percentile Insights | Prepskm',
+      title: 'Prep Score (0–100) & Test Analysis | Prepskm',
       description:
-        'Review past JEE & NEET CBT mock solutions, predicted percentile, attempt speed breakdown, difficulty accuracy, and AI performance reports on Prepskm.',
+        'Track your calibrated Prep Score (0–100), predicted percentile, pacing breakdown, and export 3-tab analytics to Google Sheets & Google Tasks.',
       canonicalPath: '/analytics',
     };
   }
 
   if (cleanPath === '/mistakes' || cleanPath === '/mistake-notebook') {
     return {
-      title: 'Mistake Notebook & Question Vault | Prepskm',
+      title: 'AI Mistake Notebook & Re-Attempt Sets | Prepskm',
       description:
-        'Re-attempt wrong and skipped JEE/NEET questions saved automatically from your CBT mocks and DPPs, and get step-by-step Preps AI fixes.',
+        'Diagnose error patterns (rushed slips, time-sinks, conceptual gaps) and launch personalized timed re-attempt drills with Preps AI step-by-step fixes.',
       canonicalPath: '/mistakes',
     };
   }
 
   if (cleanPath === '/preps-ai') {
     return {
-      title: 'Preps AI — JEE & NEET Voice & Chat Mentor | Prepskm',
+      title: 'Preps AI — Live-Context JEE & NEET Mentor | Prepskm',
       description:
-        'Ask JEE Main, JEE Advanced, NEET UG & Board doubts in English or Hinglish. Get step-by-step solutions, mistake fixes, and 7-day study plans.',
+        'Compact voice & chat AI mentor synced with your live Prep Score (0–100), streak, and Mistake Notebook for instant JEE, NEET & Board solutions.',
       canonicalPath: '/preps-ai',
     };
   }
@@ -169,7 +169,7 @@ function resolveRouteSeo(reqPath: string): RouteSeoSnapshot | null {
     return {
       title: 'About Prepskm (@unfiltereddsumit) — JEE & NEET Prep',
       description:
-        'Discover how PREPSKM.IN by Sumit (@unfiltereddsumit) helps Class 9–12, JEE & NEET students with free concise notes, DPPs, and NTA CBT mocks.',
+        'Discover how PREPSKM.IN by @unfiltereddsumit unites chapter notes, inline DPPs, NTA CBT mocks, Prep Score (0–100), AI Mistake Lab & Google Workspace.',
       canonicalPath: '/about',
       jsonLd: aboutFaqJsonLd,
     };

@@ -5,8 +5,11 @@ import {
   Bookmark,
   BookmarkCheck,
   BookOpen,
+  CheckCircle2,
   ChevronRight,
+  ClipboardList,
   Download,
+  Eye,
   FileSpreadsheet,
   FileText,
   Film,
@@ -16,6 +19,7 @@ import {
   Maximize2,
   Paperclip,
   Play,
+  RotateCcw,
   Search,
   Sparkles,
 } from 'lucide-react';
@@ -25,6 +29,8 @@ import { ReusableCard } from '../components/ReusableCard';
 import { ReusableButton } from '../components/ReusableButton';
 import { SeoHead } from '../components/SeoHead';
 import { FullPageMediaReader } from '../components/materials/FullPageMediaReader';
+import { CbtExamRunner } from '../components/exam/CbtExamRunner';
+import { AttemptReviewModal } from '../components/analytics/AttemptReviewModal';
 import { NativeBannerAd } from '../components/ads/NativeBannerAd';
 import { GuestDownloadBadge } from '../components/monetization/GuestDownloadBadge';
 import { useAuth } from '../context/AuthContext';
@@ -35,6 +41,8 @@ import {
   filterChaptersByCohort,
   filterMaterialsByCohort,
   filterSubjectsByCohort,
+  getTestCohortIds,
+  testMatchesCohort,
 } from '../utils/catalogMerge';
 import {
   CHAPTER_RESOURCE_TABS,
@@ -46,11 +54,17 @@ import {
   CANONICAL_ORIGIN,
   generateCleanSlug,
   getHierarchicalMaterialPath,
+  getHierarchicalMockTestPath,
   resolveSubjectSlug,
   stripChapterNumberPrefix,
 } from '../utils/seoHelpers';
 import { playClick } from '../utils/soundEffects';
-import type { StudentCohortId, StudyMaterialRecord } from '../types';
+import type {
+  MockTestRecord,
+  StudentCohortId,
+  StudyMaterialRecord,
+  TestAttemptRecord,
+} from '../types';
 
 function formatBytes(bytes?: number): string {
   if (!bytes || bytes <= 0) return 'PDF';
@@ -86,6 +100,8 @@ const TAB_ICONS: Record<ChapterResourceTabId, typeof FileText> = {
   'chapter-pyqs': Sparkles,
 };
 
+type ChapterWorkspaceTabId = ChapterResourceTabId | 'chapter-dpps';
+
 export default function MaterialsPage() {
   const { cohortId } = useAuth();
   const { requestPdfDownload } = useDownloadGate();
@@ -94,6 +110,9 @@ export default function MaterialsPage() {
     subjects,
     chapters,
     materials,
+    mockTests,
+    questions,
+    attempts,
     progress,
     toggleMaterialBookmark,
     recordMaterialView,
@@ -102,18 +121,34 @@ export default function MaterialsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const trackParam = searchParams.get('track');
   const queryParam = searchParams.get('q');
+  const tabParam = searchParams.get('tab');
 
+  const [libraryMode, setLibraryMode] = useState<'chapters' | 'dpps'>(
+    tabParam === 'dpp' ? 'dpps' : 'chapters'
+  );
   const [selectedCohort, setSelectedCohort] = useState<StudentCohortId | 'all'>(
     trackParam || cohortId || 'class-12-jee'
   );
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState(queryParam || '');
   const [activeChapterId, setActiveChapterId] = useState<string | null>(null);
-  const [activeSubTab, setActiveSubTab] = useState<ChapterResourceTabId>('short-notes');
+  const [activeSubTab, setActiveSubTab] = useState<ChapterWorkspaceTabId>('short-notes');
   const [onlyBookmarked, setOnlyBookmarked] = useState(false);
+
+  const [activeDpp, setActiveDpp] = useState<MockTestRecord | null>(null);
+  const [reviewAttempt, setReviewAttempt] = useState<TestAttemptRecord | null>(null);
 
   const [previewMaterial, setPreviewMaterial] = useState<StudyMaterialRecord | null>(null);
   const [resolvedPreviewUrl, setResolvedPreviewUrl] = useState<string>('');
+
+  useEffect(() => {
+    if (tabParam === 'dpp') {
+      setLibraryMode('dpps');
+      setActiveChapterId(null);
+    } else if (tabParam === 'chapters') {
+      setLibraryMode('chapters');
+    }
+  }, [tabParam]);
 
   useEffect(() => {
     if (trackParam) {
@@ -150,13 +185,14 @@ export default function MaterialsPage() {
     [subjects, selectedCohort]
   );
 
-  // Default to the first Subject Tab (Physics / Chemistry / Mathematics / Biology) so main view is strictly Subject Tabs -> Chapter Cards
+  // Default to the first Subject Tab in Chapter Library mode; allow 'all' in Inline Chapter DPPs mode
   useEffect(() => {
     if (visibleSubjects.length === 0) return;
+    if (libraryMode === 'dpps' && selectedSubjectId === 'all') return;
     if (!selectedSubjectId || !visibleSubjects.some((s) => s.id === selectedSubjectId)) {
-      setSelectedSubjectId(visibleSubjects[0].id);
+      setSelectedSubjectId(libraryMode === 'dpps' ? 'all' : visibleSubjects[0].id);
     }
-  }, [selectedSubjectId, visibleSubjects]);
+  }, [libraryMode, selectedSubjectId, visibleSubjects]);
 
   const cohortMaterials = useMemo(
     () => filterMaterialsByCohort(materials, selectedCohort),
@@ -243,6 +279,83 @@ export default function MaterialsPage() {
     return groupChapterMaterialsByTab(scoped);
   }, [activeChapter, bookmarkSet, cohortMaterials, onlyBookmarked]);
 
+  const cohortLabelMap = useMemo(
+    () => new Map(allCohorts.map((c) => [c.id, c.shortLabel])),
+    [allCohorts]
+  );
+
+  const chapterMap = useMemo(
+    () => new Map(chapters.map((c) => [c.id, c.name])),
+    [chapters]
+  );
+
+  const allPublishedDpps = useMemo(
+    () => mockTests.filter((t) => t.destination === 'dpp' && t.status === 'published'),
+    [mockTests]
+  );
+
+  const chapterDppsMap = useMemo(() => {
+    const map = new Map<string, MockTestRecord[]>();
+    for (const dpp of allPublishedDpps) {
+      if (!dpp.chapterId) continue;
+      const list = map.get(dpp.chapterId) ?? [];
+      list.push(dpp);
+      map.set(dpp.chapterId, list);
+    }
+    return map;
+  }, [allPublishedDpps]);
+
+  const cohortDpps = useMemo(
+    () =>
+      allPublishedDpps.filter((t) =>
+        selectedCohort === 'all' ? true : testMatchesCohort(t, selectedCohort)
+      ),
+    [allPublishedDpps, selectedCohort]
+  );
+
+  const publishedDpps = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    const subjectScoped = cohortDpps.filter((t) => {
+      if (libraryMode === 'dpps' && selectedSubjectId && selectedSubjectId !== 'all') {
+        if (t.subjectId && t.subjectId !== selectedSubjectId) return false;
+      }
+      if (q) {
+        const subName = ((t.subjectId && subjectMap.get(t.subjectId)?.name) || '').toLowerCase();
+        const chName = ((t.chapterId && chapterMap.get(t.chapterId)) || '').toLowerCase();
+        return (
+          t.title.toLowerCase().includes(q) ||
+          subName.includes(q) ||
+          chName.includes(q)
+        );
+      }
+      return true;
+    });
+    return subjectScoped;
+  }, [chapterMap, cohortDpps, libraryMode, searchQuery, selectedSubjectId, subjectMap]);
+
+  const activeChapterDpps = useMemo(() => {
+    if (!activeChapter) return { items: [] as MockTestRecord[], isExact: true };
+    const exact = allPublishedDpps.filter((t) => t.chapterId === activeChapter.id);
+    if (exact.length > 0) return { items: exact, isExact: true };
+    const bySubject = allPublishedDpps.filter(
+      (t) =>
+        t.subjectId === activeChapter.subjectId &&
+        (selectedCohort === 'all' || testMatchesCohort(t, selectedCohort))
+    );
+    if (bySubject.length > 0) return { items: bySubject, isExact: false };
+    return { items: cohortDpps.slice(0, 6), isExact: false };
+  }, [activeChapter, allPublishedDpps, cohortDpps, selectedCohort]);
+
+  const dppAttempts = useMemo(
+    () => attempts.filter((a) => a.destination === 'dpp'),
+    [attempts]
+  );
+
+  const activeDppQuestions = useMemo(
+    () => (activeDpp ? questions.filter((q) => q.testId === activeDpp.id) : []),
+    [activeDpp, questions]
+  );
+
   // Auto-select the first populated tab when opening a chapter
   const handleSelectChapter = (chapterId: string) => {
     playClick();
@@ -280,9 +393,26 @@ export default function MaterialsPage() {
     });
   };
 
+  const handleSwitchMode = (mode: 'chapters' | 'dpps') => {
+    playClick();
+    setLibraryMode(mode);
+    setActiveChapterId(null);
+    if (mode === 'dpps') {
+      setSelectedSubjectId('all');
+    } else if (visibleSubjects.length > 0 && selectedSubjectId === 'all') {
+      setSelectedSubjectId(visibleSubjects[0].id);
+    }
+    const nextParams = new URLSearchParams(searchParams);
+    if (mode === 'dpps') nextParams.set('tab', 'dpp');
+    else nextParams.delete('tab');
+    setSearchParams(nextParams, { replace: true });
+  };
+
   const activeSubjectName = activeChapter
     ? subjectMap.get(activeChapter.subjectId)?.name ?? 'Subject'
-    : subjectMap.get(selectedSubjectId)?.name ?? 'All Subjects';
+    : selectedSubjectId === 'all'
+      ? 'All Subjects'
+      : subjectMap.get(selectedSubjectId)?.name ?? 'All Subjects';
 
   const selectedCohortLabel =
     selectedCohort === 'all'
@@ -294,14 +424,16 @@ export default function MaterialsPage() {
     : '';
 
   const rawTitle = activeChapter
-    ? `${cleanActiveChapterName} Notes & PYQs – ${activeSubjectName} | Prepskm`
-    : `${selectedCohortLabel} Study Materials & Notes | Prepskm`;
+    ? `${cleanActiveChapterName} Notes & DPPs – ${activeSubjectName} | Prepskm`
+    : libraryMode === 'dpps'
+      ? `${selectedCohortLabel} Inline Chapter DPPs | Prepskm`
+      : `${selectedCohortLabel} Study Materials & DPPs | Prepskm`;
   const seoTitle =
     rawTitle.length <= 60 ? rawTitle : `${rawTitle.slice(0, 49).trim()} | Prepskm`;
 
   const seoDescription = activeChapter
-    ? `Download free ${cleanActiveChapterName} (${activeSubjectName}) short notes, formula sheets, mind maps, and PYQs for ${selectedCohortLabel} on PREPSKM.IN.`.slice(0, 155)
-    : `Browse chapter-wise ${selectedCohortLabel} study materials on PREPSKM.IN: Physics, Chemistry, Maths & Biology concise notes, formula sheets, and PYQs.`.slice(0, 155);
+    ? `Download free ${cleanActiveChapterName} (${activeSubjectName}) notes, formulas, PYQs & launch inline Chapter DPPs for ${selectedCohortLabel} on Prepskm.`.slice(0, 155)
+    : `Browse chapter-wise ${selectedCohortLabel} notes, formula sheets, PYQs & solve timed Chapter DPPs directly inline inside Study Materials on PREPSKM.IN.`.slice(0, 155);
 
   const materialsJsonLd = useMemo(
     () => ({
@@ -329,7 +461,129 @@ export default function MaterialsPage() {
       ? extractYouTubeId(previewMaterial.fileUrl)
       : null;
 
-  const currentTabItems = groupedChapterMaterials[activeSubTab] ?? [];
+  const currentTabItems =
+    activeSubTab === 'chapter-dpps' ? [] : (groupedChapterMaterials[activeSubTab] ?? []);
+
+  const renderDppCard = (dpp: MockTestRecord, contextNote?: string) => {
+    const qCount = questions.filter((q) => q.testId === dpp.id).length;
+    const prevAttempts = dppAttempts.filter((a) => a.testId === dpp.id);
+    const latest = prevAttempts[prevAttempts.length - 1];
+    const subName =
+      (dpp.subjectId && subjectMap.get(dpp.subjectId)?.name) ||
+      dpp.syllabus?.[0]?.subject ||
+      dpp.examCategory;
+    const chName =
+      (dpp.chapterId && chapterMap.get(dpp.chapterId)) ||
+      dpp.syllabus?.[0]?.chapters?.[0] ||
+      'Chapter Practice';
+    const targetCohortText = getTestCohortIds(dpp)
+      .map((cid) => cohortLabelMap.get(cid) ?? cid)
+      .join(' · ');
+
+    return (
+      <ReusableCard
+        key={dpp.id}
+        interactive
+        padding="sm"
+        className="flex flex-col justify-between gap-3.5"
+      >
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-2 text-xs font-semibold">
+            <span className="text-[#2563EB] dark:text-sky-400 shrink-0">
+              {subName}
+              {contextNote ? ` · ${contextNote}` : ''}
+            </span>
+            <span className="text-slate-500 dark:text-slate-400 truncate max-w-[60%] text-right">
+              {stripChapterNumberPrefix(chName)}
+            </span>
+          </div>
+
+          <h2 className="font-display text-base font-bold text-[#0B1B3B] dark:text-white leading-snug">
+            <Link
+              to={getHierarchicalMockTestPath(dpp)}
+              className="hover:text-[#2563EB] dark:hover:text-sky-400 transition-colors"
+            >
+              {dpp.title}
+            </Link>
+          </h2>
+
+          <div className="flex flex-wrap gap-2 text-xs text-slate-600 dark:text-slate-400 tabular-nums">
+            <span>{qCount || dpp.totalQuestions} Qs</span>
+            <span aria-hidden="true">·</span>
+            <span>{dpp.durationMinutes} min</span>
+            <span aria-hidden="true">·</span>
+            <span>
+              {dpp.negativeMarkingEnabled
+                ? `+${dpp.positiveMarks} / -${dpp.negativeMarks}`
+                : `+${dpp.positiveMarks} (No Neg)`}
+            </span>
+            {targetCohortText && (
+              <>
+                <span aria-hidden="true">·</span>
+                <span>{targetCohortText}</span>
+              </>
+            )}
+          </div>
+
+          {latest && (
+            <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 inline-flex items-center gap-1.5 pt-0.5 tabular-nums">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              Latest: {latest.score}/{latest.maxScore} ({latest.accuracyPercent}%) ·{' '}
+              {prevAttempts.length} attempt(s)
+            </p>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+          {latest && (
+            <ReusableButton
+              variant="secondary"
+              size="sm"
+              className="shrink-0 whitespace-nowrap"
+              onClick={() => {
+                playClick();
+                setReviewAttempt(latest);
+              }}
+            >
+              <Eye className="w-3.5 h-3.5 text-[#2563EB]" />
+              Solutions
+            </ReusableButton>
+          )}
+          <ReusableButton
+            variant={latest ? 'accent' : 'primary'}
+            size="sm"
+            className="flex-1 whitespace-nowrap"
+            onClick={() => {
+              playClick();
+              setActiveDpp(dpp);
+            }}
+          >
+            {latest ? <RotateCcw className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+            {latest ? 'Reattempt Inline' : 'Solve DPP Inline'}
+          </ReusableButton>
+        </div>
+      </ReusableCard>
+    );
+  };
+
+  if (activeDpp) {
+    return (
+      <PageLayout hideFooter>
+        <SeoHead
+          title={`${activeDpp.title} — Inline Chapter DPP | Prepskm`}
+          description={`Timed inline Chapter DPP exam session for ${activeDpp.title} inside Study Materials on PREPSKM.IN.`}
+          canonicalPath="/materials"
+        />
+        <ResponsiveContainer size="wide" className="py-6">
+          <CbtExamRunner
+            test={activeDpp}
+            questions={activeDppQuestions}
+            onExit={() => setActiveDpp(null)}
+          />
+        </ResponsiveContainer>
+      </PageLayout>
+    );
+  }
 
   return (
     <PageLayout>
@@ -339,8 +593,8 @@ export default function MaterialsPage() {
         canonicalPath="/materials"
         keywords={
           activeChapter
-            ? `${cleanActiveChapterName} short notes, ${cleanActiveChapterName} formula sheet, ${activeSubjectName} PYQs, ${selectedCohortLabel}`
-            : `chapter wise notes, ${selectedCohortLabel} study materials, JEE notes, NEET notes, formula sheets, mind maps, prepskm`
+            ? `${cleanActiveChapterName} short notes, ${cleanActiveChapterName} formula sheet, ${cleanActiveChapterName} DPP, ${activeSubjectName} PYQs, ${selectedCohortLabel}`
+            : `chapter wise notes, inline chapter DPPs, ${selectedCohortLabel} study materials, JEE notes, NEET notes, formula sheets, prepskm`
         }
         jsonLd={materialsJsonLd}
       />
@@ -406,11 +660,11 @@ export default function MaterialsPage() {
               </div>
             </ReusableCard>
 
-            {/* 4 Hierarchical Chapter Resource Sub-Tabs */}
+            {/* 5 Hierarchical Chapter Resource Sub-Tabs (4 Resource Buckets + Inline Chapter DPPs) */}
             <div
               role="tablist"
               aria-label="Chapter resource categories"
-              className="grid grid-cols-2 lg:grid-cols-4 gap-3"
+              className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3"
             >
               {CHAPTER_RESOURCE_TABS.map((tab) => {
                 const Icon = TAB_ICONS[tab.id];
@@ -459,10 +713,104 @@ export default function MaterialsPage() {
                   </button>
                 );
               })}
+
+              {/* 5th Tab: Inline Chapter DPPs */}
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeSubTab === 'chapter-dpps'}
+                onClick={() => {
+                  playClick();
+                  setActiveSubTab('chapter-dpps');
+                }}
+                className={`text-left p-4 rounded-2xl border transition-all duration-150 ${
+                  activeSubTab === 'chapter-dpps'
+                    ? 'bg-[#F97316] text-white border-[#F97316] shadow-sm'
+                    : 'bg-white dark:bg-[#111A2E] text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-800 hover:border-[#F97316]'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <ClipboardList
+                    className={`w-5 h-5 ${
+                      activeSubTab === 'chapter-dpps' ? 'text-white' : 'text-[#F97316]'
+                    }`}
+                  />
+                  <span
+                    className={`font-mono text-sm font-bold tabular-nums ${
+                      activeSubTab === 'chapter-dpps'
+                        ? 'text-white/90'
+                        : 'text-slate-500 dark:text-slate-400'
+                    }`}
+                  >
+                    {activeChapterDpps.items.length}
+                  </span>
+                </div>
+                <p className="mt-2.5 font-display text-sm sm:text-base font-bold leading-snug">
+                  Chapter DPPs
+                </p>
+                <p
+                  className={`mt-1 text-xs line-clamp-1 ${
+                    activeSubTab === 'chapter-dpps'
+                      ? 'text-orange-100'
+                      : 'text-slate-500 dark:text-slate-400'
+                  }`}
+                >
+                  Timed inline practice exams
+                </p>
+              </button>
             </div>
 
-            {/* Resource Cards Inside Selected Sub-Tab */}
-            {currentTabItems.length === 0 ? (
+            {/* Resource Cards OR Inline Chapter DPPs Inside Selected Sub-Tab */}
+            {activeSubTab === 'chapter-dpps' ? (
+              activeChapterDpps.items.length === 0 ? (
+                <ReusableCard className="py-12 text-center space-y-3">
+                  <ClipboardList className="w-10 h-10 text-slate-400 mx-auto" />
+                  <h2 className="font-display text-lg font-bold text-[#0B1B3B] dark:text-white">
+                    No Inline DPPs Published for This Subject Yet
+                  </h2>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+                    Switch to the Inline Chapter DPPs tab on Study Materials or attempt a full NTA CBT Mock Test.
+                  </p>
+                  <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
+                    <ReusableButton
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => handleSwitchMode('dpps')}
+                    >
+                      Browse All Inline DPPs
+                    </ReusableButton>
+                    <ReusableButton variant="primary" size="sm" to="/cbt-mocks">
+                      Open CBT Mock Tests
+                    </ReusableButton>
+                  </div>
+                </ReusableCard>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
+                    <p>
+                      {activeChapterDpps.isExact
+                        ? `Showing timed Chapter DPPs matched to ${cleanActiveChapterName}. Launch any set inline with +4/-1 scoring.`
+                        : `Showing recommended ${activeSubjectName} DPPs to practice right after ${cleanActiveChapterName}.`}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => handleSwitchMode('dpps')}
+                      className="font-semibold text-[#2563EB] dark:text-sky-400 hover:underline whitespace-nowrap"
+                    >
+                      View all inline DPPs →
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                    {activeChapterDpps.items.map((dpp) =>
+                      renderDppCard(
+                        dpp,
+                        activeChapterDpps.isExact ? 'Chapter DPP' : 'Recommended DPP'
+                      )
+                    )}
+                  </div>
+                </div>
+              )
+            ) : currentTabItems.length === 0 ? (
               <ReusableCard className="py-12 text-center space-y-3">
                 <FolderOpen className="w-10 h-10 text-slate-400 mx-auto" />
                 <h2 className="font-display text-lg font-bold text-[#0B1B3B] dark:text-white">
@@ -471,7 +819,7 @@ export default function MaterialsPage() {
                 <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">
                   {onlyBookmarked
                     ? 'Clear the Saved Only filter or switch tabs to browse other resources in this chapter.'
-                    : 'Check the other resource tabs above or ask Preps AI for a quick chapter formula recap.'}
+                    : 'Check the other resource tabs above, solve an inline Chapter DPP, or ask Preps AI for a quick chapter formula recap.'}
                 </p>
                 <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
                   {onlyBookmarked && (
@@ -483,6 +831,13 @@ export default function MaterialsPage() {
                       Show All Resources
                     </ReusableButton>
                   )}
+                  <ReusableButton
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setActiveSubTab('chapter-dpps')}
+                  >
+                    Open Chapter DPPs
+                  </ReusableButton>
                   <ReusableButton variant="primary" size="sm" to="/preps-ai">
                     Ask Preps AI About This Chapter
                   </ReusableButton>
@@ -673,28 +1028,64 @@ export default function MaterialsPage() {
           </div>
         ) : (
           /* ================================================================
-             MAIN VIEW — Strictly Subject Tabs + Clean Chapter Cards
+             MAIN VIEW — Unified Study Materials + Inline Chapter DPPs
              ================================================================ */
           <>
             <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
               <div className="space-y-1">
                 <p className="text-xs font-bold uppercase tracking-wider text-[#F97316]">
-                  Chapter-First Study Library · {selectedCohortLabel}
+                  Chapter Library &amp; Inline DPPs · {selectedCohortLabel}
                 </p>
                 <h1 className="font-display text-3xl sm:text-4xl font-extrabold text-[#0B1B3B] dark:text-white tracking-tight">
                   Study Materials
                 </h1>
                 <p className="text-base text-slate-600 dark:text-slate-400 max-w-2xl">
-                  Select a subject tab and open any chapter to access its Short Notes, Formula Sheets, Mind Maps, and Chapter PYQs.
+                  Revise chapter-wise Short Notes, Formula Sheets, Mind Maps, and PYQs — or switch to Inline Chapter DPPs for timed practice right here.
                 </p>
               </div>
 
-              <div className="flex flex-wrap items-center gap-3 text-sm font-semibold tabular-nums text-slate-600 dark:text-slate-400 shrink-0">
+              <div className="flex flex-wrap items-center gap-3 shrink-0">
+                <div
+                  role="tablist"
+                  aria-label="Study materials workspace mode"
+                  className="inline-flex items-center p-1 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800"
+                >
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={libraryMode === 'chapters'}
+                    onClick={() => handleSwitchMode('chapters')}
+                    className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold whitespace-nowrap transition-colors ${
+                      libraryMode === 'chapters'
+                        ? 'bg-[#0B1B3B] text-white dark:bg-[#2563EB] shadow-xs'
+                        : 'text-slate-600 dark:text-slate-300 hover:text-[#0B1B3B] dark:hover:text-white'
+                    }`}
+                  >
+                    <BookOpen className="w-4 h-4" />
+                    Chapter Library
+                    <span className="font-mono text-xs opacity-80 tabular-nums">
+                      ({filteredChapters.length})
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={libraryMode === 'dpps'}
+                    onClick={() => handleSwitchMode('dpps')}
+                    className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold whitespace-nowrap transition-colors ${
+                      libraryMode === 'dpps'
+                        ? 'bg-[#F97316] text-white shadow-xs'
+                        : 'text-slate-600 dark:text-slate-300 hover:text-[#0B1B3B] dark:hover:text-white'
+                    }`}
+                  >
+                    <ClipboardList className="w-4 h-4" />
+                    Chapter DPPs
+                    <span className="font-mono text-xs opacity-85 tabular-nums">
+                      ({cohortDpps.length})
+                    </span>
+                  </button>
+                </div>
                 <GuestDownloadBadge />
-                <span aria-hidden="true" className="text-slate-300 dark:text-slate-700">
-                  ·
-                </span>
-                <span>{filteredChapters.length} Chapters</span>
               </div>
             </div>
 
@@ -706,11 +1097,40 @@ export default function MaterialsPage() {
                 aria-label="Study material subjects"
                 className="flex flex-wrap items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-4"
               >
+                {libraryMode === 'dpps' && (
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={selectedSubjectId === 'all' || !selectedSubjectId}
+                    onClick={() => {
+                      playClick();
+                      setSelectedSubjectId('all');
+                    }}
+                    className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${
+                      selectedSubjectId === 'all' || !selectedSubjectId
+                        ? 'bg-[#0B1B3B] text-white dark:bg-[#2563EB] shadow-xs'
+                        : 'bg-slate-50 dark:bg-slate-900/70 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    <span>All Subjects</span>
+                    <span
+                      className={`font-mono text-xs tabular-nums ${
+                        selectedSubjectId === 'all' || !selectedSubjectId
+                          ? 'text-white/80'
+                          : 'text-slate-400'
+                      }`}
+                    >
+                      {cohortDpps.length}
+                    </span>
+                  </button>
+                )}
+
                 {visibleSubjects.map((sub) => {
                   const active = selectedSubjectId === sub.id;
-                  const subChapterCount = cohortChapters.filter(
-                    (c) => c.subjectId === sub.id
-                  ).length;
+                  const subCount =
+                    libraryMode === 'dpps'
+                      ? cohortDpps.filter((d) => d.subjectId === sub.id).length
+                      : cohortChapters.filter((c) => c.subjectId === sub.id).length;
                   return (
                     <button
                       key={sub.id}
@@ -721,7 +1141,7 @@ export default function MaterialsPage() {
                         playClick();
                         setSelectedSubjectId(sub.id);
                       }}
-                      className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                      className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${
                         active
                           ? 'bg-[#0B1B3B] text-white dark:bg-[#2563EB] shadow-xs'
                           : 'bg-slate-50 dark:bg-slate-900/70 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -733,7 +1153,7 @@ export default function MaterialsPage() {
                           active ? 'text-white/80' : 'text-slate-400'
                         }`}
                       >
-                        {subChapterCount}
+                        {subCount}
                       </span>
                     </button>
                   );
@@ -744,20 +1164,24 @@ export default function MaterialsPage() {
               <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
                 <div className="relative md:col-span-6">
                   <label htmlFor="chapter-search" className="sr-only">
-                    Search chapters
+                    {libraryMode === 'dpps' ? 'Search Chapter DPPs' : 'Search chapters'}
                   </label>
                   <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
                     id="chapter-search"
                     type="search"
-                    placeholder={`Search ${activeSubjectName} chapters (e.g. Electrostatics, Rotational Motion)...`}
+                    placeholder={
+                      libraryMode === 'dpps'
+                        ? `Search ${activeSubjectName} DPPs by title or chapter...`
+                        : `Search ${activeSubjectName} chapters (e.g. Electrostatics, Rotational Motion)...`
+                    }
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
                   />
                 </div>
 
-                <div className="md:col-span-4">
+                <div className={libraryMode === 'dpps' ? 'md:col-span-6' : 'md:col-span-4'}>
                   <label htmlFor="mat-cohort-filter" className="sr-only">
                     Filter by class or exam track
                   </label>
@@ -784,29 +1208,99 @@ export default function MaterialsPage() {
                   </select>
                 </div>
 
-                <div className="md:col-span-2 flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      playClick();
-                      setOnlyBookmarked((b) => !b);
-                    }}
-                    aria-pressed={onlyBookmarked}
-                    className={`w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border transition-colors ${
-                      onlyBookmarked
-                        ? 'bg-[#F97316] text-white border-[#F97316]'
-                        : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-[#2563EB]'
-                    }`}
-                  >
-                    <Bookmark className="w-4 h-4" />
-                    Saved
-                  </button>
-                </div>
+                {libraryMode === 'chapters' && (
+                  <div className="md:col-span-2 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        playClick();
+                        setOnlyBookmarked((b) => !b);
+                      }}
+                      aria-pressed={onlyBookmarked}
+                      className={`w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border transition-colors ${
+                        onlyBookmarked
+                          ? 'bg-[#F97316] text-white border-[#F97316]'
+                          : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-[#2563EB]'
+                      }`}
+                    >
+                      <Bookmark className="w-4 h-4" />
+                      Saved
+                    </button>
+                  </div>
+                )}
               </div>
             </ReusableCard>
 
-            {/* Clean Chapter Cards Grid (ONLY Chapters — zero flat PDF dumps) */}
-            {filteredChapters.length === 0 ? (
+            {libraryMode === 'dpps' ? (
+              /* ==============================================================
+                 INLINE CHAPTER DPPs WORKSPACE (Merged directly into Materials)
+                 ============================================================== */
+              <div className="space-y-6">
+                {publishedDpps.length === 0 ? (
+                  <ReusableCard className="py-14 text-center space-y-3">
+                    <ClipboardList className="w-10 h-10 text-slate-400 mx-auto" />
+                    <h2 className="font-display text-lg font-bold text-[#0B1B3B] dark:text-white">
+                      No Chapter DPPs Match This Filter
+                    </h2>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+                      Switch to All Classes &amp; Exam Tracks or All Subjects to browse all available timed Chapter DPPs.
+                    </p>
+                    <ReusableButton
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedCohort('all');
+                        setSelectedSubjectId('all');
+                        setSearchQuery('');
+                      }}
+                    >
+                      Show All Chapter DPPs
+                    </ReusableButton>
+                  </ReusableCard>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                    {publishedDpps.map((dpp) => renderDppCard(dpp))}
+                  </div>
+                )}
+
+                {dppAttempts.length > 0 && (
+                  <ReusableCard padding="sm" className="space-y-2.5">
+                    <h2 className="font-display text-base font-bold text-[#0B1B3B] dark:text-white">
+                      Recent Inline DPP Attempts &amp; Solutions ({dppAttempts.length})
+                    </h2>
+                    <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {[...dppAttempts].reverse().slice(0, 6).map((att) => (
+                        <div
+                          key={att.id}
+                          className="py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm"
+                        >
+                          <div>
+                            <p className="font-semibold text-[#0B1B3B] dark:text-white">
+                              {att.testTitle}
+                            </p>
+                            <p className="text-xs text-slate-500 tabular-nums">
+                              Score: {att.score}/{att.maxScore} · Accuracy: {att.accuracyPercent}% ·{' '}
+                              {new Date(att.submittedAtIso).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              playClick();
+                              setReviewAttempt(att);
+                            }}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#2563EB] hover:bg-[#1D4ED8] text-white whitespace-nowrap"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            Analysis &amp; Solutions
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </ReusableCard>
+                )}
+              </div>
+            ) : filteredChapters.length === 0 ? (
               <ReusableCard className="py-14 text-center space-y-3">
                 <BookOpen className="w-10 h-10 text-slate-400 mx-auto" />
                 <h2 className="font-display text-lg font-bold text-[#0B1B3B] dark:text-white">
@@ -831,6 +1325,7 @@ export default function MaterialsPage() {
                 {filteredChapters.map((ch, idx) => {
                   const counts = chapterCountsMap.get(ch.id);
                   const totalCount = counts?.total ?? 0;
+                  const exactDpps = chapterDppsMap.get(ch.id) ?? [];
                   const cleanTitle = stripChapterNumberPrefix(ch.name);
                   const summaryParts: string[] = [];
                   if (counts?.byTab['short-notes']) {
@@ -844,6 +1339,9 @@ export default function MaterialsPage() {
                   }
                   if (counts?.byTab['chapter-pyqs']) {
                     summaryParts.push(`${counts.byTab['chapter-pyqs']} PYQs`);
+                  }
+                  if (exactDpps.length > 0) {
+                    summaryParts.push(`${exactDpps.length} ${exactDpps.length === 1 ? 'DPP' : 'DPPs'}`);
                   }
 
                   const chapterMaterials = cohortMaterials.filter((m) => m.chapterId === ch.id);
@@ -948,6 +1446,14 @@ export default function MaterialsPage() {
           onToggleBookmark={() => toggleMaterialBookmark(previewMaterial.id)}
           onDownloadApproved={() => recordMaterialView(previewMaterial.id)}
           onClose={() => setPreviewMaterial(null)}
+        />
+      )}
+
+      {reviewAttempt && (
+        <AttemptReviewModal
+          attempt={reviewAttempt}
+          questions={questions}
+          onClose={() => setReviewAttempt(null)}
         />
       )}
     </PageLayout>

@@ -220,7 +220,8 @@ function main() {
     { loc: `${CANONICAL_ORIGIN}/cbt-mocks`, lastmod: todayIso, changefreq: 'daily', priority: '0.95' },
     { loc: `${CANONICAL_ORIGIN}/materials`, lastmod: todayIso, changefreq: 'daily', priority: '0.95' },
     { loc: `${CANONICAL_ORIGIN}/dpp`, lastmod: todayIso, changefreq: 'daily', priority: '0.9' },
-    { loc: `${CANONICAL_ORIGIN}/analytics`, lastmod: todayIso, changefreq: 'weekly', priority: '0.75' },
+    { loc: `${CANONICAL_ORIGIN}/analytics`, lastmod: todayIso, changefreq: 'weekly', priority: '0.8' },
+    { loc: `${CANONICAL_ORIGIN}/mistakes`, lastmod: todayIso, changefreq: 'weekly', priority: '0.8' },
     { loc: `${CANONICAL_ORIGIN}/preps-ai`, lastmod: todayIso, changefreq: 'weekly', priority: '0.8' },
     { loc: `${CANONICAL_ORIGIN}/lectures`, lastmod: todayIso, changefreq: 'weekly', priority: '0.75' },
     { loc: `${CANONICAL_ORIGIN}/about`, lastmod: todayIso, changefreq: 'monthly', priority: '0.7' },
@@ -240,14 +241,14 @@ function main() {
     {
       outputPath: '/materials',
       canonicalPath: '/materials',
-      title: 'JEE & NEET Study Materials & Chapter Notes | Prepskm',
+      title: 'Study Materials, Notes & Inline DPPs | Prepskm',
       description:
-        'Download free chapter-wise JEE Main, JEE Advanced, NEET UG & CBSE Board concise notes, formula sheets, and PYQ PDFs organized by class and subject.',
+        'Download free chapter-wise JEE, NEET & Board concise notes, formula sheets, and PYQs — plus launch timed Chapter DPPs directly inline on Prepskm.',
       bodyHtml: buildShellHtml({
-        eyebrow: 'Chapter-Wise Study Library',
-        heading: 'JEE, NEET & Board Chapter Notes, Formula Sheets & PYQs',
+        eyebrow: 'Chapter-Wise Study Library & Inline DPPs',
+        heading: 'JEE, NEET & Board Chapter Notes, Formula Sheets & Inline DPPs',
         intro:
-          'Browse structured NCERT-aligned chapter notes, high-yield formula sheets, and mind maps across Physics, Chemistry, Mathematics, and Biology for Class 9–12, JEE Main, JEE Advanced, and NEET UG.',
+          'Browse structured NCERT-aligned chapter notes, high-yield formula sheets, mind maps, and PYQs across Physics, Chemistry, Mathematics, and Biology — and solve timed Chapter DPPs inline.',
       }),
     },
     {
@@ -255,7 +256,7 @@ function main() {
       canonicalPath: '/cbt-mocks',
       title: 'Free NTA CBT Mock Tests for JEE & NEET | Prepskm',
       description:
-        'Attempt free NTA-pattern JEE Main, JEE Advanced, NEET UG & Board CBT mock tests with +4/-1 marking, live timer, and full post-test analysis.',
+        'Attempt free NTA-pattern JEE Main, JEE Advanced, NEET UG & Board CBT mock tests with +4/-1 marking, live timer, and Prep Score (0–100) analysis.',
       bodyHtml: buildShellHtml({
         eyebrow: 'NTA Computer Based Test Engine',
         heading: 'Free JEE Main, JEE Advanced & NEET UG CBT Mock Tests',
@@ -273,33 +274,46 @@ function main() {
         eyebrow: 'Daily Practice Problems',
         heading: 'Chapter-Wise DPPs for JEE, NEET & Class 9–12 Boards',
         intro:
-          'Build exam speed and accuracy with focused chapter-wise DPPs covering Single MCQ, Multi-Correct, and Integer numerical questions with immediate solution review.',
+          'Build exam speed and accuracy with focused chapter-wise DPPs covering Single MCQ, Multi-Correct, and Integer numerical questions — also accessible inline inside Study Materials.',
       }),
     },
     {
       outputPath: '/analytics',
       canonicalPath: '/analytics',
-      title: 'CBT Test Analysis & Percentile Insights | Prepskm',
+      title: 'Prep Score (0–100) & Test Analysis | Prepskm',
       description:
-        'Review past JEE & NEET CBT mock solutions, predicted percentile, attempt speed breakdown, difficulty accuracy, and AI performance reports on Prepskm.',
+        'Track your calibrated Prep Score (0–100), predicted percentile, pacing breakdown, and export 3-tab analytics to Google Sheets & Google Tasks.',
       bodyHtml: buildShellHtml({
-        eyebrow: 'Performance Analytics',
-        heading: 'Pro Test Analysis, Pacing & Percentile Insights',
+        eyebrow: 'Prep Score (0–100) & Google Workspace Sync',
+        heading: 'Prep Score (0–100), Pacing & Google Sheets Test Analysis',
         intro:
-          'Inspect every submitted CBT mock and chapter DPP with subject-wise accuracy, pacing breakdown, negative marking leaks, and step-by-step solutions.',
+          'Inspect every submitted CBT mock and chapter DPP with subject-wise accuracy, pacing diagnostics, Prep Score (0–100) breakdown, Google Sheets export, and Google Tasks study management.',
+      }),
+    },
+    {
+      outputPath: '/mistakes',
+      canonicalPath: '/mistakes',
+      title: 'AI Mistake Notebook & Re-Attempt Sets | Prepskm',
+      description:
+        'Diagnose error patterns (rushed slips, time-sinks, conceptual gaps) and launch personalized timed re-attempt drills with Preps AI step-by-step fixes.',
+      bodyHtml: buildShellHtml({
+        eyebrow: 'AI Error Pattern Lab',
+        heading: 'AI Mistake Notebook & Personalized Re-Attempt Drills',
+        intro:
+          'Turn every wrong and skipped question from your CBT mocks and Chapter DPPs into root-cause error diagnostics, personalized timed re-attempt sets, and step-by-step Preps AI fixes.',
       }),
     },
     {
       outputPath: '/preps-ai',
       canonicalPath: '/preps-ai',
-      title: 'Preps AI — JEE & NEET Voice & Chat Mentor | Prepskm',
+      title: 'Preps AI — Live-Context JEE & NEET Mentor | Prepskm',
       description:
-        'Ask JEE Main, JEE Advanced, NEET UG & Board doubts in English or Hinglish. Get step-by-step solutions, mistake fixes, and 7-day study plans.',
+        'Compact voice & chat AI mentor synced with your live Prep Score (0–100), streak, and Mistake Notebook for instant JEE, NEET & Board solutions.',
       bodyHtml: buildShellHtml({
-        eyebrow: 'AI Study Mentor',
-        heading: 'Preps AI — Voice & Chat JEE, NEET & Board Mentor',
+        eyebrow: 'Compact AI Study Mentor',
+        heading: 'Preps AI — Live-Context JEE, NEET & Board Mentor',
         intro:
-          'Solve tough Physics, Chemistry, Maths, and Biology doubts step-by-step in English or Hinglish and turn test mistakes into a focused 7-day revision plan.',
+          'Solve tough Physics, Chemistry, Maths, and Biology doubts step-by-step in English or Hinglish with an accessible Live Context bar synced to your Prep Score (0–100) and Mistake Notebook.',
       }),
     },
     {
@@ -312,7 +326,7 @@ function main() {
         eyebrow: 'Concept Video Library',
         heading: 'Chapter-Wise Concept Video Lectures on Prepskm',
         intro:
-          'Revise key derivations, mechanisms, and exam shortcuts with focused concept lectures paired with downloadable concise PDFs and chapter DPPs.',
+          'Revise key derivations, mechanisms, and exam shortcuts with focused concept lectures paired with downloadable concise PDFs and inline chapter DPPs.',
       }),
     },
     {
@@ -320,7 +334,7 @@ function main() {
       canonicalPath: '/about',
       title: 'About Prepskm (@unfiltereddsumit) — JEE & NEET Prep',
       description:
-        'Discover how PREPSKM.IN by Sumit (@unfiltereddsumit) helps Class 9–12, JEE & NEET students with free concise notes, DPPs, and NTA CBT mocks.',
+        'Discover how PREPSKM.IN by @unfiltereddsumit unites chapter notes, inline DPPs, NTA CBT mocks, Prep Score (0–100), AI Mistake Lab & Google Workspace.',
       jsonLd: {
         '@context': 'https://schema.org',
         ...buildFaqPageJsonLd(ABOUT_FAQS),
@@ -329,7 +343,7 @@ function main() {
         eyebrow: 'Built for Indian Students by @unfiltereddsumit',
         heading: 'About Prepskm — How PREPSKM.IN Helps You Crack JEE, NEET & Boards',
         intro:
-          'PREPSKM.IN unites chapter-wise concise notes, formula sheets, timed Daily Practice Problems, authentic NTA-pattern CBT mocks, Mistake Notebook re-attempts, and Preps AI mentorship in one free, distraction-free workspace.',
+          'PREPSKM.IN unites chapter-wise concise notes with inline Chapter DPPs, authentic NTA-pattern CBT mocks, calibrated Prep Score (0–100) with Google Sheets & Tasks sync, AI Mistake Notebook re-attempt sets, and compact Preps AI mentorship.',
         extraSectionsHtml: aboutFaqHtml,
       }),
     }

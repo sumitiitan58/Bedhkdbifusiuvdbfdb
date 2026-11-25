@@ -3,7 +3,11 @@ import type { ReactNode } from 'react';
 import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
 import type { User } from 'firebase/auth';
 import { ADMIN_EMAILS, auth, googleProvider } from '../firebase/config';
+import firebaseConfig from '../../firebase-applet-config.json';
 import type { StudentCohortId, TestAttemptRecord, UserProfile, UserProgressData } from '../types';
+
+export const FIREBASE_PROJECT_ID = firebaseConfig.projectId;
+export const FIREBASE_AUTH_SETTINGS_URL = `https://console.firebase.google.com/project/${firebaseConfig.projectId}/authentication/settings`;
 import {
   checkAdminDocExists,
   fetchUserProfile,
@@ -307,7 +311,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (code === 'auth/unauthorized-domain' || rawMsg.includes('unauthorized-domain')) {
         const host = typeof window !== 'undefined' ? window.location.hostname : 'prepskm.in';
         setAuthError(
-          `Domain "${host}" is not yet authorized in Firebase Auth. Open Firebase Console (project gen-lang-client-0309095308) → Authentication → Settings → Authorized domains, and add "prepskm.in" and "www.prepskm.in".`
+          `Domain "${host}" is not yet authorized in Firebase Auth. Open Firebase Console (project ${firebaseConfig.projectId}) → Authentication → Settings → Authorized domains, and add "prepskm.in" and "www.prepskm.in".`
         );
       } else if (code === 'auth/popup-closed-by-user') {
         setAuthError('Google Sign-In popup was closed before completing sign-in.');

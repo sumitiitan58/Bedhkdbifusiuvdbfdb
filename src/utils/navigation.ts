@@ -17,40 +17,34 @@ export const PUBLIC_NAV_ROUTES: NavRouteItem[] = [
   {
     path: '/materials',
     label: 'Study Materials',
-    shortDescription: 'Chapter-wise short notes, formula sheets, mind maps & PYQs',
+    shortDescription: 'Chapter notes, formula sheets, PYQs & inline Chapter DPPs',
     showInPublicNav: true,
   },
   {
     path: '/analytics',
     label: 'Test Analysis',
-    shortDescription: 'Pro-level scorecards, percentile, attempt & difficulty breakdown',
+    shortDescription: 'Prep Score (0–100), percentile, pacing & Google Sheets sync',
     showInPublicNav: true,
   },
   {
     path: '/mistakes',
     label: 'Mistake Notebook',
-    shortDescription: 'Auto-saved wrong/unattempted questions & bookmarked vault',
+    shortDescription: 'AI error pattern diagnosis, personalized re-attempt sets & vault',
     showInPublicNav: true,
   },
   {
     path: '/preps-ai',
     label: 'Preps AI',
-    shortDescription: 'Voice & chat AI mentor grounded in your real mock scores',
+    shortDescription: 'Compact voice & chat AI mentor synced with your live context',
     showInPublicNav: true,
   },
 ];
 
 export const SECONDARY_SIDEBAR_ROUTES: NavRouteItem[] = [
   {
-    path: '/dpp',
-    label: 'Chapter DPPs',
-    shortDescription: 'Timed chapter-wise Daily Practice Problems',
-    showInPublicNav: true,
-  },
-  {
     path: '/profile',
     label: 'Profile & Track',
-    shortDescription: 'Student profile, avatar, target exam & preferences',
+    shortDescription: 'Student profile, avatar, active class track & preferences',
     showInPublicNav: false,
   },
   {

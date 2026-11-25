@@ -296,7 +296,7 @@ export default function AnalyticsPage() {
           </div>
         </div>
 
-        {/* Dynamic AI Prep Score (0–1000) Gauge at Top of Test Analysis */}
+        {/* Dynamic Prep Score (0–100) Gauge + Google Workspace Sheets & Tasks Sync */}
         <AiPrepScoreCard
           attempts={sortedAttempts}
           questions={questions}

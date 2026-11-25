@@ -1,7 +1,9 @@
 import { useMemo, useRef, useState } from 'react';
 import {
+  AlertTriangle,
   Camera,
   CheckCircle2,
+  ExternalLink,
   LogIn,
   LogOut,
   Save,
@@ -16,7 +18,7 @@ import { ReusableCard } from '../components/ReusableCard';
 import { ReusableButton } from '../components/ReusableButton';
 import { ClassSubClassPicker } from '../components/ClassSubClassPicker';
 import { SeoHead } from '../components/SeoHead';
-import { useAuth } from '../context/AuthContext';
+import { FIREBASE_AUTH_SETTINGS_URL, useAuth } from '../context/AuthContext';
 import { usePlatformData } from '../context/PlatformDataContext';
 import { instantUploadAsset } from '../utils/instantUpload';
 import { computeWeeklyScheduleStats } from '../utils/weeklySchedule';
@@ -37,6 +39,8 @@ export default function ProfilePage() {
     updateProfileDetails,
     signInWithGoogle,
     logout,
+    authError,
+    clearAuthError,
   } = useAuth();
   const { allCohorts, progress, attempts } = usePlatformData();
 
@@ -46,8 +50,6 @@ export default function ProfilePage() {
   const [bio, setBio] = useState(
     profile?.bio ?? 'Focused on consistent daily problem solving and high-accuracy mock analysis.'
   );
-  const [targetExam, setTargetExam] = useState(profile?.targetExam ?? 'JEE Main & Advanced');
-  const [targetYear, setTargetYear] = useState(profile?.targetYear ?? '2027');
   const [pickedCohort, setPickedCohort] = useState(cohortId);
   const [avatarUrl, setAvatarUrl] = useState(profile?.photoURL ?? firebaseUser?.photoURL ?? '');
 
@@ -103,8 +105,6 @@ export default function ProfilePage() {
       await updateProfileDetails({
         displayName: displayName.trim() || 'PREPSKM Student',
         bio: bio.trim(),
-        targetExam: targetExam.trim(),
-        targetYear: targetYear.trim(),
         cohortId: pickedCohort,
         photoURL: avatarUrl || undefined,
       });
@@ -168,6 +168,38 @@ export default function ProfilePage() {
             )}
           </div>
         </div>
+
+        {authError && (
+          <div
+            role="alert"
+            className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs sm:text-sm text-amber-900 dark:text-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+          >
+            <div className="flex items-start gap-2.5">
+              <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <span>{authError}</span>
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+              {authError.includes('Authorized domains') && (
+                <a
+                  href={FIREBASE_AUTH_SETTINGS_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 font-bold text-[#2563EB] dark:text-sky-400 hover:underline whitespace-nowrap"
+                >
+                  Open Auth Settings
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              )}
+              <button
+                type="button"
+                onClick={clearAuthError}
+                className="font-semibold underline text-slate-600 dark:text-slate-300"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* Left Column: Avatar Upload + Account Summary + Live Stats */}
@@ -292,67 +324,22 @@ export default function ProfilePage() {
           {/* Right Column: Editable Profile Details + Dynamic Class -> Sub-Class Picker */}
           <ReusableCard className="lg:col-span-8">
             <form onSubmit={handleSaveProfile} className="space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label
-                    htmlFor="profile-name"
-                    className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5"
-                  >
-                    Full Name
-                  </label>
-                  <input
-                    id="profile-name"
-                    type="text"
-                    required
-                    maxLength={120}
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label
-                      htmlFor="profile-target-exam"
-                      className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5"
-                    >
-                      Target Exam
-                    </label>
-                    <select
-                      id="profile-target-exam"
-                      value={targetExam}
-                      onChange={(e) => setTargetExam(e.target.value)}
-                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm"
-                    >
-                      <option value="JEE Main & Advanced">JEE Main &amp; Adv</option>
-                      <option value="NEET UG">NEET UG</option>
-                      <option value="Class 12 Boards">Class 12 Boards</option>
-                      <option value="Class 11 Boards">Class 11 Boards</option>
-                      <option value="Class 9-10 Foundation">Foundation / Olympiad</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="profile-target-year"
-                      className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5"
-                    >
-                      Exam Year
-                    </label>
-                    <select
-                      id="profile-target-year"
-                      value={targetYear}
-                      onChange={(e) => setTargetYear(e.target.value)}
-                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm"
-                    >
-                      <option value="2026">2026</option>
-                      <option value="2027">2027</option>
-                      <option value="2028">2028</option>
-                      <option value="2029">2029</option>
-                    </select>
-                  </div>
-                </div>
+              <div>
+                <label
+                  htmlFor="profile-name"
+                  className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5"
+                >
+                  Full Name
+                </label>
+                <input
+                  id="profile-name"
+                  type="text"
+                  required
+                  maxLength={120}
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm"
+                />
               </div>
 
               <div>

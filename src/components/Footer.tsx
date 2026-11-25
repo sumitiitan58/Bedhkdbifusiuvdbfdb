@@ -19,7 +19,7 @@ export function Footer() {
               <span className="font-semibold text-[#0B1B3B] dark:text-white">
                 {BRAND_CONFIG.creatorHandle}
               </span>{' '}
-              — uniting chapter-wise concise notes, PDFs &amp; concept videos, NTA CBT mock tests, DPPs, and Gemini AI IQ analytics.
+              — uniting chapter notes with inline Chapter DPPs, NTA CBT mock tests, Prep Score (0–100) analytics, AI Mistake Notebook, and Google Workspace sync.
             </p>
             <div className="flex flex-wrap gap-2 pt-1">
               {BRAND_CONFIG.socials.map((s) => (
@@ -42,7 +42,7 @@ export function Footer() {
               Explore Prepskm
             </h3>
             <ul className="mt-2.5 grid grid-cols-2 md:grid-cols-1 gap-y-1.5 gap-x-4 text-xs sm:text-sm text-slate-600 dark:text-slate-400">
-              {PUBLIC_NAV_ROUTES.filter((r) => r.path !== '/admin' && r.path !== '/mistakes').map((route) => (
+              {PUBLIC_NAV_ROUTES.filter((r) => r.path !== '/admin').map((route) => (
                 <li key={route.path}>
                   <Link
                     to={route.path}
@@ -54,10 +54,10 @@ export function Footer() {
               ))}
               <li>
                 <Link
-                  to="/dpp"
+                  to="/materials?tab=dpp"
                   className="hover:text-[#2563EB] dark:hover:text-sky-400 transition-colors"
                 >
-                  Chapter DPPs
+                  Inline Chapter DPPs
                 </Link>
               </li>
               <li>

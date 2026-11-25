@@ -1,15 +1,22 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
+  Activity,
+  ArrowLeft,
+  ArrowRight,
   Bookmark,
   BookmarkCheck,
   BookMarked,
+  Brain,
   CheckCircle2,
   ClipboardCheck,
+  Clock,
   Eye,
   Loader2,
+  Play,
   RotateCcw,
   Search,
   Sparkles,
+  Target,
   X,
   XCircle,
 } from 'lucide-react';
@@ -26,7 +33,18 @@ import {
   computeExamCountdown,
   computeStudyStreak,
 } from '../utils/streakTracker';
-import { extractMistakeEntries } from '../utils/testAnalysisEngine';
+import {
+  extractMistakeEntries,
+  type MistakeNotebookEntry,
+} from '../utils/testAnalysisEngine';
+import {
+  analyzeMistakePatterns,
+  buildPersonalizedReattemptSet,
+  classifyMistakeRootCause,
+  getRootCauseLabel,
+  type ReattemptStrategy,
+} from '../utils/mistakeAnalysisEngine';
+import { computePrepScore } from '../utils/prepScoreEngine';
 import { evaluateSingleQuestion } from '../utils/scoringEngine';
 import { playAiSparkle, playClick, playSuccess } from '../utils/soundEffects';
 import type { StudentAnswerValue, TestQuestionRecord } from '../types';
@@ -114,7 +132,9 @@ function InteractiveQuestionVaultCard({
 
     const prompt = [
       `Help me fix this ${question.subjectName}${question.chapterName ? ` (${question.chapterName})` : ''} mistake step-by-step.`,
-      question.questionText ? `Question: ${question.questionText}` : `Question #${question.questionNumber} (image-based problem)`,
+      question.questionText
+        ? `Question: ${question.questionText}`
+        : `Question #${question.questionNumber} (image-based problem)`,
       optionLines ? `Options: ${optionLines}` : '',
       `Official Answer: ${officialAnswerText}`,
       question.solutionText ? `Reference Solution: ${question.solutionText}` : '',
@@ -389,7 +409,10 @@ function InteractiveQuestionVaultCard({
       {showSolution && (
         <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 space-y-2 text-sm">
           <p className="font-bold text-[#0B1B3B] dark:text-white">
-            Official Answer: <span className="font-mono text-emerald-700 dark:text-emerald-400">{officialAnswerText}</span>
+            Official Answer:{' '}
+            <span className="font-mono text-emerald-700 dark:text-emerald-400">
+              {officialAnswerText}
+            </span>
           </p>
           {question.solutionImageUrl && (
             <img
@@ -437,11 +460,474 @@ function InteractiveQuestionVaultCard({
   );
 }
 
+interface PersonalizedReattemptDrillProps {
+  entries: MistakeNotebookEntry[];
+  setLabel: string;
+  resolvedSet: Set<string>;
+  studentContext: Record<string, unknown>;
+  onMarkResolved: (questionId: string) => void;
+  onExit: () => void;
+}
+
+function PersonalizedReattemptDrill({
+  entries,
+  setLabel,
+  resolvedSet,
+  studentContext,
+  onMarkResolved,
+  onExit,
+}: PersonalizedReattemptDrillProps) {
+  const [currentIdx, setCurrentIdx] = useState(0);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [finished, setFinished] = useState(false);
+  const [answersById, setAnswersById] = useState<Record<string, StudentAnswerValue>>({});
+  const [resultsById, setResultsById] = useState<Record<string, 'correct' | 'wrong'>>({});
+  const [aiExplainById, setAiExplainById] = useState<Record<string, string>>({});
+  const [aiBusyId, setAiBusyId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (finished) return;
+    const timer = window.setInterval(() => {
+      setElapsedSeconds((prev) => prev + 1);
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [finished]);
+
+  const currentEntry = entries[currentIdx];
+  const question = currentEntry?.question;
+
+  const formatTimer = (sec: number) => {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  };
+
+  const correctCount = Object.values(resultsById).filter((r) => r === 'correct').length;
+  const wrongCount = Object.values(resultsById).filter((r) => r === 'wrong').length;
+  const checkedCount = correctCount + wrongCount;
+
+  if (!currentEntry || !question) {
+    return null;
+  }
+
+  const currentAns = answersById[question.id];
+  const currentResult = resultsById[question.id] ?? null;
+  const officialAnswerText =
+    question.questionType === 'integer'
+      ? question.numericalAnswer ?? '—'
+      : (question.correctOptionIndices ?? [])
+          .map((i) => `Option ${OPTION_LETTERS[i]}`)
+          .join(', ') || '—';
+
+  const handleCheckCurrent = () => {
+    if (!currentAns) return;
+    playClick();
+    const res = evaluateSingleQuestion(question, currentAns, {
+      positiveMarks: question.positiveMarks ?? 4,
+      negativeMarks: question.negativeMarks ?? 1,
+      negativeMarkingEnabled: true,
+    });
+    if (!res.answered) return;
+    const outcome = res.isCorrect ? 'correct' : 'wrong';
+    setResultsById((prev) => ({ ...prev, [question.id]: outcome }));
+    if (res.isCorrect) {
+      playSuccess();
+      if (!resolvedSet.has(question.id)) {
+        onMarkResolved(question.id);
+      }
+    }
+  };
+
+  const handleExplainWithAi = async () => {
+    if (aiBusyId) return;
+    playClick();
+    setAiBusyId(question.id);
+    try {
+      const prompt = [
+        `I am re-attempting this ${question.subjectName} (${question.chapterName || 'Core'}) question in my Personalized Re-Attempt Set.`,
+        question.questionText ? `Question: ${question.questionText}` : '',
+        `Official Answer: ${officialAnswerText}`,
+        question.solutionText ? `Reference Solution: ${question.solutionText}` : '',
+        'Give a crisp 3-step explanation and the exact conceptual trap to remember.',
+      ]
+        .filter(Boolean)
+        .join('\n');
+      const res = await requestPrepsAiMessages({
+        messages: [{ role: 'user', content: prompt }],
+        context: studentContext,
+      });
+      setAiExplainById((prev) => ({ ...prev, [question.id]: res.reply }));
+      playAiSparkle();
+    } catch (err) {
+      setAiExplainById((prev) => ({
+        ...prev,
+        [question.id]:
+          err instanceof Error ? err.message : 'Unable to fetch Preps AI explanation right now.',
+      }));
+    } finally {
+      setAiBusyId(null);
+    }
+  };
+
+  if (finished) {
+    const accuracy =
+      checkedCount > 0 ? Math.round((correctCount / checkedCount) * 100) : 0;
+    return (
+      <ReusableCard className="space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+              Re-Attempt Set Complete · {setLabel}
+            </p>
+            <h2 className="font-display text-2xl font-extrabold text-[#0B1B3B] dark:text-white mt-0.5">
+              Recovery Scorecard
+            </h2>
+          </div>
+          <ReusableButton variant="secondary" size="sm" onClick={onExit}>
+            Back to Mistake Notebook
+          </ReusableButton>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 tabular-nums">
+          <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/70 border border-slate-200/80 dark:border-slate-800">
+            <p className="text-xs text-slate-500">Correct / Mastered</p>
+            <p className="mt-1 font-mono text-2xl font-extrabold text-emerald-600 dark:text-emerald-400">
+              {correctCount}/{entries.length}
+            </p>
+          </div>
+          <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/70 border border-slate-200/80 dark:border-slate-800">
+            <p className="text-xs text-slate-500">Still Needs Work</p>
+            <p className="mt-1 font-mono text-2xl font-extrabold text-rose-600 dark:text-rose-400">
+              {wrongCount}
+            </p>
+          </div>
+          <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/70 border border-slate-200/80 dark:border-slate-800">
+            <p className="text-xs text-slate-500">Drill Accuracy</p>
+            <p className="mt-1 font-mono text-2xl font-extrabold text-[#2563EB] dark:text-sky-400">
+              {accuracy}%
+            </p>
+          </div>
+          <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/70 border border-slate-200/80 dark:border-slate-800">
+            <p className="text-xs text-slate-500">Total Time</p>
+            <p className="mt-1 font-mono text-2xl font-extrabold text-[#0B1B3B] dark:text-white">
+              {formatTimer(elapsedSeconds)}
+            </p>
+          </div>
+        </div>
+
+        <p className="text-sm text-slate-600 dark:text-slate-300">
+          Every question you answered correctly in this personalized drill has been marked{' '}
+          <strong className="text-emerald-600 dark:text-emerald-400">Mastered</strong> to boost your
+          Prep Score recovery factor automatically.
+        </p>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <ReusableButton
+            variant="primary"
+            size="sm"
+            onClick={() => {
+              setCurrentIdx(0);
+              setElapsedSeconds(0);
+              setAnswersById({});
+              setResultsById({});
+              setFinished(false);
+            }}
+          >
+            <RotateCcw className="w-4 h-4" />
+            Re-Run This Set
+          </ReusableButton>
+          <ReusableButton variant="secondary" size="sm" onClick={onExit}>
+            Return to Mistake List
+          </ReusableButton>
+        </div>
+      </ReusableCard>
+    );
+  }
+
+  const rootCauseLabel = getRootCauseLabel(classifyMistakeRootCause(currentEntry));
+
+  return (
+    <ReusableCard className="space-y-5">
+      {/* Drill Top Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
+        <div className="space-y-0.5">
+          <p className="text-xs font-bold text-[#2563EB] dark:text-sky-400">
+            Personalized Re-Attempt Set · {setLabel}
+          </p>
+          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400 tabular-nums">
+            <span className="font-mono font-bold text-[#0B1B3B] dark:text-white">
+              Q {currentIdx + 1} of {entries.length}
+            </span>
+            <span>·</span>
+            <span>{currentEntry.subjectName}</span>
+            <span>·</span>
+            <span>{currentEntry.chapterName}</span>
+            <span>·</span>
+            <span className="text-[#F97316] font-semibold">{rootCauseLabel}</span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 shrink-0">
+          <span className="inline-flex items-center gap-1.5 font-mono text-xs font-bold text-slate-600 dark:text-slate-300 tabular-nums">
+            <Clock className="w-3.5 h-3.5 text-[#2563EB]" />
+            {formatTimer(elapsedSeconds)}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              playClick();
+              setFinished(true);
+            }}
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#0B1B3B] dark:bg-[#2563EB] text-white hover:opacity-95"
+          >
+            Finish Set
+          </button>
+          <button
+            type="button"
+            onClick={onExit}
+            aria-label="Exit re-attempt set"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Question Navigator Dots */}
+      <div className="flex flex-wrap gap-1.5">
+        {entries.map((e, idx) => {
+          const r = resultsById[e.questionId];
+          const active = idx === currentIdx;
+          return (
+            <button
+              key={e.questionId}
+              type="button"
+              onClick={() => setCurrentIdx(idx)}
+              className={`w-8 h-8 rounded-lg font-mono text-xs font-bold border transition-colors ${
+                active
+                  ? 'border-[#2563EB] bg-[#2563EB] text-white'
+                  : r === 'correct'
+                    ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300'
+                    : r === 'wrong'
+                      ? 'border-rose-500 bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300'
+                      : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
+              }`}
+            >
+              {idx + 1}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Question Prompt */}
+      <div className="space-y-3">
+        {question.questionImageUrl && (
+          <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white p-3">
+            <img
+              src={question.questionImageUrl}
+              alt={`Question ${question.questionNumber}`}
+              className="max-h-72 w-auto mx-auto object-contain"
+            />
+          </div>
+        )}
+        {question.questionText && (
+          <p className="text-base text-slate-900 dark:text-slate-100 leading-relaxed whitespace-pre-line">
+            {question.questionText}
+          </p>
+        )}
+      </div>
+
+      {/* Answer Input */}
+      {question.questionType === 'integer' ? (
+        <div className="max-w-xs space-y-1.5">
+          <label
+            htmlFor="drill-integer-input"
+            className="block text-xs font-semibold text-slate-600 dark:text-slate-300"
+          >
+            Enter Numerical Value
+          </label>
+          <input
+            id="drill-integer-input"
+            type="text"
+            inputMode="decimal"
+            value={currentAns?.type === 'integer' ? currentAns.value : ''}
+            onChange={(e) =>
+              setAnswersById((prev) => ({
+                ...prev,
+                [question.id]: { type: 'integer', value: e.target.value },
+              }))
+            }
+            placeholder="Type answer..."
+            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 font-mono text-base font-bold"
+          />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {OPTION_LETTERS.map((letter, idx) => {
+            const optText = question.optionTexts?.[idx];
+            const isSelected =
+              question.questionType === 'multi-mcq'
+                ? currentAns?.type === 'multi-mcq' && currentAns.selectedIndices.includes(idx)
+                : currentAns?.type === 'single-mcq' && currentAns.selectedIndex === idx;
+            const isCorrectOpt = (question.correctOptionIndices ?? []).includes(idx);
+
+            let cls =
+              'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/40 hover:border-[#2563EB]';
+            if (currentResult && isCorrectOpt) {
+              cls =
+                'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-100';
+            } else if (currentResult === 'wrong' && isSelected && !isCorrectOpt) {
+              cls =
+                'border-rose-500 bg-rose-50/70 dark:bg-rose-950/40 text-rose-900 dark:text-rose-100';
+            } else if (isSelected) {
+              cls =
+                'border-[#2563EB] bg-blue-50/70 dark:bg-blue-950/40 text-[#0B1B3B] dark:text-white';
+            }
+
+            return (
+              <button
+                key={letter}
+                type="button"
+                onClick={() => {
+                  playClick();
+                  if (question.questionType === 'multi-mcq') {
+                    const prevIndices =
+                      currentAns?.type === 'multi-mcq' ? currentAns.selectedIndices : [];
+                    const next = prevIndices.includes(idx)
+                      ? prevIndices.filter((i) => i !== idx)
+                      : [...prevIndices, idx];
+                    setAnswersById((prev) => ({
+                      ...prev,
+                      [question.id]: { type: 'multi-mcq', selectedIndices: next },
+                    }));
+                  } else {
+                    setAnswersById((prev) => ({
+                      ...prev,
+                      [question.id]: { type: 'single-mcq', selectedIndex: idx },
+                    }));
+                  }
+                }}
+                className={`text-left p-3.5 rounded-xl border transition-all flex items-start gap-3 ${cls}`}
+              >
+                <span className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 font-mono text-xs font-bold flex items-center justify-center shrink-0">
+                  {letter}
+                </span>
+                <span className="text-sm leading-snug">{optText || `Option ${letter}`}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Check + Navigation */}
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <ReusableButton
+            variant="primary"
+            size="sm"
+            disabled={!currentAns}
+            onClick={handleCheckCurrent}
+          >
+            Check Answer
+          </ReusableButton>
+          <ReusableButton
+            variant="secondary"
+            size="sm"
+            disabled={aiBusyId === question.id}
+            onClick={() => void handleExplainWithAi()}
+          >
+            {aiBusyId === question.id ? (
+              <Loader2 className="w-4 h-4 animate-spin text-[#2563EB]" />
+            ) : (
+              <Sparkles className="w-4 h-4 text-[#2563EB]" />
+            )}
+            AI Hint &amp; Fix
+          </ReusableButton>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <ReusableButton
+            variant="secondary"
+            size="sm"
+            disabled={currentIdx === 0}
+            onClick={() => setCurrentIdx((i) => Math.max(0, i - 1))}
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            Prev
+          </ReusableButton>
+          {currentIdx < entries.length - 1 ? (
+            <ReusableButton
+              variant="primary"
+              size="sm"
+              onClick={() => setCurrentIdx((i) => Math.min(entries.length - 1, i + 1))}
+            >
+              Next
+              <ArrowRight className="w-3.5 h-3.5" />
+            </ReusableButton>
+          ) : (
+            <ReusableButton
+              variant="accent"
+              size="sm"
+              onClick={() => {
+                playSuccess();
+                setFinished(true);
+              }}
+            >
+              View Scorecard
+            </ReusableButton>
+          )}
+        </div>
+      </div>
+
+      {/* Feedback + Solution */}
+      {currentResult && (
+        <div
+          className={`p-4 rounded-xl border text-sm space-y-1.5 ${
+            currentResult === 'correct'
+              ? 'bg-emerald-50/70 dark:bg-emerald-950/35 border-emerald-200 dark:border-emerald-800'
+              : 'bg-rose-50/70 dark:bg-rose-950/35 border-rose-200 dark:border-rose-800'
+          }`}
+        >
+          <p className="font-bold text-[#0B1B3B] dark:text-white flex items-center gap-2">
+            {currentResult === 'correct' ? (
+              <>
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                Correct — Marked Mastered!
+              </>
+            ) : (
+              <>
+                <XCircle className="w-4 h-4 text-rose-600" />
+                Incorrect — Official Answer: {officialAnswerText}
+              </>
+            )}
+          </p>
+          <p className="text-slate-700 dark:text-slate-300 whitespace-pre-line">
+            {question.solutionText || 'Review the highlighted option and key chapter concept.'}
+          </p>
+        </div>
+      )}
+
+      {aiExplainById[question.id] && (
+        <div className="p-4 rounded-xl bg-blue-50/70 dark:bg-blue-950/35 border border-blue-200 dark:border-blue-800 text-sm space-y-1.5">
+          <p className="text-xs font-bold uppercase tracking-wider text-[#2563EB] dark:text-sky-400 flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5" />
+            Preps AI Diagnosis
+          </p>
+          <p className="text-slate-800 dark:text-slate-100 whitespace-pre-line leading-relaxed">
+            {aiExplainById[question.id]}
+          </p>
+        </div>
+      )}
+    </ReusableCard>
+  );
+}
+
 export default function MistakeNotebookPage() {
   const { profile, firebaseUser, cohortId } = useAuth();
   const {
     allCohorts,
     attempts,
+    chapters,
     questions,
     activeStudyDates,
     targetExamDate,
@@ -453,11 +939,21 @@ export default function MistakeNotebookPage() {
 
   const [activeTab, setActiveTab] = useState<'mistakes' | 'vault'>('mistakes');
   const [subjectFilter, setSubjectFilter] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'wrong' | 'unattempted' | 'resolved'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'wrong' | 'unattempted' | 'resolved'>(
+    'all'
+  );
   const [searchQuery, setSearchQuery] = useState('');
   const [batchAiLoading, setBatchAiLoading] = useState(false);
   const [batchAiReply, setBatchAiReply] = useState('');
   const [batchAiError, setBatchAiError] = useState('');
+
+  // Personalized Re-Attempt Set configuration & active session
+  const [reattemptSize, setReattemptSize] = useState<number>(5);
+  const [reattemptStrategy, setReattemptStrategy] = useState<ReattemptStrategy>('high-risk');
+  const [activeDrill, setActiveDrill] = useState<{
+    entries: MistakeNotebookEntry[];
+    label: string;
+  } | null>(null);
 
   const resolvedSet = useMemo(() => new Set(resolvedMistakeIds), [resolvedMistakeIds]);
   const bookmarkSet = useMemo(() => new Set(bookmarkedQuestionIds), [bookmarkedQuestionIds]);
@@ -467,29 +963,55 @@ export default function MistakeNotebookPage() {
     [attempts, questions]
   );
 
+  const patternAnalysis = useMemo(
+    () => analyzeMistakePatterns(allMistakes, resolvedSet),
+    [allMistakes, resolvedSet]
+  );
+
+  const cohortLabel = useMemo(
+    () => allCohorts.find((c) => c.id === cohortId)?.label ?? 'Class 12 JEE',
+    [allCohorts, cohortId]
+  );
+
+  const prepScore = useMemo(
+    () =>
+      computePrepScore({
+        attempts,
+        questions,
+        chapters,
+        activeStudyDates,
+        resolvedMistakeIds,
+        cohortLabel,
+      }),
+    [attempts, questions, chapters, activeStudyDates, resolvedMistakeIds, cohortLabel]
+  );
+
   const studentContext = useMemo(() => {
-    const cohortLabel = allCohorts.find((c) => c.id === cohortId)?.label ?? 'Class 12 JEE';
     const streak = computeStudyStreak(activeStudyDates);
     const countdown = computeExamCountdown(targetExamDate);
     const unresolvedMistakesCount = allMistakes.filter((m) => !resolvedSet.has(m.questionId)).length;
 
-    return buildPrepsAiStudentContext({
-      studentName: profile?.displayName || firebaseUser?.displayName || 'Student',
-      cohortLabel,
-      attempts,
-      currentStreakDays: streak.currentStreak,
-      targetExamDaysLeft: countdown.daysRemaining,
-      bookmarkedQuestionsCount: bookmarkedQuestionIds.length,
-      unresolvedMistakesCount,
-    });
+    return {
+      ...buildPrepsAiStudentContext({
+        studentName: profile?.displayName || firebaseUser?.displayName || 'Student',
+        cohortLabel,
+        attempts,
+        currentStreakDays: streak.currentStreak,
+        targetExamDaysLeft: countdown.daysRemaining,
+        bookmarkedQuestionsCount: bookmarkedQuestionIds.length,
+        unresolvedMistakesCount,
+      }),
+      prepScore: `${prepScore.score}/100 (${prepScore.tier})`,
+    };
   }, [
     activeStudyDates,
-    allCohorts,
     allMistakes,
     attempts,
     bookmarkedQuestionIds.length,
-    cohortId,
+    cohortLabel,
     firebaseUser?.displayName,
+    prepScore.score,
+    prepScore.tier,
     profile?.displayName,
     resolvedSet,
     targetExamDate,
@@ -544,10 +1066,55 @@ export default function MistakeNotebookPage() {
     });
   }, [searchQuery, subjectFilter, vaultedQuestions]);
 
-  const activeMistakesCount = allMistakes.filter((m) => !resolvedSet.has(m.questionId)).length;
-  const masteredCount = allMistakes.filter((m) => resolvedSet.has(m.questionId)).length;
+  const activeMistakesCount = patternAnalysis.totalActive;
+  const masteredCount = patternAnalysis.totalMastered;
 
-  const handleAskPrepsAiFixMistakes = async () => {
+  const handleLaunchReattemptSet = (useSampleFallback = false) => {
+    playClick();
+    if (allMistakes.length > 0 && !useSampleFallback) {
+      const selected = buildPersonalizedReattemptSet(allMistakes, resolvedSet, {
+        size: reattemptSize >= 999 ? allMistakes.length : reattemptSize,
+        strategy: reattemptStrategy,
+        subjectFilter,
+      });
+      if (selected.length === 0) return;
+      const strategyLabel =
+        reattemptStrategy === 'high-risk'
+          ? 'High-Risk Priority'
+          : reattemptStrategy === 'weak-chapter'
+            ? 'Weakest Chapter Focus'
+            : subjectFilter !== 'all'
+              ? `${subjectFilter} Focus`
+              : 'Subject Focus';
+      setActiveDrill({ entries: selected, label: `${strategyLabel} (${selected.length} Qs)` });
+      return;
+    }
+
+    // Starter practice re-attempt set when user has 0 logged mock mistakes yet
+    const nowIso = new Date().toISOString();
+    const sampleEntries: MistakeNotebookEntry[] = questions.slice(0, Math.min(5, questions.length)).map((q) => ({
+      questionId: q.id,
+      question: q,
+      latestAttemptId: 'starter-diagnostic',
+      testId: q.testId,
+      subjectName: q.subjectName,
+      chapterName: q.chapterName || 'Core Syllabus',
+      testTitle: 'Starter Diagnostic Set',
+      status: 'wrong',
+      timeSpentSeconds: 45,
+      submittedAtIso: nowIso,
+      studentAnswer: undefined,
+      occurrences: 1,
+    }));
+    if (sampleEntries.length > 0) {
+      setActiveDrill({
+        entries: sampleEntries,
+        label: `Starter Practice Re-Attempt (${sampleEntries.length} Qs)`,
+      });
+    }
+  };
+
+  const handleRunAiErrorDiagnosis = async () => {
     if (batchAiLoading) return;
     playClick();
     setBatchAiLoading(true);
@@ -560,15 +1127,16 @@ export default function MistakeNotebookPage() {
         subject: m.subjectName,
         chapter: m.chapterName,
         status: m.status,
+        rootCause: getRootCauseLabel(classifyMistakeRootCause(m)),
         occurrences: m.occurrences,
         timeSpentSeconds: m.timeSpentSeconds,
-        questionSnippet: (m.question.questionText ?? '').slice(0, 180),
+        questionSnippet: (m.question.questionText ?? '').slice(0, 160),
       }));
 
     const prompt =
       activeSample.length > 0
-        ? `Analyze my ${activeMistakesCount} pending mistakes in my Mistake Notebook and give me a concrete step-by-step plan to fix these weak topics and reduce negative marking before my next CBT mock.`
-        : 'I have not logged any CBT mistakes yet. Give me a practical pre-exam mistake-prevention checklist for JEE/NEET CBT mocks so I avoid silly errors and negative marking.';
+        ? `Perform a structured AI Error Analysis on my ${activeMistakesCount} active mistakes. Dominant pattern: ${patternAnalysis.dominantCauseLabel}. Breakdown: ${patternAnalysis.conceptualGapCount} conceptual gaps, ${patternAnalysis.rushedSlipCount} rushed slips (<15s), ${patternAnalysis.timeSinkCount} overtime traps (>150s), ${patternAnalysis.skippedTopicCount} skipped. Top leak chapters: ${patternAnalysis.topLeakChapters.map((c) => `${c.chapterName} (${c.count})`).join(', ')}. Give me: (1) Root-cause diagnosis, (2) 3 concrete exam-day rules to cut negative marks, and (3) The exact order to run my Personalized Re-Attempt Set.`
+        : 'I have not logged CBT mock mistakes yet. Give me a concise 3-part JEE/NEET error-prevention framework covering conceptual checks, avoiding <15s silly slips, and escaping >150s time traps.';
 
     try {
       const res = await requestPrepsAiMessages({
@@ -579,6 +1147,14 @@ export default function MistakeNotebookPage() {
             pendingMistakes: activeMistakesCount,
             masteredMistakes: masteredCount,
             bookmarkedCount: vaultedQuestions.length,
+            dominantCause: patternAnalysis.dominantCauseLabel,
+            rootCauseCounts: {
+              conceptualGaps: patternAnalysis.conceptualGapCount,
+              rushedSlips: patternAnalysis.rushedSlipCount,
+              timeSinks: patternAnalysis.timeSinkCount,
+              skippedTopics: patternAnalysis.skippedTopicCount,
+            },
+            topLeakChapters: patternAnalysis.topLeakChapters,
             topPendingMistakes: activeSample,
           },
         },
@@ -589,7 +1165,7 @@ export default function MistakeNotebookPage() {
       setBatchAiError(
         err instanceof Error
           ? err.message
-          : 'Preps AI could not analyze your mistakes right now. Please try again.'
+          : 'Preps AI could not analyze your mistake patterns right now. Please try again.'
       );
     } finally {
       setBatchAiLoading(false);
@@ -599,8 +1175,8 @@ export default function MistakeNotebookPage() {
   return (
     <PageLayout>
       <SeoHead
-        title="Mistake Notebook & Question Vault | PREPSKM.IN"
-        description="Re-attempt wrong and skipped JEE/NEET questions automatically captured from CBT mocks and get step-by-step Preps AI fixes on PREPSKM.IN."
+        title="Mistake Notebook & AI Error Analysis | PREPSKM.IN"
+        description="Analyze root-cause error patterns, run personalized re-attempt sets, and get step-by-step Preps AI mistake fixes on PREPSKM.IN."
         canonicalPath="/mistakes"
         noIndex
       />
@@ -610,29 +1186,29 @@ export default function MistakeNotebookPage() {
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
           <div className="space-y-1">
             <p className="text-xs font-bold uppercase tracking-wider text-[#F97316]">
-              Retention &amp; Error Elimination Engine
+              AI Error Analysis &amp; Personalized Re-Attempt Engine
             </p>
             <h1 className="font-display text-3xl sm:text-4xl font-extrabold text-[#0B1B3B] dark:text-white tracking-tight">
-              Mistake Notebook &amp; Question Vault
+              Mistake Notebook
             </h1>
             <p className="text-base text-slate-600 dark:text-slate-400">
-              Every wrong and skipped question from your CBT tests is automatically logged here for targeted re-attempting.
+              Diagnose conceptual gaps vs. rushed slips and master your highest-risk mistakes through targeted re-attempt sets.
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 shrink-0">
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
             <ReusableButton
               variant="secondary"
               size="sm"
               disabled={batchAiLoading}
-              onClick={() => void handleAskPrepsAiFixMistakes()}
+              onClick={() => void handleRunAiErrorDiagnosis()}
             >
               {batchAiLoading ? (
                 <Loader2 className="w-4 h-4 animate-spin text-[#2563EB]" />
               ) : (
-                <Sparkles className="w-4 h-4 text-[#2563EB]" />
+                <Brain className="w-4 h-4 text-[#2563EB]" />
               )}
-              {batchAiLoading ? 'Fixing Mistakes...' : 'Ask Preps AI to Fix Mistakes'}
+              {batchAiLoading ? 'Diagnosing Errors...' : 'Run AI Error Diagnosis'}
             </ReusableButton>
             <ReusableButton variant="primary" size="sm" to="/cbt-mocks">
               <ClipboardCheck className="w-4 h-4" />
@@ -641,18 +1217,31 @@ export default function MistakeNotebookPage() {
           </div>
         </div>
 
+        {/* Active Inline Personalized Re-Attempt Drill */}
+        {activeDrill && (
+          <PersonalizedReattemptDrill
+            entries={activeDrill.entries}
+            setLabel={activeDrill.label}
+            resolvedSet={resolvedSet}
+            studentContext={studentContext as unknown as Record<string, unknown>}
+            onMarkResolved={(qid) => toggleMistakeResolved(qid)}
+            onExit={() => setActiveDrill(null)}
+          />
+        )}
+
+        {/* AI Diagnosis Response Box */}
         {(batchAiReply || batchAiError) && (
           <ReusableCard className="bg-blue-50/70 dark:bg-blue-950/35 border-blue-200/90 dark:border-blue-800/80 space-y-3">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-[#2563EB] dark:text-sky-400" />
                 <h2 className="font-display text-base font-bold text-[#0B1B3B] dark:text-white">
-                  Preps AI Mistake Fix Plan
+                  Preps AI Error Pattern Diagnosis
                 </h2>
               </div>
               <div className="flex items-center gap-2">
                 <ReusableButton variant="ghost" size="sm" to="/preps-ai">
-                  Open Full Studio
+                  Open Preps AI
                 </ReusableButton>
                 <button
                   type="button"
@@ -660,7 +1249,7 @@ export default function MistakeNotebookPage() {
                     setBatchAiReply('');
                     setBatchAiError('');
                   }}
-                  aria-label="Dismiss Preps AI mistake plan"
+                  aria-label="Dismiss AI diagnosis"
                   className="p-1.5 rounded-lg text-slate-500 hover:bg-white/60 dark:hover:bg-slate-800"
                 >
                   <X className="w-4 h-4" />
@@ -677,42 +1266,165 @@ export default function MistakeNotebookPage() {
           </ReusableCard>
         )}
 
-        {/* Summary Strip */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 tabular-nums">
-          <ReusableCard>
-            <p className="text-xs font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400">
-              Pending Mistakes
+        {/* Two-Column Intelligence Row: Root-Cause Analysis + Personalized Re-Attempt Set Builder */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Root-Cause Error Pattern Analysis */}
+          <ReusableCard className="lg:col-span-7 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="space-y-0.5">
+                <p className="text-xs font-bold text-[#2563EB] dark:text-sky-400 flex items-center gap-1.5">
+                  <Activity className="w-3.5 h-3.5" />
+                  Root-Cause Error Analysis
+                </p>
+                <h2 className="font-display text-lg font-bold text-[#0B1B3B] dark:text-white">
+                  {patternAnalysis.dominantCauseLabel}
+                </h2>
+              </div>
+              <span className="font-mono text-xs font-semibold text-slate-500 dark:text-slate-400 tabular-nums">
+                {activeMistakesCount} Pending · {masteredCount} Mastered · {vaultedQuestions.length}{' '}
+                Vaulted
+              </span>
+            </div>
+
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+              {patternAnalysis.dominantCauseAdvice}
             </p>
-            <p className="mt-2 font-mono text-3xl font-extrabold text-[#0B1B3B] dark:text-white">
-              {activeMistakesCount}
-            </p>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              Wrong &amp; unattempted questions awaiting re-attempt
-            </p>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 tabular-nums">
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/70 border border-slate-200/80 dark:border-slate-800">
+                <p className="text-[11px] font-semibold text-slate-500">Conceptual Gaps</p>
+                <p className="mt-1 font-mono text-xl font-extrabold text-[#0B1B3B] dark:text-white">
+                  {patternAnalysis.conceptualGapCount}
+                </p>
+              </div>
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/70 border border-slate-200/80 dark:border-slate-800">
+                <p className="text-[11px] font-semibold text-rose-600 dark:text-rose-400">
+                  Rushed (&lt;15s)
+                </p>
+                <p className="mt-1 font-mono text-xl font-extrabold text-rose-600 dark:text-rose-400">
+                  {patternAnalysis.rushedSlipCount}
+                </p>
+              </div>
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/70 border border-slate-200/80 dark:border-slate-800">
+                <p className="text-[11px] font-semibold text-[#F97316]">Time-Sinks (&gt;150s)</p>
+                <p className="mt-1 font-mono text-xl font-extrabold text-[#F97316]">
+                  {patternAnalysis.timeSinkCount}
+                </p>
+              </div>
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/70 border border-slate-200/80 dark:border-slate-800">
+                <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+                  Skipped Topics
+                </p>
+                <p className="mt-1 font-mono text-xl font-extrabold text-amber-600 dark:text-amber-400">
+                  {patternAnalysis.skippedTopicCount}
+                </p>
+              </div>
+            </div>
+
+            {patternAnalysis.topLeakChapters.length > 0 && (
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-1.5">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  Highest Mark-Leak Chapters
+                </p>
+                <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs tabular-nums">
+                  {patternAnalysis.topLeakChapters.slice(0, 4).map((ch) => (
+                    <span
+                      key={`${ch.subjectName}-${ch.chapterName}`}
+                      className="text-slate-700 dark:text-slate-300"
+                    >
+                      <strong className="text-[#0B1B3B] dark:text-white">{ch.chapterName}</strong>{' '}
+                      <span className="text-slate-400">({ch.subjectName})</span> ·{' '}
+                      <span className="font-mono font-bold text-rose-600 dark:text-rose-400">
+                        {ch.count}Q
+                      </span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </ReusableCard>
 
-          <ReusableCard>
-            <p className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-              Mastered Mistakes
-            </p>
-            <p className="mt-2 font-mono text-3xl font-extrabold text-[#10B981]">
-              {masteredCount}
-            </p>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              Errors resolved through active re-attempting
-            </p>
-          </ReusableCard>
+          {/* Personalized Re-Attempt Set Builder */}
+          <ReusableCard className="lg:col-span-5 flex flex-col justify-between gap-4">
+            <div className="space-y-3">
+              <div className="space-y-0.5">
+                <p className="text-xs font-bold text-[#F97316] flex items-center gap-1.5">
+                  <Target className="w-3.5 h-3.5" />
+                  Personalized Re-Attempt Set
+                </p>
+                <h2 className="font-display text-lg font-bold text-[#0B1B3B] dark:text-white">
+                  Build a Timed Recovery Drill
+                </h2>
+                <p className="text-xs text-slate-600 dark:text-slate-400">
+                  Auto-prioritizes unresolved errors, tracks speed, and marks solved questions Mastered.
+                </p>
+              </div>
 
-          <ReusableCard>
-            <p className="text-xs font-bold uppercase tracking-wider text-[#F97316]">
-              Important Question Vault
-            </p>
-            <p className="mt-2 font-mono text-3xl font-extrabold text-[#0B1B3B] dark:text-white">
-              {vaultedQuestions.length}
-            </p>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              Tricky questions bookmarked for last-minute revision
-            </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label
+                    htmlFor="reattempt-strategy"
+                    className="block text-[11px] font-semibold text-slate-500 mb-1"
+                  >
+                    Prioritization
+                  </label>
+                  <select
+                    id="reattempt-strategy"
+                    value={reattemptStrategy}
+                    onChange={(e) => setReattemptStrategy(e.target.value as ReattemptStrategy)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold"
+                  >
+                    <option value="high-risk">High-Risk First</option>
+                    <option value="weak-chapter">Weakest Chapters</option>
+                    <option value="subject">Active Subject Filter</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="reattempt-size"
+                    className="block text-[11px] font-semibold text-slate-500 mb-1"
+                  >
+                    Set Size
+                  </label>
+                  <select
+                    id="reattempt-size"
+                    value={reattemptSize}
+                    onChange={(e) => setReattemptSize(Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold"
+                  >
+                    <option value={5}>5 Questions (Quick)</option>
+                    <option value={10}>10 Questions (Focused)</option>
+                    <option value={999}>All Pending Mistakes</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2.5 pt-2">
+              {allMistakes.length > 0 ? (
+                <ReusableButton
+                  variant="primary"
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => handleLaunchReattemptSet(false)}
+                >
+                  <Play className="w-3.5 h-3.5" />
+                  Start Personalized Set
+                </ReusableButton>
+              ) : (
+                <ReusableButton
+                  variant="primary"
+                  size="sm"
+                  className="flex-1"
+                  disabled={questions.length === 0}
+                  onClick={() => handleLaunchReattemptSet(true)}
+                >
+                  <Play className="w-3.5 h-3.5" />
+                  Try 5-Q Sample Re-Attempt Set
+                </ReusableButton>
+              )}
+            </div>
           </ReusableCard>
         </div>
 
@@ -819,14 +1531,25 @@ export default function MistakeNotebookPage() {
                 </h2>
                 <p className="text-sm text-slate-500 dark:text-slate-400">
                   {allMistakes.length === 0
-                    ? 'Submit any CBT Mock Test or Chapter DPP and every wrong or skipped question will automatically appear here with instant re-attempt practice.'
+                    ? 'Submit any CBT Mock Test or inline Chapter DPP and every wrong or skipped question will automatically appear here for AI root-cause diagnosis and personalized re-attempt sets.'
                     : 'Clear your subject or status filter to see all logged mistakes.'}
                 </p>
               </div>
-              <ReusableButton variant="accent" to="/cbt-mocks">
-                <ClipboardCheck className="w-4 h-4" />
-                Attempt a CBT Mock Test
-              </ReusableButton>
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <ReusableButton variant="accent" to="/cbt-mocks">
+                  <ClipboardCheck className="w-4 h-4" />
+                  Attempt a CBT Mock Test
+                </ReusableButton>
+                {questions.length > 0 && allMistakes.length === 0 && (
+                  <ReusableButton
+                    variant="secondary"
+                    onClick={() => handleLaunchReattemptSet(true)}
+                  >
+                    <Play className="w-4 h-4" />
+                    Try Sample Re-Attempt Set
+                  </ReusableButton>
+                )}
+              </div>
             </ReusableCard>
           ) : (
             <div className="space-y-6">
@@ -834,7 +1557,7 @@ export default function MistakeNotebookPage() {
                 <InteractiveQuestionVaultCard
                   key={entry.questionId}
                   question={entry.question}
-                  metaLine={`From ${entry.testTitle} · Spent ${entry.timeSpentSeconds}s · Logged ${entry.occurrences}×`}
+                  metaLine={`From ${entry.testTitle} · ${getRootCauseLabel(classifyMistakeRootCause(entry))} · Spent ${entry.timeSpentSeconds}s · Logged ${entry.occurrences}×`}
                   statusTag={entry.status}
                   isResolved={resolvedSet.has(entry.questionId)}
                   isBookmarked={bookmarkSet.has(entry.questionId)}
@@ -853,7 +1576,8 @@ export default function MistakeNotebookPage() {
                 Your Important Question Vault Is Empty
               </h2>
               <p className="text-sm text-slate-500 dark:text-slate-400">
-                Click the <strong>Save</strong> bookmark button on any tricky question during Test Analysis or Solution Review to build your personal last-minute revision vault.
+                Click the <strong>Bookmark</strong> button on any tricky question during Test Analysis
+                or Solution Review to build your personal last-minute revision vault.
               </p>
             </div>
             <div className="flex flex-wrap items-center justify-center gap-3">

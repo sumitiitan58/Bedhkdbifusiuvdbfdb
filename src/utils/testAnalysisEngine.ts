@@ -77,6 +77,8 @@ export interface MistakeEntry {
   timeSpentSeconds: number;
 }
 
+export type MistakeNotebookEntry = MistakeEntry;
+
 /**
  * Deterministic, realistic JEE/NEET percentile & leaderboard rank estimator
  * grounded in official JEE Main / NEET score-to-percentile curves.

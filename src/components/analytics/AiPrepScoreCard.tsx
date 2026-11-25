@@ -16,7 +16,7 @@ import {
 import { ReusableCard } from '../ReusableCard';
 import { WorkspaceSyncControls } from './WorkspaceSyncControls';
 import {
-  computeAiPrepScore,
+  computePrepScore,
   type PrepReadinessTier,
   type PrepScoreReport,
 } from '../../utils/prepScoreEngine';
@@ -85,7 +85,7 @@ function PrepScoreGaugeSvg({
 }) {
   const radius = 92;
   const circumference = Math.PI * radius; // Semi-circle arc length
-  const clampedRatio = Math.max(0, Math.min(1, score / 1000));
+  const clampedRatio = Math.max(0, Math.min(1, score / 100));
   const strokeDashoffset = circumference * (1 - clampedRatio);
   const style = TIER_STYLES[tier];
 
@@ -96,7 +96,7 @@ function PrepScoreGaugeSvg({
           viewBox="0 0 220 138"
           className="w-full h-full overflow-visible"
           role="img"
-          aria-label={`AI Prep Score ${score} out of 1000, readiness tier ${tier}`}
+          aria-label={`Prep Score ${score} out of 100, readiness tier ${tier}`}
         >
           {/* Background semi-circle track */}
           <path
@@ -133,7 +133,7 @@ function PrepScoreGaugeSvg({
             className="fill-slate-400 dark:fill-slate-500 text-[10px] font-mono"
             textAnchor="middle"
           >
-            500
+            50
           </text>
           <text
             x="204"
@@ -141,7 +141,7 @@ function PrepScoreGaugeSvg({
             className="fill-slate-400 dark:fill-slate-500 text-[10px] font-mono"
             textAnchor="end"
           >
-            1000
+            100
           </text>
         </svg>
 
@@ -151,7 +151,7 @@ function PrepScoreGaugeSvg({
               {score}
             </span>
             <span className="font-mono text-sm font-semibold text-slate-400 dark:text-slate-500 tabular-nums">
-              / 1000
+              / 100
             </span>
           </div>
           <p className={`text-sm font-bold mt-0.5 ${style.textClass}`}>{tier}</p>
@@ -201,7 +201,7 @@ export function AiPrepScoreCard({
 
   const report: PrepScoreReport = useMemo(
     () =>
-      computeAiPrepScore({
+      computePrepScore({
         attempts: effectiveAttempts,
         questions,
         chapters,
@@ -220,7 +220,7 @@ export function AiPrepScoreCard({
           <div className="space-y-1">
             <p className="text-xs font-bold tracking-wide text-[#2563EB] dark:text-sky-400 flex items-center gap-1.5">
               <Gauge className="w-4 h-4 shrink-0" />
-              <span>AI Prep Score</span>
+              <span>Prep Score</span>
               <span aria-hidden="true" className="text-slate-300 dark:text-slate-700">
                 ·
               </span>
@@ -246,7 +246,7 @@ export function AiPrepScoreCard({
               className="inline-flex items-center gap-2 h-10 px-4 rounded-xl bg-[#0B1B3B] dark:bg-[#2563EB] text-white text-xs sm:text-sm font-semibold hover:opacity-95 transition-opacity whitespace-nowrap shrink-0"
             >
               <HelpCircle className="w-4 h-4" />
-              How AI Calculated This
+              How Prep Score Works
             </button>
           </div>
         </div>
@@ -264,16 +264,16 @@ export function AiPrepScoreCard({
 
             <div className="w-full pt-3 border-t border-slate-100 dark:border-slate-800/80 text-center space-y-1">
               <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 tabular-nums">
-                {report.pointsTo850 > 0 ? (
+                {report.pointsTo85 > 0 ? (
                   <>
                     <span className="font-mono font-bold text-[#0B1B3B] dark:text-white">
-                      +{report.pointsTo850} pts
+                      +{report.pointsTo85} pts
                     </span>{' '}
-                    needed to cross 850+ AIR Top 1000 Pace
+                    needed to cross 85+ AIR Top 1000 Pace
                   </>
                 ) : (
                   <span className="text-emerald-600 dark:text-emerald-400 font-bold">
-                    Above 850+ target pace — maintain consistency
+                    Above 85+ target pace — maintain consistency
                   </span>
                 )}
               </p>
@@ -289,7 +289,7 @@ export function AiPrepScoreCard({
           <div className="lg:col-span-8 space-y-4">
             <div className="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400">
               <span>4-Factor Weighted Breakdown</span>
-              <span className="font-mono tabular-nums">Total: {report.score} / 1000</span>
+              <span className="font-mono tabular-nums">Total: {report.score} / 100</span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
@@ -408,17 +408,17 @@ export function AiPrepScoreCard({
                     id="prep-score-modal-title"
                     className="font-display text-lg font-extrabold text-[#0B1B3B] dark:text-white truncate"
                   >
-                    How AI Calculated Your Prep Score ({report.score} / 1000)
+                    How Prep Score Is Calculated ({report.score} / 100)
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    {report.tier} · {cohortLabel} · Formula weights &amp; personalized 850+ roadmap
+                    {report.tier} · {cohortLabel} · Formula weights &amp; personalized 85+ roadmap
                   </p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setModalOpen(false)}
-                aria-label="Close AI Prep Score calculation details"
+                aria-label="Close Prep Score calculation details"
                 className="p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               >
                 <X className="w-5 h-5" />
@@ -472,7 +472,7 @@ export function AiPrepScoreCard({
               {/* Exact Weight Formula Table */}
               <div className="space-y-3">
                 <h4 className="font-display text-sm font-bold text-[#0B1B3B] dark:text-white">
-                  1. Weighted Scoring Formula (1000 Points Max)
+                  1. Weighted Scoring Formula (100 Points Max)
                 </h4>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs border-collapse">
@@ -506,15 +506,15 @@ export function AiPrepScoreCard({
                 </div>
               </div>
 
-              {/* Personalized Chapter-Level Action Items to Push Score Above 850+ */}
+              {/* Personalized Chapter-Level Action Items to Push Score Above 85+ */}
               <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <h4 className="font-display text-sm font-bold text-[#0B1B3B] dark:text-white flex items-center gap-1.5">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                    2. Personalized Action Plan to Reach 850+
+                    2. Personalized Action Plan to Reach 85+
                   </h4>
                   <span className="font-mono text-xs font-semibold text-slate-500 dark:text-slate-400 tabular-nums">
-                    Gap to 850: {report.pointsTo850} pts
+                    Gap to 85: {report.pointsTo85} pts
                   </span>
                 </div>
 

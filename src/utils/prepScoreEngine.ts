@@ -63,12 +63,12 @@ export interface PrepScoreDiagnostics {
 
 export interface PrepScoreReport {
   score: number;
-  maxScore: 1000;
+  maxScore: 100;
   tier: PrepReadinessTier;
   tierDescription: string;
   deltaThisWeek: number;
   deltaLabel: string;
-  pointsTo850: number;
+  pointsTo85: number;
   hasAttemptData: boolean;
   factors: PrepScoreFactor[];
   insights: PrepScoreInsight[];
@@ -117,19 +117,19 @@ export function getPrepReadinessTier(score: number): {
   tier: PrepReadinessTier;
   description: string;
 } {
-  if (score >= 825) {
+  if (score >= 85) {
     return {
       tier: 'AIR Top 1000 Pace',
       description: 'Elite accuracy, disciplined exam pacing, and high-yield chapter command.',
     };
   }
-  if (score >= 650) {
+  if (score >= 65) {
     return {
       tier: '98+ %ile Ready',
-      description: 'Strong competitive trajectory — tighten time traps and mistake recovery to cross 850+.',
+      description: 'Strong competitive trajectory — tighten time traps and mistake recovery to cross 85+.',
     };
   }
-  if (score >= 400) {
+  if (score >= 40) {
     return {
       tier: 'Contender',
       description: 'Solid conceptual base — sharpen negative-mark control and high-weightage chapters.',
@@ -322,7 +322,6 @@ function computeCorePrepScore(input: PrepScoreInput): RawScoreComputation {
         chapterStats.set(cKey, cEntry);
       }
     } else {
-      // Fallback when attempt only stores aggregate counts
       const attCount = att.correctCount + att.incorrectCount;
       totalAttemptedQuestions += attCount;
       totalCorrectQuestions += att.correctCount;
@@ -361,18 +360,19 @@ function computeCorePrepScore(input: PrepScoreInput): RawScoreComputation {
   const avgSecondsPerQuestion =
     totalTimedQuestions > 0 ? Math.round(totalTimeSeconds / totalTimedQuestions) : 0;
 
-  // 1) Pacing & Time Discipline (25% -> max 250 pts)
+  // 1) Pacing & Time Discipline (25% -> max 25 pts)
   let pacingScore = 0;
   if (hasAttempts && totalTimedQuestions > 0) {
-    const deviationRatio = Math.abs(avgSecondsPerQuestion - idealSecondsPerQuestion) / (idealSecondsPerQuestion * 1.25);
+    const deviationRatio =
+      Math.abs(avgSecondsPerQuestion - idealSecondsPerQuestion) / (idealSecondsPerQuestion * 1.25);
     const paceAlignment = Math.max(0.15, 1 - Math.min(1, deviationRatio));
     const rushedRate = rushedWrongCount / Math.max(1, totalAttemptedQuestions);
     const timeSinkRate = timeSinkCount / Math.max(1, totalTimedQuestions);
     const disciplineMultiplier = Math.max(0.2, 1 - rushedRate * 0.65 - timeSinkRate * 0.55);
-    pacingScore = Math.round(250 * Math.max(0, Math.min(1, paceAlignment * disciplineMultiplier)));
+    pacingScore = Math.round(25 * Math.max(0, Math.min(1, paceAlignment * disciplineMultiplier)));
   }
 
-  // 2) High-Yield Chapter Coverage (30% -> max 300 pts)
+  // 2) High-Yield Chapter Coverage (30% -> max 30 pts)
   let chapterWeightageScore = 0;
   let highYieldChaptersCovered = 0;
   if (hasAttempts && chapterStats.size > 0) {
@@ -404,10 +404,10 @@ function computeCorePrepScore(input: PrepScoreInput): RawScoreComputation {
       0,
       Math.min(1, (0.68 * weightedAcc + 0.32 * weightedAtt) * breadthFactor)
     );
-    chapterWeightageScore = Math.round(300 * combinedChapterRatio);
+    chapterWeightageScore = Math.round(30 * combinedChapterRatio);
   }
 
-  // 3) Accuracy & Negative Control (25% -> max 250 pts)
+  // 3) Accuracy & Negative Control (25% -> max 25 pts)
   const netMarks = positiveMarksEarned - negativeMarksLost;
   const netPositiveRatio =
     maxPossibleOnAttempted > 0
@@ -421,16 +421,16 @@ function computeCorePrepScore(input: PrepScoreInput): RawScoreComputation {
         : 0;
     const negativeControl = Math.max(0, 1 - negLeakageRatio * 1.4);
     accuracyControlScore = Math.round(
-      250 * Math.max(0, Math.min(1, 0.72 * netPositiveRatio + 0.28 * negativeControl))
+      25 * Math.max(0, Math.min(1, 0.72 * netPositiveRatio + 0.28 * negativeControl))
     );
   }
 
-  // 4) Consistency & Error Elimination (20% -> max 200 pts)
+  // 4) Consistency & Mistake Recovery (20% -> max 20 pts)
   const streak = computeStudyStreak(activeStudyDates, toLocalDateKey(referenceDate));
   const activeDaysLast7 = streak.last7Days.filter((d) => d.active).length;
   const streakSubScore = Math.round(
-    Math.min(1, streak.currentStreak / 14) * 80 +
-      Math.min(1, activeDaysLast7 / 7) * 20
+    Math.min(1, streak.currentStreak / 14) * 8 +
+      Math.min(1, activeDaysLast7 / 7) * 2
   );
 
   const mistakeEntries = extractMistakeEntries(attempts, questions);
@@ -446,17 +446,17 @@ function computeCorePrepScore(input: PrepScoreInput): RawScoreComputation {
 
   const mistakeSubScore =
     mistakeTotalCount > 0
-      ? Math.round((mistakeResolvedCount / mistakeTotalCount) * 100)
+      ? Math.round((mistakeResolvedCount / mistakeTotalCount) * 10)
       : hasAttempts
-        ? 100
+        ? 10
         : 0;
 
-  const consistencyRecoveryScore = Math.min(200, streakSubScore + mistakeSubScore);
+  const consistencyRecoveryScore = Math.min(20, streakSubScore + mistakeSubScore);
 
   const totalScore = Math.max(
     0,
     Math.min(
-      1000,
+      100,
       pacingScore + chapterWeightageScore + accuracyControlScore + consistencyRecoveryScore
     )
   );
@@ -468,8 +468,8 @@ function computeCorePrepScore(input: PrepScoreInput): RawScoreComputation {
       shortLabel: 'Pacing',
       weightPercent: 25,
       score: pacingScore,
-      maxScore: 250,
-      percent: Math.round((pacingScore / 250) * 100),
+      maxScore: 25,
+      percent: Math.round((pacingScore / 25) * 100),
       summary: hasAttempts
         ? `${avgSecondsPerQuestion}s/Q vs ${idealSecondsPerQuestion}s benchmark · ${rushedWrongCount} rushed (<10s), ${timeSinkCount} >180s traps`
         : 'Attempt your first CBT mock to calibrate question pacing',
@@ -480,8 +480,8 @@ function computeCorePrepScore(input: PrepScoreInput): RawScoreComputation {
       shortLabel: 'Chapter Weightage',
       weightPercent: 30,
       score: chapterWeightageScore,
-      maxScore: 300,
-      percent: Math.round((chapterWeightageScore / 300) * 100),
+      maxScore: 30,
+      percent: Math.round((chapterWeightageScore / 30) * 100),
       summary: hasAttempts
         ? `${chapterStats.size} syllabus chapters tested · ${highYieldChaptersCovered} high-yield chapters attempted`
         : 'High-yield JEE/NEET chapters weighted by exam marks',
@@ -492,8 +492,8 @@ function computeCorePrepScore(input: PrepScoreInput): RawScoreComputation {
       shortLabel: 'Accuracy',
       weightPercent: 25,
       score: accuracyControlScore,
-      maxScore: 250,
-      percent: Math.round((accuracyControlScore / 250) * 100),
+      maxScore: 25,
+      percent: Math.round((accuracyControlScore / 25) * 100),
       summary: hasAttempts
         ? `${Math.round(netPositiveRatio * 100)}% net yield · +${positiveMarksEarned} earned, -${negativeMarksLost} negative`
         : 'Measures net positive marks relative to attempted questions',
@@ -504,8 +504,8 @@ function computeCorePrepScore(input: PrepScoreInput): RawScoreComputation {
       shortLabel: 'Mistake Recovery',
       weightPercent: 20,
       score: consistencyRecoveryScore,
-      maxScore: 200,
-      percent: Math.round((consistencyRecoveryScore / 200) * 100),
+      maxScore: 20,
+      percent: Math.round((consistencyRecoveryScore / 20) * 100),
       summary:
         mistakeTotalCount > 0
           ? `${streak.currentStreak}-day active streak · ${mistakeResolvedCount}/${mistakeTotalCount} mistakes mastered (${mistakeRecoveryPercent}%)`
@@ -544,7 +544,7 @@ function buildInsights(core: RawScoreComputation, hasAttempts: boolean): PrepSco
   const { diagnostics, subjectStats, chapterStats } = core;
 
   if (!hasAttempts) {
-    const streakPts = Math.min(20, diagnostics.activeStreakDays * 6);
+    const streakPts = Math.min(10, Math.max(0, Math.round(diagnostics.activeStreakDays * 0.7)));
     return [
       {
         id: 'insight-streak',
@@ -553,21 +553,21 @@ function buildInsights(core: RawScoreComputation, hasAttempts: boolean): PrepSco
           diagnostics.activeStreakDays > 0
             ? `+${streakPts} pts from your ${diagnostics.activeStreakDays}-day study streak`
             : '+0 pts baseline — start logging daily study sessions',
-        detail: 'Consistent daily sessions build up to 100 points in the Consistency factor.',
+        detail: 'Consistent daily sessions build up to 10 points in the Consistency factor.',
         sentiment: diagnostics.activeStreakDays > 0 ? 'positive' : 'neutral',
       },
       {
         id: 'insight-first-mock',
         deltaPts: 0,
-        headline: 'Unlock 750+ pts by submitting your first CBT Mock',
-        detail: 'Pacing (250), High-Yield Chapters (300), and Accuracy (250) activate right after your first test.',
+        headline: 'Unlock up to 80 pts by submitting your first CBT Mock',
+        detail: 'Pacing (25), High-Yield Chapters (30), and Accuracy (25) activate right after your first test.',
         sentiment: 'neutral',
       },
       {
         id: 'insight-mistakes',
         deltaPts: 0,
         headline: 'Mistake Notebook auto-tracks every error',
-        detail: 'Re-attempting and mastering wrong questions adds up to 100 recovery points.',
+        detail: 'Re-attempting and mastering wrong questions adds up to 10 recovery points.',
         sentiment: 'neutral',
       },
     ];
@@ -575,7 +575,6 @@ function buildInsights(core: RawScoreComputation, hasAttempts: boolean): PrepSco
 
   const insights: PrepScoreInsight[] = [];
 
-  // Insight 1: Best-paced subject or rushed error drag
   let worstRushedChapter: { chapterName: string; subjectName: string; count: number } | null = null;
   for (const ch of chapterStats.values()) {
     if (ch.rushedWrong > (worstRushedChapter?.count ?? 0)) {
@@ -603,7 +602,7 @@ function buildInsights(core: RawScoreComputation, hasAttempts: boolean): PrepSco
   }
 
   if (bestPacedSubject) {
-    const gain = Math.max(8, Math.min(28, Math.round(bestPacedSubject.acc * 0.24)));
+    const gain = Math.max(2, Math.min(6, Math.round(bestPacedSubject.acc * 0.06)));
     insights.push({
       id: 'insight-pacing-win',
       deltaPts: gain,
@@ -613,7 +612,7 @@ function buildInsights(core: RawScoreComputation, hasAttempts: boolean): PrepSco
     });
   } else {
     const diffSec = diagnostics.avgSecondsPerQuestion - diagnostics.idealSecondsPerQuestion;
-    const impact = diffSec > 20 ? -Math.min(20, Math.round(diffSec / 5)) : 10;
+    const impact = diffSec > 20 ? -Math.min(5, Math.max(1, Math.round(diffSec / 25))) : 2;
     insights.push({
       id: 'insight-pacing-general',
       deltaPts: impact,
@@ -629,12 +628,9 @@ function buildInsights(core: RawScoreComputation, hasAttempts: boolean): PrepSco
     });
   }
 
-  // Insight 2: Rushed errors (<10s) OR Time-Sink traps (>180s) OR Negative-mark control
   if (diagnostics.rushedWrongCount > 0) {
-    const penalty = -Math.min(28, diagnostics.rushedWrongCount * 6);
-    const location = worstRushedChapter
-      ? worstRushedChapter.chapterName
-      : 'recent mocks';
+    const penalty = -Math.min(6, Math.max(1, Math.round(diagnostics.rushedWrongCount * 1.2)));
+    const location = worstRushedChapter ? worstRushedChapter.chapterName : 'recent mocks';
     insights.push({
       id: 'insight-rushed',
       deltaPts: penalty,
@@ -643,7 +639,7 @@ function buildInsights(core: RawScoreComputation, hasAttempts: boolean): PrepSco
       sentiment: 'negative',
     });
   } else if (diagnostics.timeSinkCount > 0) {
-    const penalty = -Math.min(24, diagnostics.timeSinkCount * 7);
+    const penalty = -Math.min(5, Math.max(1, Math.round(diagnostics.timeSinkCount * 1.2)));
     insights.push({
       id: 'insight-timesink',
       deltaPts: penalty,
@@ -652,7 +648,7 @@ function buildInsights(core: RawScoreComputation, hasAttempts: boolean): PrepSco
       sentiment: 'negative',
     });
   } else if (diagnostics.negativeMarksLost > 0) {
-    const penalty = -Math.min(22, Math.max(4, Math.round(diagnostics.negativeMarksLost * 1.5)));
+    const penalty = -Math.min(5, Math.max(1, Math.round(diagnostics.negativeMarksLost * 0.25)));
     insights.push({
       id: 'insight-neg-control',
       deltaPts: penalty,
@@ -663,16 +659,15 @@ function buildInsights(core: RawScoreComputation, hasAttempts: boolean): PrepSco
   } else {
     insights.push({
       id: 'insight-clean-neg',
-      deltaPts: 16,
-      headline: '+16 pts for zero negative-mark leakage',
+      deltaPts: 4,
+      headline: '+4 pts for zero negative-mark leakage',
       detail: 'Clean accuracy with zero rushed (<10s) guesses or >180s time traps.',
       sentiment: 'positive',
     });
   }
 
-  // Insight 3: Mistake Recovery & Streak
   if (diagnostics.mistakeTotalCount > 0 && diagnostics.mistakeRecoveryPercent >= 50) {
-    const gain = Math.max(10, Math.round(diagnostics.mistakeRecoveryPercent * 0.22));
+    const gain = Math.max(2, Math.min(6, Math.round(diagnostics.mistakeRecoveryPercent * 0.05)));
     insights.push({
       id: 'insight-recovery',
       deltaPts: gain,
@@ -682,16 +677,16 @@ function buildInsights(core: RawScoreComputation, hasAttempts: boolean): PrepSco
     });
   } else if (diagnostics.mistakeTotalCount > 0) {
     const pending = diagnostics.mistakeTotalCount - diagnostics.mistakeResolvedCount;
-    const drag = -Math.min(20, Math.max(6, pending * 3));
+    const drag = -Math.min(5, Math.max(1, Math.round(pending * 0.6)));
     insights.push({
       id: 'insight-pending-mistakes',
       deltaPts: drag,
       headline: `${drag} pts held back by ${pending} unresolved Mistake Notebook item${pending === 1 ? '' : 's'}`,
-      detail: 'Re-attempting and clearing logged errors recovers up to 100 points directly.',
+      detail: 'Re-attempting and clearing logged errors recovers up to 10 points directly.',
       sentiment: 'negative',
     });
   } else {
-    const streakGain = Math.max(6, Math.min(24, diagnostics.activeStreakDays * 4));
+    const streakGain = Math.max(1, Math.min(5, Math.round(diagnostics.activeStreakDays * 0.5)));
     insights.push({
       id: 'insight-consistency',
       deltaPts: streakGain,
@@ -720,7 +715,7 @@ function buildActionItems(
         subjectName: isNeet ? 'PCB' : 'PCM',
         title: 'Take your first timed NTA CBT Mock',
         reason: 'Calibrates your real pacing, accuracy, and high-yield chapter baseline across all 4 factors.',
-        estimatedGainPts: 380,
+        estimatedGainPts: 38,
         priority: 'High',
         route: '/cbt-mocks',
         actionLabel: 'Start CBT Mock',
@@ -733,7 +728,7 @@ function buildActionItems(
           ? 'Revise Genetics & Human Physiology Short Notes'
           : 'Revise Electrostatics & Modern Physics Formula Sheets',
         reason: 'Highest weightage chapters carry 1.8x–1.9x multiplier in the Chapter Weightage factor.',
-        estimatedGainPts: 110,
+        estimatedGainPts: 11,
         priority: 'High',
         route: '/materials',
         actionLabel: 'Open Chapter Notes',
@@ -746,7 +741,7 @@ function buildActionItems(
           ? 'Master GOC & Chemical Bonding PYQs'
           : 'Drill Calculus & General Organic Chemistry PYQs',
         reason: 'Consistent accuracy in core high-weightage chapters moves scores from Foundation to 98+ %ile Ready.',
-        estimatedGainPts: 95,
+        estimatedGainPts: 9,
         priority: 'Medium',
         route: '/materials',
         actionLabel: 'Browse PYQs',
@@ -754,7 +749,6 @@ function buildActionItems(
     ];
   }
 
-  // Sort chapters by opportunity score (high weight * error/skip/trap burden)
   const chapterOpportunities = Array.from(core.chapterStats.values())
     .map((ch) => {
       const total = Math.max(1, ch.attempted + ch.unattempted);
@@ -769,7 +763,7 @@ function buildActionItems(
 
   for (const ch of chapterOpportunities.slice(0, 3)) {
     const accPct = Math.round(ch.acc * 100);
-    const estGain = Math.max(16, Math.min(68, Math.round(ch.opportunity * 38)));
+    const estGain = Math.max(2, Math.min(8, Math.round(ch.opportunity * 4)));
     const reasonParts: string[] = [];
     if (ch.attempted > 0 && accPct < 75) {
       reasonParts.push(`${accPct}% accuracy (${ch.wrong} wrong)`);
@@ -800,13 +794,12 @@ function buildActionItems(
     });
   }
 
-  // Add Mistake Notebook recovery action if unresolved mistakes remain
   const pendingMistakes =
     core.diagnostics.mistakeTotalCount - core.diagnostics.mistakeResolvedCount;
   if (pendingMistakes > 0) {
     const recoveryGain = Math.max(
-      14,
-      Math.min(85, Math.round((pendingMistakes / Math.max(1, core.diagnostics.mistakeTotalCount)) * 90))
+      2,
+      Math.min(9, Math.round((pendingMistakes / Math.max(1, core.diagnostics.mistakeTotalCount)) * 9))
     );
     items.push({
       id: 'act-mistake-recovery',
@@ -821,15 +814,14 @@ function buildActionItems(
     });
   }
 
-  // Add Streak action if streak < 7 days
   if (core.diagnostics.activeStreakDays < 7) {
     items.push({
       id: 'act-daily-streak',
       chapterName: 'Daily Consistency',
       subjectName: 'Habit',
       title: `Extend your ${core.diagnostics.activeStreakDays}-day streak to 7+ consecutive days`,
-      reason: 'Daily mock drills or chapter revision sessions unlock up to 100 consistency points.',
-      estimatedGainPts: Math.max(15, (7 - core.diagnostics.activeStreakDays) * 7),
+      reason: 'Daily mock drills or chapter revision sessions unlock up to 10 consistency points.',
+      estimatedGainPts: Math.max(2, Math.min(7, 7 - core.diagnostics.activeStreakDays)),
       priority: 'Medium',
       route: '/cbt-mocks',
       actionLabel: 'Practice Today',
@@ -840,16 +832,16 @@ function buildActionItems(
 }
 
 /**
- * Computes the complete dynamic AI Prep Score (0–1000) report including readiness tier,
- * weekly delta, 4-factor breakdown, 3 data-backed AI insights, and chapter-level action items.
+ * Computes the complete dynamic Prep Score (0–100) report including readiness tier,
+ * weekly delta, 4-factor breakdown (25 + 30 + 25 + 20 = 100), 3 data-backed insights,
+ * and chapter-level action items to reach 85+.
  */
-export function computeAiPrepScore(input: PrepScoreInput): PrepScoreReport {
+export function computePrepScore(input: PrepScoreInput): PrepScoreReport {
   const referenceDate = input.referenceDate ?? new Date();
   const cohortLabel = input.cohortLabel ?? 'JEE Main';
   const current = computeCorePrepScore({ ...input, cohortLabel, referenceDate });
   const hasAttemptData = input.attempts.length > 0;
 
-  // Compute weekly delta: compare against state 7 days ago (or prior attempt baseline when multiple attempts happened this week)
   const sevenDaysAgo = new Date(referenceDate);
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
   const cutoffIso = sevenDaysAgo.toISOString();
@@ -887,7 +879,6 @@ export function computeAiPrepScore(input: PrepScoreInput): PrepScoreReport {
     deltaThisWeek = current.totalScore - prior.totalScore;
     deltaLabel = 'vs last mock';
   } else if (hasAttemptData) {
-    // First attempt this week: show realistic positive momentum from accuracy + streak
     const streakOnlyPrior = computeCorePrepScore({
       ...input,
       attempts: [],
@@ -895,10 +886,10 @@ export function computeAiPrepScore(input: PrepScoreInput): PrepScoreReport {
       cohortLabel,
       referenceDate: sevenDaysAgo,
     });
-    deltaThisWeek = Math.min(48, Math.max(-20, Math.round((current.totalScore - streakOnlyPrior.totalScore) * 0.06)));
+    deltaThisWeek = Math.min(8, Math.max(-4, Math.round((current.totalScore - streakOnlyPrior.totalScore) * 0.08)));
     deltaLabel = 'this week';
   } else if (current.diagnostics.activeStreakDays > 0) {
-    deltaThisWeek = Math.min(18, current.diagnostics.activeStreakDays * 6);
+    deltaThisWeek = Math.min(5, Math.max(1, Math.round(current.diagnostics.activeStreakDays * 0.7)));
     deltaLabel = 'this week';
   }
 
@@ -908,12 +899,12 @@ export function computeAiPrepScore(input: PrepScoreInput): PrepScoreReport {
 
   return {
     score: current.totalScore,
-    maxScore: 1000,
+    maxScore: 100,
     tier: tierInfo.tier,
     tierDescription: tierInfo.description,
     deltaThisWeek,
     deltaLabel,
-    pointsTo850: Math.max(0, 850 - current.totalScore),
+    pointsTo85: Math.max(0, 85 - current.totalScore),
     hasAttemptData,
     factors: current.factors,
     insights,
@@ -921,3 +912,6 @@ export function computeAiPrepScore(input: PrepScoreInput): PrepScoreReport {
     diagnostics: current.diagnostics,
   };
 }
+
+/** Backward-compatible alias */
+export const computeAiPrepScore = computePrepScore;
