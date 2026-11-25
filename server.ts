@@ -27,7 +27,7 @@ import {
   buildTestSeoDescription,
   buildTestSeoTitle,
 } from './src/data/seoContent';
-import { runPrepsAiWithFallback } from './netlify/functions/preps-ai.js';
+import { runPrepsAiWithFallback } from './functions/api/preps-ai.js';
 import {
   JEE_CONCISE_CHAPTERS,
   JEE_CONCISE_MATERIALS,
@@ -931,21 +931,31 @@ async function createApp() {
     }
   });
 
-  // 4. Preps AI Multi-Provider Fallback Endpoint (mirrors netlify/functions/preps-ai.js for local & Node runtimes)
-  app.options(['/.netlify/functions/preps-ai', '/api/preps-ai'], (req, res) => {
-    const origin = req.headers.origin || 'https://prepskm.in';
-    res.setHeader('Access-Control-Allow-Origin', origin);
+  // 4. Preps AI Multi-Provider Fallback Endpoint (mirrors functions/api/preps-ai.js for local & Node runtimes)
+  app.options('/api/preps-ai', (req, res) => {
+    const origin = req.headers.origin || '';
+    if (
+      origin === 'https://prepskm.in' ||
+      origin === 'https://www.prepskm.in' ||
+      /^https:\/\/[a-z0-9-]+\.pages\.dev$/i.test(origin) ||
+      /^https:\/\/[a-z0-9-]+\.[a-z0-9-]+\.pages\.dev$/i.test(origin) ||
+      /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin)
+    ) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Vary', 'Origin');
+    }
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     res.status(204).end();
   });
 
-  app.post(['/.netlify/functions/preps-ai', '/api/preps-ai', '/api/gemini/chat'], async (req, res) => {
+  app.post(['/api/preps-ai', '/api/gemini/chat'], async (req, res) => {
     const origin = req.headers.origin || '';
     if (
       origin === 'https://prepskm.in' ||
       origin === 'https://www.prepskm.in' ||
-      /^https:\/\/[a-z0-9-]+\.netlify\.app$/i.test(origin) ||
+      /^https:\/\/[a-z0-9-]+\.pages\.dev$/i.test(origin) ||
+      /^https:\/\/[a-z0-9-]+\.[a-z0-9-]+\.pages\.dev$/i.test(origin) ||
       /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin)
     ) {
       res.setHeader('Access-Control-Allow-Origin', origin);
@@ -999,6 +1009,7 @@ async function createApp() {
       const result = await runPrepsAiWithFallback({
         messages: normalizedMessages,
         context,
+        env: process.env,
       });
 
       if (!result.ok) {

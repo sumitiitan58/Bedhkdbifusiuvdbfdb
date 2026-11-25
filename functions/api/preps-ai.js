@@ -1,13 +1,14 @@
 /**
- * Preps AI Multi-Provider Serverless Backend (Netlify Functions v2 + Node 22)
+ * Preps AI Multi-Provider Cloudflare Pages Function (/api/preps-ai)
  *
- * Automatic key & provider rotation order:
+ * Automatic key & provider rotation order using Cloudflare Pages `env`:
  *   1. Groq       (llama-3.3-70b-versatile)
  *   2. Gemini     (gemini-2.5-flash)
  *   3. OpenRouter (openrouter/free)
  *   4. Mistral    (mistral-small-latest)
  *
- * Supports comma-separated multiple API keys per provider via Netlify Environment Variables:
+ * Supports comma-separated multiple API keys per provider in Cloudflare Pages
+ * Environment Variables / Secrets (or `.dev.vars` locally):
  *   GROQ_API_KEYS / GROQ_API_KEY
  *   GEMINI_API_KEYS / GEMINI_API_KEY
  *   OPENROUTER_API_KEYS / OPENROUTER_API_KEY
@@ -18,7 +19,7 @@ const REQUEST_TIMEOUT_MS = 18000;
 const MAX_MESSAGES = 14;
 const MAX_MESSAGE_CHARS = 3000;
 
-function parseKeyList(...envValues) {
+export function parseKeyList(...envValues) {
   const keys = [];
   const seen = new Set();
   for (const raw of envValues) {
@@ -34,12 +35,13 @@ function parseKeyList(...envValues) {
   return keys;
 }
 
-function resolveCorsHeaders(requestOrigin) {
+export function resolveCorsHeaders(requestOrigin) {
   const allowedOrigin =
     requestOrigin &&
     (requestOrigin === 'https://prepskm.in' ||
       requestOrigin === 'https://www.prepskm.in' ||
-      /^https:\/\/[a-z0-9-]+\.netlify\.app$/i.test(requestOrigin) ||
+      /^https:\/\/[a-z0-9-]+\.pages\.dev$/i.test(requestOrigin) ||
+      /^https:\/\/[a-z0-9-]+\.[a-z0-9-]+\.pages\.dev$/i.test(requestOrigin) ||
       /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(requestOrigin))
       ? requestOrigin
       : 'https://prepskm.in';
@@ -54,7 +56,7 @@ function resolveCorsHeaders(requestOrigin) {
   };
 }
 
-function normalizeMessages(body) {
+export function normalizeMessages(body) {
   const normalized = [];
 
   if (Array.isArray(body?.messages) && body.messages.length > 0) {
@@ -67,7 +69,6 @@ function normalizeMessages(body) {
       }
     }
   } else {
-    // Graceful compatibility if caller sends { message, history }
     if (Array.isArray(body?.history)) {
       for (const item of body.history.slice(-(MAX_MESSAGES - 1))) {
         if (!item || typeof item !== 'object') continue;
@@ -247,13 +248,14 @@ async function callGeminiRest({ apiKey, systemPrompt, messages }) {
   return reply;
 }
 
-export async function runPrepsAiWithFallback({ messages, context }) {
+export async function runPrepsAiWithFallback({ messages, context, env = {} }) {
+  const runtimeEnv = env && typeof env === 'object' ? env : {};
   const systemPrompt = buildSystemPrompt(context);
 
   const providers = [
     {
       name: 'groq',
-      keys: parseKeyList(process.env.GROQ_API_KEYS, process.env.GROQ_API_KEY),
+      keys: parseKeyList(runtimeEnv.GROQ_API_KEYS, runtimeEnv.GROQ_API_KEY),
       invoke: (apiKey) =>
         callOpenAiCompatible({
           url: 'https://api.groq.com/openai/v1/chat/completions',
@@ -265,7 +267,7 @@ export async function runPrepsAiWithFallback({ messages, context }) {
     },
     {
       name: 'gemini',
-      keys: parseKeyList(process.env.GEMINI_API_KEYS, process.env.GEMINI_API_KEY),
+      keys: parseKeyList(runtimeEnv.GEMINI_API_KEYS, runtimeEnv.GEMINI_API_KEY),
       invoke: (apiKey) =>
         callGeminiRest({
           apiKey,
@@ -275,7 +277,7 @@ export async function runPrepsAiWithFallback({ messages, context }) {
     },
     {
       name: 'openrouter',
-      keys: parseKeyList(process.env.OPENROUTER_API_KEYS, process.env.OPENROUTER_API_KEY),
+      keys: parseKeyList(runtimeEnv.OPENROUTER_API_KEYS, runtimeEnv.OPENROUTER_API_KEY),
       invoke: (apiKey) =>
         callOpenAiCompatible({
           url: 'https://openrouter.ai/api/v1/chat/completions',
@@ -291,7 +293,7 @@ export async function runPrepsAiWithFallback({ messages, context }) {
     },
     {
       name: 'mistral',
-      keys: parseKeyList(process.env.MISTRAL_API_KEYS, process.env.MISTRAL_API_KEY),
+      keys: parseKeyList(runtimeEnv.MISTRAL_API_KEYS, runtimeEnv.MISTRAL_API_KEY),
       invoke: (apiKey) =>
         callOpenAiCompatible({
           url: 'https://api.mistral.ai/v1/chat/completions',
@@ -317,7 +319,7 @@ export async function runPrepsAiWithFallback({ messages, context }) {
           suggestedFollowUps: buildSuggestedFollowUps(messages, context),
         };
       } catch {
-        // Silently rotate to the next key or next provider without leaking credentials
+        // Silently rotate to the next key or next provider without exposing credentials
         continue;
       }
     }
@@ -332,20 +334,18 @@ export async function runPrepsAiWithFallback({ messages, context }) {
   };
 }
 
-export default async function handler(request) {
+export async function onRequestOptions(context) {
+  const origin = context.request.headers.get('origin') || '';
+  return new Response(null, {
+    status: 204,
+    headers: resolveCorsHeaders(origin),
+  });
+}
+
+export async function onRequestPost(context) {
+  const { request, env } = context;
   const origin = request.headers.get('origin') || '';
   const headers = resolveCorsHeaders(origin);
-
-  if (request.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers });
-  }
-
-  if (request.method !== 'POST') {
-    return new Response(
-      JSON.stringify({ ok: false, error: 'Method not allowed. Use POST.' }),
-      { status: 405, headers }
-    );
-  }
 
   let body = {};
   try {
@@ -368,12 +368,21 @@ export default async function handler(request) {
     );
   }
 
-  const context = body?.context ?? body?.studentContext ?? {};
-  if (body?.voiceMode && context && typeof context === 'object') {
-    context.voiceMode = true;
+  const studentContext =
+    body?.context && typeof body.context === 'object'
+      ? { ...body.context }
+      : body?.studentContext && typeof body.studentContext === 'object'
+        ? { ...body.studentContext }
+        : {};
+  if (body?.voiceMode) {
+    studentContext.voiceMode = true;
   }
 
-  const result = await runPrepsAiWithFallback({ messages, context });
+  const result = await runPrepsAiWithFallback({
+    messages,
+    context: studentContext,
+    env,
+  });
 
   if (!result.ok) {
     return new Response(
@@ -390,5 +399,13 @@ export default async function handler(request) {
       suggestedFollowUps: result.suggestedFollowUps,
     }),
     { status: 200, headers }
+  );
+}
+
+export async function onRequest(context) {
+  const origin = context.request.headers.get('origin') || '';
+  return new Response(
+    JSON.stringify({ ok: false, error: 'Method not allowed. Use POST.' }),
+    { status: 405, headers: resolveCorsHeaders(origin) }
   );
 }

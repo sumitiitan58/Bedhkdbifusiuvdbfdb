@@ -110,7 +110,7 @@ export async function requestPrepsAiMessages(payload: {
     reply?: string;
     provider?: string;
     suggestedFollowUps?: string[];
-  }>('/.netlify/functions/preps-ai', payload);
+  }>('/api/preps-ai', payload);
 
   return {
     reply: data.reply || 'Preps AI could not generate a response right now. Please try again.',

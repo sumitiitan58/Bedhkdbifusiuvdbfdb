@@ -1,0 +1,17 @@
+# Cloudflare Pages configuration for PREPSKM.IN
+# Deploy via Cloudflare Pages Git integration (`npm run build`, output: `dist`)
+# or via CLI: `npx wrangler pages deploy dist`
+#
+# Configure API keys in Cloudflare Pages Dashboard -> Settings -> Environment Variables
+# (or in local `.dev.vars` when running `npx wrangler pages dev dist`):
+#   GROQ_API_KEYS       (comma-separated, or GROQ_API_KEY)
+#   GEMINI_API_KEYS     (comma-separated, or GEMINI_API_KEY)
+#   OPENROUTER_API_KEYS (comma-separated, or OPENROUTER_API_KEY)
+#   MISTRAL_API_KEYS    (optional, comma-separated, or MISTRAL_API_KEY)
+
+name = "prepskm"
+compatibility_date = "2025-02-01"
+pages_build_output_dir = "dist"
+
+[vars]
+NODE_VERSION = "22"
