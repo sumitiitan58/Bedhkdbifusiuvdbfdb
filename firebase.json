@@ -1,6 +1,6 @@
 {
   "firestore": {
-    "database": "ai-studio-prepskminjeeneet-730a42da-491c-4a04-bc9c-abb88c4d760c",
+    "database": "ai-studio-bedhkdbifusiuvdb-a26499ec-b685-4bd3-8836-306f03293a89",
     "rules": "firestore.rules"
   },
   "storage": {
