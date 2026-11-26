@@ -1,8 +1,7 @@
 import { countConfiguredProviders } from './preps-ai.js';
 
-export async function onRequestGet(context) {
-  const env = context.env ?? {};
-  const providersConfigured = countConfiguredProviders(env);
+export async function onRequestGet({ env }) {
+  const providersConfigured = countConfiguredProviders(env ?? {});
 
   return new Response(
     JSON.stringify({

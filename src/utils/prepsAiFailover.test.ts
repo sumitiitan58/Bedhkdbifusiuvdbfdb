@@ -6,6 +6,9 @@ import {
   AI_PROVIDER_ENV_VARS,
   countConfiguredProviders,
   getSingleApiKey,
+  onRequest,
+  onRequestOptions,
+  onRequestPost,
   runPrepsAiWithFallback,
 } from '../../functions/api/preps-ai.js';
 
@@ -183,5 +186,63 @@ describe('Cloudflare Pages _redirects & .env.example hygiene', () => {
         `Missing individual placeholder "${varName}=" in .env.example`
       );
     }
+  });
+
+  it('implements Cloudflare Pages Functions handlers in functions/api/preps-ai.js using env (zero process.env or exports.handler)', async () => {
+    const fnSource = fs.readFileSync(path.join(rootDir, 'functions', 'api', 'preps-ai.js'), 'utf-8');
+    assert.ok(
+      /export\s+async\s+function\s+onRequestPost\s*\(\s*\{\s*request\s*,\s*env\s*\}\s*\)/.test(fnSource),
+      'Expected export async function onRequestPost({ request, env })'
+    );
+    assert.ok(!fnSource.includes('exports.handler'), 'Found legacy Netlify exports.handler');
+    assert.ok(!fnSource.includes('process.env'), 'Found Node process.env inside Cloudflare Pages Function');
+
+    // Verify OPTIONS CORS preflight
+    const optRes = await onRequestOptions({
+      request: new Request('https://prepskm.in/api/preps-ai', {
+        method: 'OPTIONS',
+        headers: { origin: 'https://prepskm.in' },
+      }),
+    });
+    assert.equal(optRes.status, 204);
+    assert.equal(optRes.headers.get('Access-Control-Allow-Origin'), 'https://prepskm.in');
+
+    // Verify non-POST method rejection
+    const getRes = await onRequest({
+      request: new Request('https://prepskm.in/api/preps-ai', { method: 'GET' }),
+    });
+    assert.equal(getRes.status, 405);
+
+    // Verify POST validation & env-driven response using Cloudflare Pages env.AI binding
+    const badRes = await onRequestPost({
+      request: new Request('https://prepskm.in/api/preps-ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', origin: 'https://prepskm.in' },
+        body: JSON.stringify({ messages: [] }),
+      }),
+      env: {},
+    });
+    assert.equal(badRes.status, 400);
+
+    const okRes = await onRequestPost({
+      request: new Request('https://prepskm.in/api/preps-ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', origin: 'https://prepskm.in' },
+        body: JSON.stringify({
+          messages: [{ role: 'user', content: 'Explain Ohm law simply.' }],
+          context: { track: 'Class 12 JEE' },
+        }),
+      }),
+      env: {
+        AI: {
+          run: async () => ({ response: 'Simple funda: V = IR at constant temperature.' }),
+        },
+      },
+    });
+    assert.equal(okRes.status, 200);
+    const data = (await okRes.json()) as { ok: boolean; reply: string; provider: string };
+    assert.equal(data.ok, true);
+    assert.equal(data.provider, 'cloudflare-workers-ai');
+    assert.match(data.reply, /V = IR/);
   });
 });

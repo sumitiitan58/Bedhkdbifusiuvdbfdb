@@ -473,16 +473,15 @@ export async function runPrepsAiWithFallback({
   };
 }
 
-export async function onRequestOptions(context) {
-  const origin = context.request.headers.get('origin') || '';
+export async function onRequestOptions({ request }) {
+  const origin = request.headers.get('origin') || '';
   return new Response(null, {
     status: 204,
     headers: resolveCorsHeaders(origin),
   });
 }
 
-export async function onRequestPost(context) {
-  const { request, env } = context;
+export async function onRequestPost({ request, env }) {
   const origin = request.headers.get('origin') || '';
   const headers = resolveCorsHeaders(origin);
 
@@ -520,7 +519,7 @@ export async function onRequestPost(context) {
   const result = await runPrepsAiWithFallback({
     messages,
     context: studentContext,
-    env,
+    env: env ?? {},
   });
 
   if (!result.ok) {
@@ -541,8 +540,8 @@ export async function onRequestPost(context) {
   );
 }
 
-export async function onRequest(context) {
-  const origin = context.request.headers.get('origin') || '';
+export async function onRequest({ request }) {
+  const origin = request.headers.get('origin') || '';
   return new Response(
     JSON.stringify({ ok: false, error: 'Method not allowed. Use POST.' }),
     { status: 405, headers: resolveCorsHeaders(origin) }

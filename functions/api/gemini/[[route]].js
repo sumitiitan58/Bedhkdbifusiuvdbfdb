@@ -113,13 +113,12 @@ function formatError(err) {
   return { status: 502, message: 'AI request failed temporarily. Please try again.' };
 }
 
-export async function onRequestOptions(context) {
-  const origin = context.request.headers.get('origin') || '';
+export async function onRequestOptions({ request }) {
+  const origin = request.headers.get('origin') || '';
   return new Response(null, { status: 204, headers: resolveCorsHeaders(origin) });
 }
 
-export async function onRequestGet(context) {
-  const { request, env } = context;
+export async function onRequestGet({ request, env }) {
   const origin = request.headers.get('origin') || '';
   const corsHeaders = resolveCorsHeaders(origin);
   const path = new URL(request.url).pathname.replace(/\/+$/, '');
@@ -140,8 +139,7 @@ export async function onRequestGet(context) {
   return jsonResponse({ ok: false, error: 'Method not allowed.' }, 405, corsHeaders);
 }
 
-export async function onRequestPost(context) {
-  const { request, env } = context;
+export async function onRequestPost({ request, env }) {
   const origin = request.headers.get('origin') || '';
   const corsHeaders = resolveCorsHeaders(origin);
   const path = new URL(request.url).pathname.replace(/\/+$/, '');
