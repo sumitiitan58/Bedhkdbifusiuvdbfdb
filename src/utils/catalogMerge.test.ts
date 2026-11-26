@@ -500,8 +500,8 @@ test('mergeOfficialMockTests prepends official JEE/NEET mocks and 75Q DPP alongs
   };
 
   const mergedOnce = mergeOfficialMockTests({ mockTests: [customTest], questions: [] });
-  // 5 JEE Full Mocks + 8 NEET Full Mocks + 1 Units & Dimensions 75Q DPP + 1 custom admin test = 15
-  assert.equal(mergedOnce.mockTests.length, 15);
+  // 5 JEE Full Mocks + 8 NEET Full Mocks + 1 Units & Dimensions 75Q DPP + 14 Class 11 Physics Chapter DPPs + 1 custom admin test = 29
+  assert.equal(mergedOnce.mockTests.length, 29);
   assert.deepEqual(
     mergedOnce.mockTests.slice(0, 5).map((t) => t.id),
     [
@@ -512,13 +512,13 @@ test('mergeOfficialMockTests prepends official JEE/NEET mocks and 75Q DPP alongs
       FULL_MOCK_TEST_5_ID,
     ]
   );
-  // 315 JEE questions + 1440 NEET questions + 75 Units & Dimensions DPP questions = 1830
-  assert.equal(mergedOnce.questions.length, 1830);
+  // 315 JEE questions + 1440 NEET questions + 75 Units & Dimensions DPP + 347 Class 11 Physics Chapter DPP questions = 2177
+  assert.equal(mergedOnce.questions.length, 2177);
 
   // Calling again does not duplicate any official test or question
   const mergedTwice = mergeOfficialMockTests(mergedOnce);
-  assert.equal(mergedTwice.mockTests.length, 15);
-  assert.equal(mergedTwice.questions.length, 1830);
+  assert.equal(mergedTwice.mockTests.length, 29);
+  assert.equal(mergedTwice.questions.length, 2177);
 
   // Both 12th JEE and Dropper JEE filters return all 5 JEE Full Mock Tests; NEET returns none of them
   const expectedIds = [

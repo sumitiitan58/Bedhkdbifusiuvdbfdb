@@ -35,6 +35,10 @@ import {
   DPP_UNITS_DIMENSIONS_75_QUESTIONS,
   DPP_UNITS_DIMENSIONS_75_RECORD,
 } from '../data/dppUnitsDimensionsCatalog';
+import {
+  CLASS_11_PHYSICS_DPP_QUESTIONS,
+  CLASS_11_PHYSICS_DPP_TESTS,
+} from '../data/class11PhysicsDppCatalog';
 import { STARTER_CLASS_GROUPS } from '../services/platformRegistry';
 
 function normalizeName(str: string): string {
@@ -441,6 +445,7 @@ export function mergeOfficialMockTests(params: {
     ...ADDITIONAL_FULL_MOCK_TESTS,
     ...NEET_FULL_MOCK_TESTS,
     DPP_UNITS_DIMENSIONS_75_RECORD,
+    ...CLASS_11_PHYSICS_DPP_TESTS,
     ...starterDpps,
   ];
   for (const t of rawCandidateTests) {
@@ -457,6 +462,7 @@ export function mergeOfficialMockTests(params: {
     ...ADDITIONAL_FULL_MOCK_QUESTIONS,
     ...NEET_FULL_MOCK_QUESTIONS,
     ...DPP_UNITS_DIMENSIONS_75_QUESTIONS,
+    ...CLASS_11_PHYSICS_DPP_QUESTIONS,
     ...starterDppQuestions,
   ];
   for (const q of rawCandidateQuestions) {

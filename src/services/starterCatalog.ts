@@ -24,6 +24,10 @@ import {
   DPP_UNITS_DIMENSIONS_75_QUESTIONS,
   DPP_UNITS_DIMENSIONS_75_RECORD,
 } from '../data/dppUnitsDimensionsCatalog';
+import {
+  CLASS_11_PHYSICS_DPP_QUESTIONS,
+  CLASS_11_PHYSICS_DPP_TESTS,
+} from '../data/class11PhysicsDppCatalog';
 
 const ALL_COHORTS = [
   'class-9',
@@ -474,6 +478,7 @@ export const STARTER_TESTS: MockTestRecord[] = [
     createdAtIso: '2026-11-16T10:00:00.000Z',
   },
   DPP_UNITS_DIMENSIONS_75_RECORD,
+  ...CLASS_11_PHYSICS_DPP_TESTS,
 ];
 
 export const STARTER_QUESTIONS: TestQuestionRecord[] = [
@@ -481,6 +486,7 @@ export const STARTER_QUESTIONS: TestQuestionRecord[] = [
   ...ADDITIONAL_FULL_MOCK_QUESTIONS,
   ...NEET_FULL_MOCK_QUESTIONS,
   ...DPP_UNITS_DIMENSIONS_75_QUESTIONS,
+  ...CLASS_11_PHYSICS_DPP_QUESTIONS,
   // JEE Main CBT Mock #01 Questions
   {
     id: 'q-cbt1-1',

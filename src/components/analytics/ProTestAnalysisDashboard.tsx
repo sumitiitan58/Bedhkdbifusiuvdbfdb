@@ -39,6 +39,11 @@ import {
   categorizeAttemptQuestions,
   computeDifficultyBreakdown,
   computeProAttemptMetrics,
+  getJeeMarkSensitivityForScore,
+  JEE_2026_NTA_SHIFT_PROOFS,
+  JEE_MAIN_2026_PERCENTILE_TABLE,
+  JEE_MAIN_2026_TOTAL_CANDIDATES,
+  JEE_MARK_SENSITIVITY_ZONES,
   type AttemptTimeBucket,
 } from '../../utils/testAnalysisEngine';
 import {
@@ -565,7 +570,9 @@ export function ProTestAnalysisDashboard({
                       />
                     </div>
                     <p className="text-xs text-slate-300">
-                      Calibrated against historical {examCategory} score-to-percentile bands.
+                      {examCategory.toLowerCase().includes('neet')
+                        ? `Calibrated against historical ${examCategory} score-to-percentile bands.`
+                        : `NTA 2025–26 calibrated (Anchor: 165/300 = 99.00%ile · ${JEE_MAIN_2026_TOTAL_CANDIDATES.toLocaleString('en-IN')} candidates).`}
                     </p>
                   </div>
                 </ReusableCard>
@@ -667,6 +674,172 @@ export function ProTestAnalysisDashboard({
                   </p>
                 </ReusableCard>
               </div>
+
+              {/* Official NTA 2025–2026 Calibrated JEE Main Marks vs Percentile vs Rank Reference */}
+              {!examCategory.toLowerCase().includes('neet') && (() => {
+                const safeMax = Math.max(1, attempt.maxScore);
+                const equivalent300 = Math.round(
+                  Math.max(-75, Math.min(300, (attempt.score / safeMax) * 300))
+                );
+                const activeZone = getJeeMarkSensitivityForScore(equivalent300);
+                const nearestRowMarks = JEE_MAIN_2026_PERCENTILE_TABLE.reduce(
+                  (best, row) =>
+                    Math.abs(row.marks - equivalent300) < Math.abs(best - equivalent300)
+                      ? row.marks
+                      : best,
+                  JEE_MAIN_2026_PERCENTILE_TABLE[0].marks
+                );
+
+                return (
+                  <ReusableCard className="space-y-5">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-wider text-[#2563EB] dark:text-sky-400">
+                          NTA 2025–2026 Calibrated Bell-Curve Reference
+                        </p>
+                        <h3 className="mt-1 font-display text-lg font-bold text-[#0B1B3B] dark:text-white">
+                          JEE Main Marks vs Percentile vs Rank (Anchor: 165 = 99.00%ile)
+                        </h3>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                          Base: {JEE_MAIN_2026_TOTAL_CANDIDATES.toLocaleString('en-IN')} NTA unique
+                          candidates · Your scaled 300-mark score:{' '}
+                          <span className="font-mono font-bold text-[#0B1B3B] dark:text-white">
+                            {equivalent300}/300
+                          </span>{' '}
+                          ({proMetrics.predictedPercentile}%ile · AIR ~
+                          {proMetrics.leaderboardRank.toLocaleString('en-IN')})
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-orange-200 dark:border-orange-900/60 bg-orange-50/80 dark:bg-orange-950/30 px-3.5 py-2 text-xs shrink-0">
+                        <p className="font-bold text-orange-800 dark:text-orange-300">
+                          Your Zone: {activeZone.rangeLabel}
+                        </p>
+                        <p className="text-orange-700 dark:text-orange-200 font-mono mt-0.5">
+                          {activeZone.deltaPercentilePerMark} · {activeZone.rankImpactPerMark}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* 1-Mark Impact Sensitivity Zones */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                      {JEE_MARK_SENSITIVITY_ZONES.map((zone) => {
+                        const isCurrent = zone.rangeLabel === activeZone.rangeLabel;
+                        return (
+                          <div
+                            key={zone.rangeLabel}
+                            className={`rounded-xl border p-3.5 transition-colors ${
+                              isCurrent
+                                ? 'border-[#2563EB] bg-blue-50/70 dark:bg-blue-950/30'
+                                : 'border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/50'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-mono text-xs font-extrabold text-[#0B1B3B] dark:text-white">
+                                {zone.rangeLabel}
+                              </span>
+                              {isCurrent && (
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-[#2563EB] dark:text-sky-400">
+                                  Active
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 mt-1">
+                              {zone.percentileRange}
+                            </p>
+                            <p className="font-mono text-xs font-bold text-[#F97316] mt-1.5">
+                              {zone.deltaPercentilePerMark}
+                            </p>
+                            <p className="font-mono text-[11px] text-slate-700 dark:text-slate-300">
+                              {zone.rankImpactPerMark}
+                            </p>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5 leading-snug">
+                              {zone.insight}
+                            </p>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Full 26-Row Calibrated NTA Table */}
+                    <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 max-h-80 overflow-y-auto">
+                      <table className="w-full text-left text-xs tabular-nums">
+                        <thead className="sticky top-0 bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[11px] border-b border-slate-200 dark:border-slate-800">
+                          <tr>
+                            <th className="py-2.5 px-3.5 font-bold">Marks (Out of 300)</th>
+                            <th className="py-2.5 px-3.5 font-bold">Expected Percentile</th>
+                            <th className="py-2.5 px-3.5 font-bold">Approx. AIR (15.38L)</th>
+                            <th className="py-2.5 px-3.5 font-bold">Peer Intake</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
+                          {JEE_MAIN_2026_PERCENTILE_TABLE.map((row) => {
+                            const isNearest = row.marks === nearestRowMarks;
+                            const isAnchor = row.marks === 165 || row.marks === 120;
+                            return (
+                              <tr
+                                key={row.marksLabel}
+                                className={
+                                  isNearest
+                                    ? 'bg-blue-50/90 dark:bg-blue-950/40 font-semibold'
+                                    : isAnchor
+                                      ? 'bg-amber-50/50 dark:bg-amber-950/15'
+                                      : 'bg-white dark:bg-slate-950/20'
+                                }
+                              >
+                                <td className="py-2 px-3.5 font-mono font-bold text-[#0B1B3B] dark:text-white">
+                                  {row.marksLabel}
+                                  {isNearest && (
+                                    <span className="ml-2 text-[10px] font-sans font-bold text-[#2563EB] dark:text-sky-400">
+                                      ← Nearest
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="py-2 px-3.5 font-mono text-slate-800 dark:text-slate-100">
+                                  {row.percentile.toFixed(2)}%ile
+                                  {row.percentileNote && (
+                                    <span className="ml-1.5 text-[11px] font-sans text-slate-500 dark:text-slate-400">
+                                      ({row.percentileNote})
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="py-2 px-3.5 font-mono text-slate-700 dark:text-slate-300">
+                                  ~{row.approxAir.toLocaleString('en-IN')}
+                                </td>
+                                <td className="py-2 px-3.5 text-slate-600 dark:text-slate-400">
+                                  {row.peerIntake}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Real 2026 NTA Shift Proofs */}
+                    <div className="pt-1">
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
+                        Real NTA Shift Proof (Moderate-to-Tough Shifts · 99%ile ≈ 160–166 Marks)
+                      </p>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+                        {JEE_2026_NTA_SHIFT_PROOFS.map((proof) => (
+                          <div
+                            key={proof.shiftLabel}
+                            className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/40 px-3.5 py-2.5 text-xs"
+                          >
+                            <p className="font-bold text-[#0B1B3B] dark:text-white">
+                              {proof.shiftLabel}
+                            </p>
+                            <p className="text-slate-600 dark:text-slate-300 font-mono text-[11px] mt-1">
+                              99%ile: {proof.marks99} · 97%ile: {proof.marks97} · 95%ile:{' '}
+                              {proof.marks95}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </ReusableCard>
+                );
+              })()}
             </>
           )}
 

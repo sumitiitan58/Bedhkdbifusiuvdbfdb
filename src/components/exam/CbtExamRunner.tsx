@@ -931,11 +931,15 @@ export function CbtExamRunner({ test, questions, onExit }: CbtExamRunnerProps) {
                     />
                   </div>
                 )}
-                {currentQ.questionText && !currentQ.questionImageUrl?.startsWith('/assets/mocks/') && (
-                  <div className="text-base leading-relaxed text-slate-900 dark:text-slate-100 whitespace-pre-line">
-                    {currentQ.questionText}
-                  </div>
-                )}
+                {currentQ.questionText &&
+                  !(
+                    currentQ.questionImageUrl?.startsWith('/assets/mocks/') ||
+                    currentQ.questionImageUrl?.includes('data-composite-question')
+                  ) && (
+                    <div className="text-base leading-relaxed text-slate-900 dark:text-slate-100 whitespace-pre-line">
+                      {currentQ.questionText}
+                    </div>
+                  )}
               </>
             )}
           </div>

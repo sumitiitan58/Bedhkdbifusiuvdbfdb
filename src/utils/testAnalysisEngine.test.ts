@@ -185,6 +185,34 @@ const SAMPLE_ATTEMPT: TestAttemptRecord = {
 };
 
 describe('testAnalysisEngine', () => {
+  it('matches official NTA 2025-2026 calibrated JEE Main anchors (165=99%ile, 120=96.45%ile, 15,38,468 base)', () => {
+    const a235 = estimatePercentileAndRank(235, 300, 'JEE Main');
+    assert.equal(a235.predictedPercentile, 99.9);
+    assert.equal(a235.leaderboardRank, 1538);
+    assert.equal(a235.estimatedTestTakers, 1_538_468);
+
+    const a165 = estimatePercentileAndRank(165, 300, 'JEE Main');
+    assert.equal(a165.predictedPercentile, 99.0);
+    assert.equal(a165.leaderboardRank, 15385);
+
+    const a120 = estimatePercentileAndRank(120, 300, 'JEE Main');
+    assert.equal(a120.predictedPercentile, 96.45);
+    assert.ok(a120.leaderboardRank >= 54600 && a120.leaderboardRank <= 54630);
+
+    const a95 = estimatePercentileAndRank(95, 300, 'JEE Main');
+    assert.equal(a95.predictedPercentile, 93.15);
+    assert.equal(a95.leaderboardRank, 105385);
+
+    const a50 = estimatePercentileAndRank(50, 300, 'JEE Main');
+    assert.equal(a50.predictedPercentile, 78.5);
+    assert.ok(a50.leaderboardRank >= 330760 && a50.leaderboardRank <= 330780);
+
+    // Proportional scaling on non-300 tests (e.g., 55/100 -> 165/300 -> 99.00%ile)
+    const scaled = estimatePercentileAndRank(55, 100, 'JEE Main');
+    assert.equal(scaled.predictedPercentile, 99.0);
+    assert.equal(scaled.leaderboardRank, 15385);
+  });
+
   it('computes monotonically increasing percentile and decreasing rank as score rises', () => {
     const low = estimatePercentileAndRank(40, 300, 'JEE Main');
     const mid = estimatePercentileAndRank(160, 300, 'JEE Main');
