@@ -43,11 +43,15 @@ import { ReusableButton } from '../ReusableButton';
 import { ReusableCard } from '../ReusableCard';
 import { PdfDirectCropCanvas, type ActiveCropSelection } from './PdfDirectCropCanvas';
 
-type CropSlot = 'question' | 'solution';
+type CropSlot = 'question' | 'optionA' | 'optionB' | 'optionC' | 'optionD' | 'solution';
 
-const CROP_SLOTS: { id: CropSlot; label: string }[] = [
-  { id: 'question', label: '1. Question' },
-  { id: 'solution', label: '2. Answer / Solution' },
+const CROP_SLOTS: { id: CropSlot; label: string; optionIndex?: number }[] = [
+  { id: 'question', label: 'Question' },
+  { id: 'optionA', label: 'Option A', optionIndex: 0 },
+  { id: 'optionB', label: 'Option B', optionIndex: 1 },
+  { id: 'optionC', label: 'Option C', optionIndex: 2 },
+  { id: 'optionD', label: 'Option D', optionIndex: 3 },
+  { id: 'solution', label: 'Solution' },
 ];
 
 const OPTION_LETTERS = ['A', 'B', 'C', 'D'] as const;
@@ -221,7 +225,48 @@ export function QuestionPaperBuilder() {
     [chapters, selectedSubjectId]
   );
 
-  const activeSlots = CROP_SLOTS;
+  const activeSlots = useMemo(
+    () =>
+      draftQ.questionType === 'integer'
+        ? CROP_SLOTS.filter((s) => s.id === 'question' || s.id === 'solution')
+        : CROP_SLOTS,
+    [draftQ.questionType]
+  );
+
+  const handleUploadOptionImage = async (optIdx: number, file: File | undefined) => {
+    if (!file || !file.type.startsWith('image/')) return;
+    setCroppingBusy(true);
+    setStatusMessage(null);
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+        reader.onerror = () => reject(new Error('Failed to read option image file.'));
+        reader.readAsDataURL(file);
+      });
+      let finalUrl = dataUrl;
+      try {
+        const uploaded = await uploadPlatformFile({ folder: 'questions', file, kind: 'image' });
+        finalUrl = uploaded.downloadUrl;
+      } catch {
+        // Keep dataUrl fallback
+      }
+      setDraftQ((prev) => {
+        const nextImgs = [...(prev.optionImageUrls ?? ['', '', '', ''])];
+        while (nextImgs.length < 4) nextImgs.push('');
+        nextImgs[optIdx] = finalUrl;
+        return { ...prev, optionImageUrls: nextImgs };
+      });
+      playSuccess();
+    } catch (err) {
+      setStatusMessage({
+        type: 'err',
+        text: err instanceof Error ? err.message : 'Failed to upload option image.',
+      });
+    } finally {
+      setCroppingBusy(false);
+    }
+  };
 
   const handleLoadExistingTest = (t: MockTestRecord) => {
     const linked = allPlatformQuestions
@@ -474,14 +519,40 @@ export function QuestionPaperBuilder() {
         // Keep compact JPEG dataUrl fallback
       }
 
-      setDraftQ((prev) =>
-        activeSlot === 'question'
-          ? { ...prev, questionImageUrl: finalUrl, sourcePageNumber: activeCropSelection.pageNumber }
-          : { ...prev, solutionImageUrl: finalUrl, sourcePageNumber: activeCropSelection.pageNumber }
-      );
+      const matchedSlot = CROP_SLOTS.find((s) => s.id === activeSlot);
 
-      if (activeSlot === 'question') {
-        setActiveSlot('solution');
+      setDraftQ((prev) => {
+        if (activeSlot === 'question') {
+          return {
+            ...prev,
+            questionImageUrl: finalUrl,
+            sourcePageNumber: activeCropSelection.pageNumber,
+          };
+        }
+        if (typeof matchedSlot?.optionIndex === 'number') {
+          const nextImgs = [...(prev.optionImageUrls ?? ['', '', '', ''])];
+          while (nextImgs.length < 4) nextImgs.push('');
+          nextImgs[matchedSlot.optionIndex] = finalUrl;
+          return {
+            ...prev,
+            optionImageUrls: nextImgs,
+            sourcePageNumber: activeCropSelection.pageNumber,
+          };
+        }
+        return {
+          ...prev,
+          solutionImageUrl: finalUrl,
+          sourcePageNumber: activeCropSelection.pageNumber,
+        };
+      });
+
+      const slotOrder: CropSlot[] =
+        draftQ.questionType === 'integer'
+          ? ['question', 'solution']
+          : ['question', 'optionA', 'optionB', 'optionC', 'optionD', 'solution'];
+      const currOrderIdx = slotOrder.indexOf(activeSlot);
+      if (currOrderIdx >= 0 && currOrderIdx < slotOrder.length - 1) {
+        setActiveSlot(slotOrder[currOrderIdx + 1]);
       }
       playSuccess();
       setCropClearSignal((n) => n + 1);
@@ -1182,12 +1253,14 @@ export function QuestionPaperBuilder() {
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-1.5">
                 {activeSlots.map((slot) => {
                   const hasImg =
                     slot.id === 'question'
                       ? Boolean(draftQ.questionImageUrl)
-                      : Boolean(draftQ.solutionImageUrl);
+                      : typeof slot.optionIndex === 'number'
+                        ? Boolean(draftQ.optionImageUrls?.[slot.optionIndex])
+                        : Boolean(draftQ.solutionImageUrl);
                   const isSelected = activeSlot === slot.id;
                   return (
                     <button
@@ -1197,7 +1270,7 @@ export function QuestionPaperBuilder() {
                         playClick();
                         setActiveSlot(slot.id);
                       }}
-                      className={`px-3 py-2 rounded-xl text-xs font-bold border transition-colors ${
+                      className={`px-2.5 py-2 rounded-xl text-[11px] font-bold border transition-colors ${
                         isSelected
                           ? 'bg-[#0F214D] text-white border-[#0F214D] dark:bg-sky-500 dark:text-slate-950'
                           : hasImg
@@ -1357,21 +1430,109 @@ export function QuestionPaperBuilder() {
               </div>
             )}
 
-            {/* Crop Previews */}
-            {(draftQ.questionImageUrl || draftQ.solutionImageUrl) && (
-              <div className="grid grid-cols-2 gap-2">
-                {draftQ.questionImageUrl && (
-                  <div className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white">
-                    <p className="text-[10px] font-bold text-slate-500 mb-1">1. Question Crop</p>
-                    <img src={draftQ.questionImageUrl} alt="Question crop preview" className="max-h-20 w-full object-contain" />
+            {/* Crop & Upload Previews (Question + Options A–D + Solution) */}
+            {(draftQ.questionImageUrl ||
+              draftQ.solutionImageUrl ||
+              (draftQ.optionImageUrls ?? []).some(Boolean)) && (
+              <div className="space-y-2">
+                {(draftQ.questionImageUrl || draftQ.solutionImageUrl) && (
+                  <div className="grid grid-cols-2 gap-2">
+                    {draftQ.questionImageUrl && (
+                      <div className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white">
+                        <p className="text-[10px] font-bold text-slate-500 mb-1">Question Image</p>
+                        <img
+                          src={draftQ.questionImageUrl}
+                          alt="Question crop preview"
+                          className="max-h-20 w-full object-contain"
+                        />
+                      </div>
+                    )}
+                    {draftQ.solutionImageUrl && (
+                      <div className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white">
+                        <p className="text-[10px] font-bold text-slate-500 mb-1">Solution Image</p>
+                        <img
+                          src={draftQ.solutionImageUrl}
+                          alt="Solution crop preview"
+                          className="max-h-20 w-full object-contain"
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
-                {draftQ.solutionImageUrl && (
-                  <div className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white">
-                    <p className="text-[10px] font-bold text-slate-500 mb-1">2. Solution Crop</p>
-                    <img src={draftQ.solutionImageUrl} alt="Solution crop preview" className="max-h-20 w-full object-contain" />
-                  </div>
-                )}
+
+                {draftQ.questionType !== 'integer' &&
+                  (draftQ.optionImageUrls ?? []).some(Boolean) && (
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {OPTION_LETTERS.map((letter, idx) => {
+                        const optUrl = draftQ.optionImageUrls?.[idx];
+                        if (!optUrl) return null;
+                        return (
+                          <div
+                            key={letter}
+                            className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white"
+                          >
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-[10px] font-bold text-slate-500">
+                                Option {letter}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setDraftQ((prev) => {
+                                    const nextImgs = [...(prev.optionImageUrls ?? ['', '', '', ''])];
+                                    nextImgs[idx] = '';
+                                    return { ...prev, optionImageUrls: nextImgs };
+                                  })
+                                }
+                                className="text-[10px] font-semibold text-rose-500 hover:underline"
+                              >
+                                Clear
+                              </button>
+                            </div>
+                            <img
+                              src={optUrl}
+                              alt={`Option ${letter} preview`}
+                              className="max-h-14 w-full object-contain"
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+              </div>
+            )}
+
+            {/* Direct Option A–D Image Upload (for MCQs) */}
+            {draftQ.questionType !== 'integer' && (
+              <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-1.5">
+                <p className="text-[11px] font-bold text-slate-600 dark:text-slate-300">
+                  Option A–D Images (Crop above or upload directly)
+                </p>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {OPTION_LETTERS.map((letter, idx) => {
+                    const hasOptImg = Boolean(draftQ.optionImageUrls?.[idx]);
+                    return (
+                      <label
+                        key={letter}
+                        className={`cursor-pointer text-center py-1.5 px-1 rounded-lg border text-[11px] font-semibold transition-colors ${
+                          hasOptImg
+                            ? 'bg-emerald-50 border-emerald-300 text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-700 dark:text-emerald-300'
+                            : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-[#2563EB] dark:bg-slate-800/70 dark:border-slate-700 dark:text-slate-300'
+                        }`}
+                      >
+                        <span>
+                          {letter} {hasOptImg ? '✓' : '+ Img'}
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => void handleUploadOptionImage(idx, e.target.files?.[0])}
+                        />
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
             )}
 

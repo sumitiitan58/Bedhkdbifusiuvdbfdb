@@ -213,9 +213,9 @@ export async function onRequestPost(context) {
       const parsed = await callGeminiJson({
         env,
         systemInstruction:
-          'You are the senior JEE Main, JEE Advanced, NEET UG & CBSE Board Academic Strategist at PREPSKM.IN. ' +
-          'Speak directly, practically, and encouragingly in crisp English (with light natural Hinglish headers like "Kya Jaruri Hai" where helpful). ' +
-          'Give concrete, honest, high-ROI advice tailored to the student track and real stats. Avoid fluff. Keep every bullet short and actionable.',
+          'You are Preps AI, a friendly Indian JEE Main, JEE Advanced, NEET UG & CBSE Board bhaiya/mentor at PREPSKM.IN. ' +
+          'Speak warmly, practically, and encouragingly in natural Hinglish (conversational Hindi-English mix) so students grasp advice immediately. ' +
+          'Give concrete, honest, high-ROI advice tailored to the student track and real stats. Never use raw markdown symbols (#, **, *, _, backticks).',
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         responseSchema: {
           type: 'OBJECT',
@@ -369,7 +369,7 @@ export async function onRequestPost(context) {
       const parsed = await callGeminiJson({
         env,
         systemInstruction:
-          'You are a top JEE/NEET faculty mentor at PREPSKM.IN. Explain the question clearly in 3 compact sections: (1) Core Concept & Formula, (2) Step-by-Step Solving, (3) 10-Second Exam Shortcut / Mistake to Avoid. Keep it under 180 words.',
+          'You are Preps AI, a friendly Indian JEE/NEET bhaiya and mentor at PREPSKM.IN. Explain the question in simple, relatable Hinglish (conversational Hindi-English mix, zero robotic jargon, zero raw markdown like **, #, _, backticks) in 3 compact sections: (1) Core Concept & Formula, (2) Step-by-Step Solving, (3) 10-Second Exam Shortcut / Mistake to Avoid. Keep it under 180 words.',
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         responseSchema: {
           type: 'OBJECT',

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useContext, useEffect, useMemo, useState } from 'react';
 import {
   Activity,
   ArrowLeft,
@@ -17,6 +17,8 @@ import {
   Search,
   Sparkles,
   Target,
+  Volume2,
+  VolumeX,
   X,
   XCircle,
 } from 'lucide-react';
@@ -27,6 +29,7 @@ import { ReusableButton } from '../components/ReusableButton';
 import { SeoHead } from '../components/SeoHead';
 import { useAuth } from '../context/AuthContext';
 import { usePlatformData } from '../context/PlatformDataContext';
+import { ThemeContext } from '../context/ThemeProvider';
 import { requestPrepsAiMessages } from '../services/geminiClient';
 import {
   buildPrepsAiStudentContext,
@@ -46,10 +49,62 @@ import {
 } from '../utils/mistakeAnalysisEngine';
 import { computePrepScore } from '../utils/prepScoreEngine';
 import { evaluateSingleQuestion } from '../utils/scoringEngine';
+import {
+  resolveOptionImageSrc,
+  resolveQuestionImageSrc,
+} from '../utils/questionImageRenderer';
+import { cleanTextForSpeech, selectPreferredIndianVoice } from '../utils/speechUtils';
 import { playAiSparkle, playClick, playSuccess } from '../utils/soundEffects';
 import type { StudentAnswerValue, TestQuestionRecord } from '../types';
 
 const OPTION_LETTERS = ['A', 'B', 'C', 'D'] as const;
+
+function useSimpleIndianTts() {
+  const [speakingKey, setSpeakingKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
+
+  const stop = () => {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    setSpeakingKey(null);
+  };
+
+  const toggleSpeak = (key: string, rawText: string) => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    playClick();
+    if (speakingKey === key) {
+      stop();
+      return;
+    }
+    const cleaned = cleanTextForSpeech(rawText);
+    if (!cleaned) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(cleaned);
+    utterance.lang = 'en-IN';
+    utterance.rate = 0.95;
+    utterance.pitch = 1.0;
+    const voices = window.speechSynthesis.getVoices();
+    const idx = selectPreferredIndianVoice(voices);
+    if (idx >= 0 && voices[idx]) {
+      utterance.voice = voices[idx];
+      utterance.lang = voices[idx].lang || 'en-IN';
+    }
+    utterance.onstart = () => setSpeakingKey(key);
+    utterance.onend = () => setSpeakingKey((curr) => (curr === key ? null : curr));
+    utterance.onerror = () => setSpeakingKey((curr) => (curr === key ? null : curr));
+    window.speechSynthesis.speak(utterance);
+  };
+
+  return { speakingKey, toggleSpeak, stop };
+}
 
 interface ReattemptCardProps {
   question: TestQuestionRecord;
@@ -72,6 +127,8 @@ function InteractiveQuestionVaultCard({
   onToggleResolved,
   onToggleBookmark,
 }: ReattemptCardProps) {
+  const imageTheme = useContext(ThemeContext)?.theme === 'dark' ? 'dark' : 'light';
+  const tts = useSimpleIndianTts();
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [selectedMulti, setSelectedMulti] = useState<number[]>([]);
   const [integerInput, setIntegerInput] = useState('');
@@ -254,22 +311,20 @@ function InteractiveQuestionVaultCard({
         </div>
       </div>
 
-      {/* Question Prompt / Image */}
+      {/* Question Prompt in Image Format */}
       <div className="space-y-3">
-        {question.questionImageUrl && (
-          <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white p-3">
-            <img
-              src={question.questionImageUrl}
-              alt={`Question ${question.questionNumber}`}
-              className="max-h-72 w-auto mx-auto object-contain"
-            />
-          </div>
-        )}
-        {question.questionText && (
-          <p className="text-base text-slate-900 dark:text-slate-100 leading-relaxed whitespace-pre-line">
-            {question.questionText}
-          </p>
-        )}
+        {(() => {
+          const resolvedQImg = resolveQuestionImageSrc(question, imageTheme);
+          return (
+            <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0F182D] p-2">
+              <img
+                src={resolvedQImg.src}
+                alt={resolvedQImg.alt}
+                className="w-full max-w-[760px] h-auto mx-auto object-contain rounded-lg"
+              />
+            </div>
+          );
+        })()}
       </div>
 
       {/* Interactive Re-Attempt Controls */}
@@ -294,30 +349,32 @@ function InteractiveQuestionVaultCard({
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {OPTION_LETTERS.map((letter, idx) => {
-            const optText = question.optionTexts?.[idx];
             const isSelected =
               question.questionType === 'multi-mcq'
                 ? selectedMulti.includes(idx)
                 : selectedIndex === idx;
             const isCorrectOpt = (question.correctOptionIndices ?? []).includes(idx);
 
-            let stateClass =
-              'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/40 hover:border-[#2563EB]';
-            if (showSolution && isCorrectOpt) {
-              stateClass =
-                'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-100';
-            } else if (checkedResult === 'wrong' && isSelected && !isCorrectOpt) {
-              stateClass =
-                'border-rose-500 bg-rose-50/70 dark:bg-rose-950/40 text-rose-900 dark:text-rose-100';
-            } else if (isSelected) {
-              stateClass =
-                'border-[#2563EB] bg-blue-50/70 dark:bg-blue-950/40 text-[#0B1B3B] dark:text-white';
-            }
+            const visualState =
+              showSolution && isCorrectOpt
+                ? 'correct'
+                : checkedResult === 'wrong' && isSelected && !isCorrectOpt
+                  ? 'wrong'
+                  : isSelected
+                    ? 'selected'
+                    : 'default';
+
+            const resolvedOpt = resolveOptionImageSrc(question, idx, {
+              theme: imageTheme,
+              state: visualState,
+            });
 
             return (
               <button
                 key={letter}
                 type="button"
+                aria-pressed={isSelected}
+                aria-label={resolvedOpt.alt}
                 onClick={() => {
                   playClick();
                   if (question.questionType === 'multi-mcq') {
@@ -328,12 +385,34 @@ function InteractiveQuestionVaultCard({
                     setSelectedIndex(idx);
                   }
                 }}
-                className={`text-left p-3.5 rounded-xl border transition-all flex items-start gap-3 ${stateClass}`}
+                className={`w-full text-left rounded-xl transition-all overflow-hidden focus:outline-none focus:ring-2 focus:ring-[#2563EB] ${
+                  resolvedOpt.isCustomImage
+                    ? `p-2.5 border flex items-center gap-3 ${
+                        visualState === 'correct'
+                          ? 'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/40'
+                          : visualState === 'wrong'
+                            ? 'border-rose-500 bg-rose-50/70 dark:bg-rose-950/40'
+                            : isSelected
+                              ? 'border-[#2563EB] bg-blue-50/70 dark:bg-blue-950/40'
+                              : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/40 hover:border-[#2563EB]'
+                      }`
+                    : `${isSelected && !showSolution ? 'ring-2 ring-[#2563EB]' : ''}`
+                }`}
               >
-                <span className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 font-mono text-xs font-bold flex items-center justify-center shrink-0">
-                  {letter}
-                </span>
-                <span className="text-sm leading-snug">{optText || `Option ${letter}`}</span>
+                {resolvedOpt.isCustomImage && (
+                  <span className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 font-mono text-xs font-bold flex items-center justify-center shrink-0">
+                    {letter}
+                  </span>
+                )}
+                <img
+                  src={resolvedOpt.src}
+                  alt={resolvedOpt.alt}
+                  className={
+                    resolvedOpt.isCustomImage
+                      ? 'max-h-24 w-auto object-contain rounded-lg bg-white'
+                      : 'w-full h-auto object-contain rounded-xl block'
+                  }
+                />
               </button>
             );
           })}
@@ -435,17 +514,39 @@ function InteractiveQuestionVaultCard({
               <Sparkles className="w-3.5 h-3.5" />
               Preps AI Step-by-Step Mistake Fix
             </p>
-            <button
-              type="button"
-              onClick={() => {
-                setAiReply('');
-                setAiError('');
-              }}
-              aria-label="Close Preps AI explanation"
-              className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
+            <div className="flex items-center gap-1.5">
+              {aiReply && !aiError && (
+                <button
+                  type="button"
+                  onClick={() => tts.toggleSpeak(`card-${question.id}`, aiReply)}
+                  aria-label={
+                    tts.speakingKey === `card-${question.id}`
+                      ? 'Stop reading AI fix'
+                      : 'Listen to AI fix'
+                  }
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold border border-blue-200 dark:border-blue-700 bg-white/80 dark:bg-slate-900/70 text-[#2563EB] dark:text-sky-300"
+                >
+                  {tts.speakingKey === `card-${question.id}` ? (
+                    <VolumeX className="w-3 h-3" />
+                  ) : (
+                    <Volume2 className="w-3 h-3" />
+                  )}
+                  {tts.speakingKey === `card-${question.id}` ? 'Stop' : 'Listen'}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  tts.stop();
+                  setAiReply('');
+                  setAiError('');
+                }}
+                aria-label="Close Preps AI explanation"
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
           {aiError ? (
             <p className="text-rose-700 dark:text-rose-300">{aiError}</p>
@@ -477,6 +578,8 @@ function PersonalizedReattemptDrill({
   onMarkResolved,
   onExit,
 }: PersonalizedReattemptDrillProps) {
+  const imageTheme = useContext(ThemeContext)?.theme === 'dark' ? 'dark' : 'light';
+  const tts = useSimpleIndianTts();
   const [currentIdx, setCurrentIdx] = useState(0);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [finished, setFinished] = useState(false);
@@ -719,22 +822,20 @@ function PersonalizedReattemptDrill({
         })}
       </div>
 
-      {/* Question Prompt */}
+      {/* Question Prompt in Image Format */}
       <div className="space-y-3">
-        {question.questionImageUrl && (
-          <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white p-3">
-            <img
-              src={question.questionImageUrl}
-              alt={`Question ${question.questionNumber}`}
-              className="max-h-72 w-auto mx-auto object-contain"
-            />
-          </div>
-        )}
-        {question.questionText && (
-          <p className="text-base text-slate-900 dark:text-slate-100 leading-relaxed whitespace-pre-line">
-            {question.questionText}
-          </p>
-        )}
+        {(() => {
+          const resolvedQImg = resolveQuestionImageSrc(question, imageTheme);
+          return (
+            <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0F182D] p-2">
+              <img
+                src={resolvedQImg.src}
+                alt={resolvedQImg.alt}
+                className="w-full max-w-[760px] h-auto mx-auto object-contain rounded-lg"
+              />
+            </div>
+          );
+        })()}
       </div>
 
       {/* Answer Input */}
@@ -764,30 +865,32 @@ function PersonalizedReattemptDrill({
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {OPTION_LETTERS.map((letter, idx) => {
-            const optText = question.optionTexts?.[idx];
             const isSelected =
               question.questionType === 'multi-mcq'
                 ? currentAns?.type === 'multi-mcq' && currentAns.selectedIndices.includes(idx)
                 : currentAns?.type === 'single-mcq' && currentAns.selectedIndex === idx;
             const isCorrectOpt = (question.correctOptionIndices ?? []).includes(idx);
 
-            let cls =
-              'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/40 hover:border-[#2563EB]';
-            if (currentResult && isCorrectOpt) {
-              cls =
-                'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-100';
-            } else if (currentResult === 'wrong' && isSelected && !isCorrectOpt) {
-              cls =
-                'border-rose-500 bg-rose-50/70 dark:bg-rose-950/40 text-rose-900 dark:text-rose-100';
-            } else if (isSelected) {
-              cls =
-                'border-[#2563EB] bg-blue-50/70 dark:bg-blue-950/40 text-[#0B1B3B] dark:text-white';
-            }
+            const visualState =
+              currentResult && isCorrectOpt
+                ? 'correct'
+                : currentResult === 'wrong' && isSelected && !isCorrectOpt
+                  ? 'wrong'
+                  : isSelected
+                    ? 'selected'
+                    : 'default';
+
+            const resolvedOpt = resolveOptionImageSrc(question, idx, {
+              theme: imageTheme,
+              state: visualState,
+            });
 
             return (
               <button
                 key={letter}
                 type="button"
+                aria-pressed={isSelected}
+                aria-label={resolvedOpt.alt}
                 onClick={() => {
                   playClick();
                   if (question.questionType === 'multi-mcq') {
@@ -807,12 +910,34 @@ function PersonalizedReattemptDrill({
                     }));
                   }
                 }}
-                className={`text-left p-3.5 rounded-xl border transition-all flex items-start gap-3 ${cls}`}
+                className={`w-full text-left rounded-xl transition-all overflow-hidden focus:outline-none focus:ring-2 focus:ring-[#2563EB] ${
+                  resolvedOpt.isCustomImage
+                    ? `p-2.5 border flex items-center gap-3 ${
+                        visualState === 'correct'
+                          ? 'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/40'
+                          : visualState === 'wrong'
+                            ? 'border-rose-500 bg-rose-50/70 dark:bg-rose-950/40'
+                            : isSelected
+                              ? 'border-[#2563EB] bg-blue-50/70 dark:bg-blue-950/40'
+                              : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/40 hover:border-[#2563EB]'
+                      }`
+                    : `${isSelected && !currentResult ? 'ring-2 ring-[#2563EB]' : ''}`
+                }`}
               >
-                <span className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 font-mono text-xs font-bold flex items-center justify-center shrink-0">
-                  {letter}
-                </span>
-                <span className="text-sm leading-snug">{optText || `Option ${letter}`}</span>
+                {resolvedOpt.isCustomImage && (
+                  <span className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 font-mono text-xs font-bold flex items-center justify-center shrink-0">
+                    {letter}
+                  </span>
+                )}
+                <img
+                  src={resolvedOpt.src}
+                  alt={resolvedOpt.alt}
+                  className={
+                    resolvedOpt.isCustomImage
+                      ? 'max-h-24 w-auto object-contain rounded-lg bg-white'
+                      : 'w-full h-auto object-contain rounded-xl block'
+                  }
+                />
               </button>
             );
           })}
@@ -909,10 +1034,29 @@ function PersonalizedReattemptDrill({
 
       {aiExplainById[question.id] && (
         <div className="p-4 rounded-xl bg-blue-50/70 dark:bg-blue-950/35 border border-blue-200 dark:border-blue-800 text-sm space-y-1.5">
-          <p className="text-xs font-bold uppercase tracking-wider text-[#2563EB] dark:text-sky-400 flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5" />
-            Preps AI Diagnosis
-          </p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-bold uppercase tracking-wider text-[#2563EB] dark:text-sky-400 flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5" />
+              Preps AI Diagnosis
+            </p>
+            <button
+              type="button"
+              onClick={() => tts.toggleSpeak(`drill-${question.id}`, aiExplainById[question.id])}
+              aria-label={
+                tts.speakingKey === `drill-${question.id}`
+                  ? 'Stop reading diagnosis'
+                  : 'Listen to diagnosis'
+              }
+              className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold border border-blue-200 dark:border-blue-700 bg-white/80 dark:bg-slate-900/70 text-[#2563EB] dark:text-sky-300"
+            >
+              {tts.speakingKey === `drill-${question.id}` ? (
+                <VolumeX className="w-3 h-3" />
+              ) : (
+                <Volume2 className="w-3 h-3" />
+              )}
+              {tts.speakingKey === `drill-${question.id}` ? 'Stop' : 'Listen'}
+            </button>
+          </div>
           <p className="text-slate-800 dark:text-slate-100 whitespace-pre-line leading-relaxed">
             {aiExplainById[question.id]}
           </p>
@@ -937,6 +1081,7 @@ export default function MistakeNotebookPage() {
     toggleMistakeResolved,
   } = usePlatformData();
 
+  const batchTts = useSimpleIndianTts();
   const [activeTab, setActiveTab] = useState<'mistakes' | 'vault'>('mistakes');
   const [subjectFilter, setSubjectFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'wrong' | 'unattempted' | 'resolved'>(
@@ -1240,12 +1385,32 @@ export default function MistakeNotebookPage() {
                 </h2>
               </div>
               <div className="flex items-center gap-2">
+                {batchAiReply && !batchAiError && (
+                  <button
+                    type="button"
+                    onClick={() => batchTts.toggleSpeak('batch-diagnosis', batchAiReply)}
+                    aria-label={
+                      batchTts.speakingKey === 'batch-diagnosis'
+                        ? 'Stop reading error diagnosis'
+                        : 'Listen to error diagnosis'
+                    }
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-blue-200 dark:border-blue-700 bg-white/80 dark:bg-slate-900/70 text-[#2563EB] dark:text-sky-300"
+                  >
+                    {batchTts.speakingKey === 'batch-diagnosis' ? (
+                      <VolumeX className="w-3.5 h-3.5" />
+                    ) : (
+                      <Volume2 className="w-3.5 h-3.5" />
+                    )}
+                    {batchTts.speakingKey === 'batch-diagnosis' ? 'Stop' : 'Listen'}
+                  </button>
+                )}
                 <ReusableButton variant="ghost" size="sm" to="/preps-ai">
                   Open Preps AI
                 </ReusableButton>
                 <button
                   type="button"
                   onClick={() => {
+                    batchTts.stop();
                     setBatchAiReply('');
                     setBatchAiError('');
                   }}

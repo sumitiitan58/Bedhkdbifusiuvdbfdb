@@ -59,13 +59,14 @@ export function PrepsAiFloatingOrb() {
   const [messages, setMessages] = useState<PrepsAiChatMessage[]>([
     {
       role: 'assistant',
-      text: 'Hi! I am Preps AI. Ask any JEE/NEET doubt or tap a quick prompt — your live Prep Score, tests, and Mistake Notebook are synced.',
+      text: 'Namaste! Main Preps AI hoon — koi bhi JEE/NEET doubt pucho, ya Hands-Free mic ON karke seedha "Preps AI" bolo!',
     },
   ]);
   const [followUps, setFollowUps] = useState<string[]>(QUICK_PROMPTS);
 
   const messagesRef = useRef<PrepsAiChatMessage[]>(messages);
   messagesRef.current = messages;
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
   const cohortLabel = useMemo(
     () => allCohorts.find((c) => c.id === cohortId)?.label ?? 'Class 12 JEE',
@@ -135,7 +136,7 @@ export function PrepsAiFloatingOrb() {
     },
     onWakeWordDetected: () => {
       setOpen(true);
-      playAiSparkle();
+      window.setTimeout(() => inputRef.current?.focus(), 100);
     },
   });
 
@@ -226,17 +227,21 @@ export function PrepsAiFloatingOrb() {
                   aria-pressed={voice.wakeWordEnabled}
                   aria-label={
                     voice.wakeWordEnabled
-                      ? 'Disable Hello Preps wake word'
-                      : 'Enable Hello Preps wake word'
+                      ? 'Disable Hands-Free Preps AI wake word'
+                      : 'Enable Hands-Free Preps AI wake word'
                   }
-                  title={voice.wakeWordEnabled ? '"Hello Preps" active' : 'Enable "Hello Preps"'}
+                  title={
+                    voice.wakeWordEnabled
+                      ? 'Hands-Free ON — Say "Preps AI"'
+                      : 'Enable Hands-Free "Preps AI" Voice Mode'
+                  }
                   className={`p-1.5 rounded-lg transition-colors ${
                     voice.wakeWordEnabled
                       ? 'bg-emerald-600 text-white'
                       : 'hover:bg-white/10 text-sky-200'
                   }`}
                 >
-                  <Radio className="w-3.5 h-3.5" />
+                  <Radio className={`w-3.5 h-3.5 ${voice.wakeWordEnabled ? 'animate-pulse' : ''}`} />
                 </button>
 
                 <button
@@ -347,7 +352,26 @@ export function PrepsAiFloatingOrb() {
                         : 'bg-slate-100 dark:bg-[#17233D] text-slate-800 dark:text-slate-100 rounded-bl-sm'
                     }`}
                   >
-                    {msg.text}
+                    <div>{msg.text}</div>
+                    {msg.role === 'assistant' && voice.ttsSupported && (
+                      <div className="mt-1.5 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            voice.isSpeaking ? voice.stopSpeaking() : voice.speakText(msg.text)
+                          }
+                          aria-label={voice.isSpeaking ? 'Stop audio' : 'Read reply aloud'}
+                          className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#2563EB] dark:text-sky-400 hover:underline"
+                        >
+                          {voice.isSpeaking ? (
+                            <VolumeX className="w-3 h-3" />
+                          ) : (
+                            <Volume2 className="w-3 h-3" />
+                          )}
+                          <span>{voice.isSpeaking ? 'Stop' : 'Listen'}</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -355,7 +379,7 @@ export function PrepsAiFloatingOrb() {
               {voice.liveTranscript && (
                 <div className="flex justify-end">
                   <div className="max-w-[85%] rounded-xl px-3 py-1.5 text-xs italic bg-blue-50 dark:bg-blue-950/50 text-[#2563EB] dark:text-sky-300 border border-blue-200 dark:border-blue-800">
-                    Hearing: &ldquo;{voice.liveTranscript}&rdquo;
+                    Hearing (auto-sends in 2s): &ldquo;{voice.liveTranscript}&rdquo;
                   </div>
                 </div>
               )}
@@ -399,7 +423,7 @@ export function PrepsAiFloatingOrb() {
             >
               <button
                 type="button"
-                onClick={voice.isListening ? voice.stopListening : voice.startListening}
+                onClick={() => (voice.isListening ? voice.stopListening() : voice.startListening())}
                 aria-label={voice.isListening ? 'Stop voice input' : 'Start voice input'}
                 className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
                   voice.isListening
@@ -411,10 +435,11 @@ export function PrepsAiFloatingOrb() {
               </button>
 
               <input
+                ref={inputRef}
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask Preps AI..."
+                placeholder='Ask Preps AI or say "Preps AI"...'
                 aria-label="Message Preps AI"
                 className="flex-1 min-w-0 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
               />
@@ -432,24 +457,52 @@ export function PrepsAiFloatingOrb() {
         )}
       </AnimatePresence>
 
-      {/* Compact Floating Preps AI Launcher */}
-      <button
-        type="button"
-        onClick={() => {
-          playClick();
-          setOpen((prev) => !prev);
-        }}
-        aria-expanded={open}
-        aria-label={open ? 'Close Preps AI Widget' : 'Open Preps AI Widget'}
-        className="pointer-events-auto inline-flex items-center gap-2 h-11 px-4 rounded-full bg-[#0B1B3B] hover:bg-[#162C5B] dark:bg-[#2563EB] dark:hover:bg-blue-700 text-white font-display font-bold text-xs shadow-lg border border-white/15 transition-colors"
-      >
-        {voice.isListening ? (
-          <Mic className="w-4 h-4 text-[#F97316]" />
-        ) : (
-          <Sparkles className="w-4 h-4 text-sky-300" />
-        )}
-        <span>Preps AI</span>
-      </button>
+      {/* Compact Floating Preps AI Launcher + Hands-Free Mic Toggle */}
+      <div className="pointer-events-auto inline-flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => {
+            playClick();
+            voice.toggleWakeWord();
+          }}
+          aria-pressed={voice.wakeWordEnabled}
+          aria-label={
+            voice.wakeWordEnabled
+              ? 'Disable Hands-Free Preps AI Voice Mode'
+              : 'Enable Hands-Free Preps AI Voice Mode'
+          }
+          title={
+            voice.wakeWordEnabled
+              ? 'Hands-Free Voice Mode ON — Say "Preps AI"'
+              : 'Hands-Free Voice Mode (Say "Preps AI")'
+          }
+          className={`inline-flex items-center justify-center h-11 w-11 rounded-full shadow-lg border transition-colors ${
+            voice.wakeWordEnabled
+              ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-400/50'
+              : 'bg-white dark:bg-[#111A2E] hover:bg-slate-50 dark:hover:bg-slate-800 text-[#0B1B3B] dark:text-sky-300 border-slate-200 dark:border-slate-700'
+          }`}
+        >
+          <Radio className={`w-4 h-4 ${voice.wakeWordEnabled ? 'animate-pulse' : ''}`} />
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            playClick();
+            setOpen((prev) => !prev);
+          }}
+          aria-expanded={open}
+          aria-label={open ? 'Close Preps AI Widget' : 'Open Preps AI Widget'}
+          className="inline-flex items-center gap-2 h-11 px-4 rounded-full bg-[#0B1B3B] hover:bg-[#162C5B] dark:bg-[#2563EB] dark:hover:bg-blue-700 text-white font-display font-bold text-xs shadow-lg border border-white/15 transition-colors"
+        >
+          {voice.isListening ? (
+            <Mic className="w-4 h-4 text-[#F97316]" />
+          ) : (
+            <Sparkles className="w-4 h-4 text-sky-300" />
+          )}
+          <span>{voice.wakeWordEnabled ? 'Preps AI · Hands-Free' : 'Preps AI'}</span>
+        </button>
+      </div>
     </div>
   );
 }

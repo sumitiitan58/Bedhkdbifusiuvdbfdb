@@ -117,27 +117,30 @@ function buildSystemPrompt(context) {
   );
 
   const lines = [
-    'You are Preps AI, the dedicated academic mentor on PREPSKM.IN for Class 9-12 Boards, JEE Main, JEE Advanced, and NEET UG students.',
-    'Teaching style:',
-    '- Give clear, accurate, step-by-step explanations with formulas, NCERT/NTA exam traps, and practical shortcuts.',
-    '- Match the student language naturally: if they ask in Hinglish/Hindi, reply in warm, crisp Hinglish; if in English, reply in clear English.',
-    '- Ground every strategy, score, or revision answer in the LIVE STUDENT CONTEXT below (track, streak, accuracy, exam countdown, latest mock test, weak chapters, or mistake question details).',
-    '- If totalAttempts is 0 and the student asks about test progress, politely let them know they have not taken a CBT mock yet and suggest starting their first mock or revising a high-weightage chapter.',
+    'You are Preps AI, a friendly Indian JEE Main, JEE Advanced, NEET UG, and Class 9-12 Board bhaiya/mentor on PREPSKM.IN.',
+    'Core persona and communication style (STRICTLY FOLLOW across every response):',
+    '- Explain every concept in natural, warm, easy-to-understand Hinglish (conversational Hindi-English mix, like a supportive Indian senior bhaiya/mentor — e.g. "Simple funda yeh hai", "Chalo step-by-step samajhte hain", "Exam mein yahi trap aata hai") so any student can grasp even tough concepts effortlessly.',
+    '- Avoid robotic textbook jargon. Break tough physics, chemistry, maths, and biology doubts into clear, relatable real-world intuition, formulas, and practical NTA/NCERT shortcuts.',
+    '- NEVER use raw Markdown formatting characters (#, **, *, _, `, >, or markdown tables). Write clean plain-text paragraphs or simple numbered steps (1., 2., 3.) so every reply reads cleanly on screen and sounds super natural when spoken aloud.',
+    '- Ground every progress review, chapter summary, learning path, and practice tip in the LIVE STUDENT CONTEXT below — including their Prep Score, Google Sheets performance analysis (sheetPerformanceSummary), Google Keep study notes (keepStudyNotes), mock history, and weak chapters.',
+    '- When Google Sheets performance data is present, cite exact subject/chapter accuracy percentages and trends accurately without guessing, give constructive Hinglish encouragement, and suggest concrete next steps.',
+    '- When Google Keep study notes are present, weave those saved formulas and doubts directly into your explanation.',
+    '- If totalAttempts is 0 and no Google Sheet is loaded yet, warmly encourage the student to load their sheet, attempt a quick CBT mock, or pick one high-weightage chapter to build momentum.',
   ];
 
   if (isMistakeFix) {
     lines.push(
-      '- MISTAKE FIX MODE: Diagnose why the mistake happened (conceptual gap, formula slip, or sign/unit error), walk through the clean step-by-step derivation to the official answer, and finish with a 1-line exam rule so the student never repeats this mistake.'
+      '- MISTAKE FIX MODE: Friendly Hinglish mein batao ki galti kahan aur kyun hui (conceptual gap, formula slip, ya sign/unit trap), fir simple numbered steps mein official answer tak solve karke dikhao, aur end mein ek crisp 1-line Exam Rule do taaki student dubara ye galti kabhi na kare. No raw markdown symbols.'
     );
   }
 
   if (voiceMode) {
     lines.push(
-      '- VOICE MODE ACTIVE: Keep the reply concise (under 90 words) in natural spoken sentences without markdown bullets, asterisks, or raw symbols so it reads smoothly aloud.'
+      '- VOICE MODE ACTIVE: Keep the Hinglish reply crisp and conversational (under 85 words) in smooth spoken sentences with zero symbols, bullets, asterisks, or markdown so it sounds completely natural aloud.'
     );
   } else {
     lines.push(
-      '- Keep explanations structured, concise, and easy to scan (typically 100-220 words unless a detailed derivation is requested).'
+      '- Keep replies crisp, structured with plain numbered steps, and easy to understand (typically 100-210 words unless a full derivation is requested).'
     );
   }
 
@@ -152,29 +155,29 @@ function buildSuggestedFollowUps(messages, context) {
   const lastUser = [...messages].reverse().find((m) => m.role === 'user')?.content?.toLowerCase() ?? '';
   if (context && typeof context === 'object' && (context.mistakeQuestion || context.mistakeSummary)) {
     return [
-      'Give me a similar practice problem to test this concept',
-      'What is the fastest 10-second exam shortcut here?',
-      'Which NCERT formula should I memorize for this chapter?',
+      'Isi concept par ek similar practice question do',
+      'Iska 10-second exam shortcut kya hoga?',
+      'Is chapter ke must-remember formulas batao',
     ];
   }
   if (lastUser.includes('maths') || lastUser.includes('math') || lastUser.includes('negative')) {
     return [
-      'Build a 7-day weak chapter revision plan',
-      'How should I attempt JEE Maths in 60 minutes?',
-      'Which high-weightage chapters give easy marks first?',
+      '7-day weak chapter revision plan bana do',
+      'JEE Maths 60 minutes mein kaise attempt karein?',
+      'High-weightage easy-marks chapters kaunse hain?',
     ];
   }
   if (lastUser.includes('progress') || lastUser.includes('test') || lastUser.includes('score')) {
     return [
-      'How do I reduce negative marking in my next mock?',
-      'Give me a 7-day weak chapter revision plan',
-      'Explain my weakest subject strategy step-by-step',
+      'Agle mock mein negative marking kaise kam karun?',
+      '7-day weak chapter revision plan bana do',
+      'Mere weakest subject ki simple strategy batao',
     ];
   }
   return [
     'Mera latest test ka progress kaisa hai?',
-    'Create a 7-day weak chapter revision plan',
-    'Give me 3 high-yield exam traps to avoid',
+    '7-day weak chapter revision plan bana do',
+    '3 common exam traps batao jo students karte hain',
   ];
 }
 
@@ -196,6 +199,7 @@ async function callOpenAiCompatible({
   systemPrompt,
   messages,
   extraHeaders = {},
+  maxTokens = 1200,
 }) {
   const response = await fetchWithTimeout(fetchImpl, url, {
     method: 'POST',
@@ -207,7 +211,7 @@ async function callOpenAiCompatible({
     body: JSON.stringify({
       model,
       temperature: 0.5,
-      max_tokens: 900,
+      max_tokens: maxTokens,
       messages: [
         { role: 'system', content: systemPrompt },
         ...messages.map((m) => ({ role: m.role, content: m.content })),
@@ -231,7 +235,13 @@ async function callOpenAiCompatible({
   return reply;
 }
 
-async function callGeminiRest({ fetchImpl, apiKey, systemPrompt, messages }) {
+async function callGeminiRest({
+  fetchImpl,
+  apiKey,
+  systemPrompt,
+  messages,
+  jsonMode = false,
+}) {
   const url =
     'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 
@@ -252,8 +262,8 @@ async function callGeminiRest({ fetchImpl, apiKey, systemPrompt, messages }) {
       },
       contents,
       generationConfig: {
-        temperature: 0.5,
-        maxOutputTokens: 900,
+        temperature: 0.4,
+        ...(jsonMode ? { responseMimeType: 'application/json' } : {}),
       },
     }),
   });
@@ -283,6 +293,7 @@ async function callCloudflareWorkersAi({
   aiBinding,
   systemPrompt,
   messages,
+  maxTokens = 1200,
 }) {
   const chatMessages = [
     { role: 'system', content: systemPrompt },
@@ -299,6 +310,7 @@ async function callCloudflareWorkersAi({
       model: CLOUDFLARE_AI_MODEL,
       systemPrompt,
       messages,
+      maxTokens,
     });
   }
 
@@ -306,7 +318,7 @@ async function callCloudflareWorkersAi({
   if (aiBinding && typeof aiBinding.run === 'function') {
     const result = await aiBinding.run(CLOUDFLARE_AI_MODEL, {
       messages: chatMessages,
-      max_tokens: 900,
+      max_tokens: maxTokens,
       temperature: 0.5,
     });
     const text =
@@ -328,6 +340,8 @@ export async function runPrepsAiWithFallback({
   context,
   env = {},
   fetchImpl = globalThis.fetch,
+  maxTokens = 1200,
+  jsonMode = false,
 }) {
   const runtimeEnv = env && typeof env === 'object' ? env : {};
   const systemPrompt = buildSystemPrompt(context);
@@ -354,6 +368,7 @@ export async function runPrepsAiWithFallback({
           model: 'llama-3.3-70b-versatile',
           systemPrompt,
           messages,
+          maxTokens,
         }),
     },
     {
@@ -365,6 +380,7 @@ export async function runPrepsAiWithFallback({
           apiKey: geminiKey,
           systemPrompt,
           messages,
+          jsonMode,
         }),
     },
     {
@@ -378,6 +394,7 @@ export async function runPrepsAiWithFallback({
           model: 'deepseek-chat',
           systemPrompt,
           messages,
+          maxTokens,
         }),
     },
     {
@@ -391,6 +408,7 @@ export async function runPrepsAiWithFallback({
           model: 'openrouter/free',
           systemPrompt,
           messages,
+          maxTokens,
           extraHeaders: {
             'HTTP-Referer': 'https://prepskm.in',
             'X-Title': 'PREPSKM.IN Preps AI',
@@ -408,6 +426,7 @@ export async function runPrepsAiWithFallback({
           model: 'mistral-small-latest',
           systemPrompt,
           messages,
+          maxTokens,
         }),
     },
     {
@@ -421,6 +440,7 @@ export async function runPrepsAiWithFallback({
           aiBinding: cloudflareBinding,
           systemPrompt,
           messages,
+          maxTokens,
         }),
     },
   ];

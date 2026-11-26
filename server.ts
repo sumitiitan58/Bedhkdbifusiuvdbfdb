@@ -30,6 +30,11 @@ import {
 } from './src/data/seoContent';
 import { countConfiguredProviders, runPrepsAiWithFallback } from './functions/api/preps-ai.js';
 import {
+  buildTutorStudioPrompt,
+  extractJsonObject,
+  runTutorStudioWithFallback,
+} from './functions/api/ai/tutor-studio.js';
+import {
   JEE_CONCISE_CHAPTERS,
   JEE_CONCISE_MATERIALS,
 } from './src/data/jeeConciseNotesCatalog';
@@ -717,9 +722,9 @@ async function createApp() {
         contents: prompt,
         config: {
           systemInstruction:
-            'You are the senior JEE Main, JEE Advanced, NEET UG & CBSE Board Academic Strategist at PREPSKM.IN. ' +
-            'Speak directly, practically, and encouragingly in crisp English (with light natural Hinglish headers like "Kya Jaruri Hai" where helpful). ' +
-            'Give concrete, honest, high-ROI advice tailored to the student track and real stats. Avoid fluff. Keep every bullet short and actionable.',
+            'You are Preps AI, a friendly Indian JEE Main, JEE Advanced, NEET UG & CBSE Board bhaiya/mentor at PREPSKM.IN. ' +
+            'Speak warmly, practically, and encouragingly in natural Hinglish (conversational Hindi-English mix) so students grasp advice immediately. ' +
+            'Give concrete, honest, high-ROI advice tailored to the student track and real stats. Never use raw markdown symbols (#, **, *, _, backticks).',
           responseMimeType: 'application/json',
           responseSchema: {
             type: Type.OBJECT,
@@ -913,7 +918,7 @@ async function createApp() {
         contents: prompt,
         config: {
           systemInstruction:
-            'You are a top JEE/NEET faculty mentor at PREPSKM.IN. Explain the question clearly in 3 compact sections: (1) Core Concept & Formula, (2) Step-by-Step Solving, (3) 10-Second Exam Shortcut / Mistake to Avoid. Keep it under 180 words.',
+            'You are Preps AI, a friendly Indian JEE/NEET bhaiya and mentor at PREPSKM.IN. Explain the question in simple, relatable Hinglish (conversational Hindi-English mix, zero robotic jargon, zero raw markdown like **, #, _, backticks) in 3 compact sections: (1) Core Concept & Formula, (2) Step-by-Step Solving, (3) 10-Second Exam Shortcut / Mistake to Avoid. Keep it under 180 words.',
           responseMimeType: 'application/json',
           responseSchema: {
             type: Type.OBJECT,
@@ -1089,6 +1094,59 @@ async function createApp() {
     } catch (err) {
       const { status, message } = formatGeminiError(err);
       res.status(status).json({ ok: false, error: message });
+    }
+  });
+
+  // 6. Expert AI Tutor & Mentor Studio (Google Sheets Feedback, Chapter Learning Paths & Practice Questions)
+  app.post('/api/ai/tutor-studio', async (req, res) => {
+    const body = (req.body ?? {}) as { action?: string; payload?: Record<string, unknown> };
+    const action = String(body.action ?? '').trim();
+    if (!['analyze-sheet', 'learning-path', 'practice-questions'].includes(action)) {
+      res.status(400).json({ ok: false, error: 'Invalid tutor studio action.' });
+      return;
+    }
+
+    // Prefer @google/genai (gemini-4-hydrogen) with strict JSON when GEMINI_API_KEY is available,
+    // and automatically fail over to the 6-provider backend if Gemini errors or is absent.
+    if (process.env.GEMINI_API_KEY?.trim()) {
+      try {
+        const ai = getGeminiClient();
+        const { systemPrompt, userPrompt } = buildTutorStudioPrompt(action, body.payload ?? {});
+        const response = await ai.models.generateContent({
+          model: GEMINI_MODEL,
+          contents: userPrompt,
+          config: {
+            systemInstruction: systemPrompt,
+            responseMimeType: 'application/json',
+          },
+        });
+        const rawText = (response.text ?? '').trim();
+        if (rawText) {
+          const parsed = extractJsonObject(rawText);
+          res.status(200).json({ ok: true, result: parsed, provider: 'gemini' });
+          return;
+        }
+      } catch {
+        // Seamlessly fall through to 6-provider automatic failover below
+      }
+    }
+
+    try {
+      const fallback = await runTutorStudioWithFallback({
+        action,
+        payload: body.payload ?? {},
+        env: process.env,
+      });
+      if (!fallback.ok) {
+        res.status(503).json({ ok: false, error: fallback.error });
+        return;
+      }
+      res.status(200).json({ ok: true, result: fallback.data, provider: fallback.provider });
+    } catch {
+      res.status(502).json({
+        ok: false,
+        error: 'The AI Tutor could not complete this request right now. Please try again shortly.',
+      });
     }
   });
 

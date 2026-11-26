@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, type PanInfo } from 'motion/react';
 import {
   Bookmark,
@@ -22,6 +22,11 @@ import type {
 } from '../../types';
 import type { GeminiQuestionExplanation } from '../../services/geminiClient';
 import { usePlatformData } from '../../context/PlatformDataContext';
+import { ThemeContext } from '../../context/ThemeProvider';
+import {
+  resolveOptionImageSrc,
+  resolveQuestionImageSrc,
+} from '../../utils/questionImageRenderer';
 import { playClick } from '../../utils/soundEffects';
 import { QuestionZoomModal, type QuestionZoomPayload } from './QuestionZoomModal';
 
@@ -81,6 +86,7 @@ export function SolutionCardDeck({
   aiErrorById,
 }: SolutionCardDeckProps) {
   const { bookmarkedQuestionIds, toggleQuestionBookmark } = usePlatformData();
+  const imageTheme = useContext(ThemeContext)?.theme === 'dark' ? 'dark' : 'light';
   const [filterMode, setFilterMode] = useState<'all' | SolutionReviewStatus>('all');
   const [activeIndex, setActiveIndex] = useState(0);
   const [slideDir, setSlideDir] = useState<1 | -1>(1);
@@ -453,64 +459,62 @@ export function SolutionCardDeck({
                 <div className="p-4 sm:p-5 space-y-4">
                   {/* TOP SECTION: QUESTION + ZOOM BUTTON */}
                   <div className="space-y-2.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                        Question {currentItem.question.questionNumber}
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          playClick();
-                          setZoomPayload({
-                            title: `Question ${currentItem.question.questionNumber} — ${currentItem.question.subjectName}`,
-                            subtitle: currentItem.question.chapterName,
-                            imageUrl: currentItem.question.questionImageUrl,
-                            text: currentItem.question.questionText,
-                            optionTexts: currentItem.question.optionTexts,
-                            kind: 'question',
-                          });
-                        }}
-                        aria-label={`Zoom Question ${currentItem.question.questionNumber}`}
-                        className="inline-flex items-center gap-1.5 min-h-9 px-3 py-1.5 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700 bg-slate-50 hover:bg-blue-50 hover:border-[#2563EB] hover:text-[#2563EB] dark:bg-slate-900 dark:hover:bg-blue-950/60 dark:hover:border-sky-400 dark:hover:text-sky-300 text-slate-700 dark:text-slate-200 transition-colors"
-                      >
-                        <ZoomIn className="w-4 h-4" />
-                        Zoom
-                      </button>
-                    </div>
+                    {(() => {
+                      const resolvedQImg = resolveQuestionImageSrc(currentItem.question, imageTheme);
+                      return (
+                        <>
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                              Question {currentItem.question.questionNumber}
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                playClick();
+                                setZoomPayload({
+                                  title: `Question ${currentItem.question.questionNumber} — ${currentItem.question.subjectName}`,
+                                  subtitle: currentItem.question.chapterName,
+                                  imageUrl: resolvedQImg.src,
+                                  text: currentItem.question.questionText,
+                                  optionTexts: currentItem.question.optionTexts,
+                                  kind: 'question',
+                                });
+                              }}
+                              aria-label={`Zoom Question ${currentItem.question.questionNumber}`}
+                              className="inline-flex items-center gap-1.5 min-h-9 px-3 py-1.5 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700 bg-slate-50 hover:bg-blue-50 hover:border-[#2563EB] hover:text-[#2563EB] dark:bg-slate-900 dark:hover:bg-blue-950/60 dark:hover:border-sky-400 dark:hover:text-sky-300 text-slate-700 dark:text-slate-200 transition-colors"
+                            >
+                              <ZoomIn className="w-4 h-4" />
+                              Zoom
+                            </button>
+                          </div>
 
-                    {currentItem.question.questionImageUrl && (
-                      <div className="relative group rounded-xl border border-slate-200 dark:border-slate-700 bg-white p-2.5 sm:p-3 overflow-x-auto">
-                        <img
-                          src={currentItem.question.questionImageUrl}
-                          alt={`Question ${currentItem.question.questionNumber}`}
-                          draggable={false}
-                          onClick={() => {
-                            playClick();
-                            setZoomPayload({
-                              title: `Question ${currentItem.question.questionNumber} — ${currentItem.question.subjectName}`,
-                              subtitle: currentItem.question.chapterName,
-                              imageUrl: currentItem.question.questionImageUrl,
-                              kind: 'question',
-                            });
-                          }}
-                          className="w-full max-w-[740px] h-auto object-contain mx-auto cursor-zoom-in select-none"
-                        />
-                      </div>
-                    )}
-
-                    {currentItem.question.questionText &&
-                      !currentItem.question.questionImageUrl?.startsWith('/assets/mocks/') && (
-                        <p className="text-sm sm:text-base text-slate-900 dark:text-slate-100 leading-relaxed whitespace-pre-line">
-                          {currentItem.question.questionText}
-                        </p>
-                      )}
+                          <div className="relative group rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0F182D] p-2 sm:p-2.5 overflow-x-auto">
+                            <img
+                              src={resolvedQImg.src}
+                              alt={resolvedQImg.alt}
+                              draggable={false}
+                              onClick={() => {
+                                playClick();
+                                setZoomPayload({
+                                  title: `Question ${currentItem.question.questionNumber} — ${currentItem.question.subjectName}`,
+                                  subtitle: currentItem.question.chapterName,
+                                  imageUrl: resolvedQImg.src,
+                                  kind: 'question',
+                                });
+                              }}
+                              className="w-full max-w-[760px] h-auto object-contain mx-auto cursor-zoom-in select-none rounded-lg"
+                            />
+                          </div>
+                        </>
+                      );
+                    })()}
 
                     {currentItem.question.questionType !== 'integer' &&
-                      !currentItem.question.questionImageUrl?.startsWith('/assets/mocks/') &&
-                      currentItem.question.optionTexts &&
-                      currentItem.question.optionTexts.some(Boolean) && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs sm:text-sm pt-1">
-                          {currentItem.question.optionTexts.map((txt, idx) => {
+                      (!currentItem.question.questionImageUrl?.startsWith('/assets/mocks/') ||
+                        (currentItem.question.optionTexts ?? []).some(Boolean) ||
+                        (currentItem.question.optionImageUrls ?? []).some(Boolean)) && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                          {OPTION_LETTERS.map((letter, idx) => {
                             const isOfficial = (
                               currentItem.question.correctOptionIndices ?? []
                             ).includes(idx);
@@ -518,19 +522,46 @@ export function SolutionCardDeck({
                             const isPicked =
                               (ans?.type === 'single-mcq' && ans.selectedIndex === idx) ||
                               (ans?.type === 'multi-mcq' && ans.selectedIndices.includes(idx));
+                            const visualState = isOfficial
+                              ? 'correct'
+                              : isPicked
+                                ? 'wrong'
+                                : 'default';
+                            const resolvedOpt = resolveOptionImageSrc(currentItem.question, idx, {
+                              theme: imageTheme,
+                              state: visualState,
+                            });
+
                             return (
                               <div
-                                key={idx}
-                                className={`px-3 py-2 rounded-xl border flex items-center gap-2 ${
-                                  isOfficial
-                                    ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200 font-semibold'
-                                    : isPicked
-                                      ? 'border-rose-400 bg-rose-50 dark:bg-rose-950/40 text-rose-900 dark:text-rose-200'
-                                      : 'border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 text-slate-700 dark:text-slate-300'
-                                }`}
+                                key={letter}
+                                className={
+                                  resolvedOpt.isCustomImage
+                                    ? `p-2 rounded-xl border flex items-center gap-2.5 ${
+                                        isOfficial
+                                          ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-950/40'
+                                          : isPicked
+                                            ? 'border-rose-400 bg-rose-50 dark:bg-rose-950/40'
+                                            : 'border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50'
+                                      }`
+                                    : 'rounded-xl overflow-hidden'
+                                }
                               >
-                                <span className="font-mono font-bold">{OPTION_LETTERS[idx]}.</span>
-                                <span>{txt}</span>
+                                {resolvedOpt.isCustomImage && (
+                                  <span className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 font-mono text-xs font-bold flex items-center justify-center shrink-0">
+                                    {letter}
+                                  </span>
+                                )}
+                                <img
+                                  src={resolvedOpt.src}
+                                  alt={resolvedOpt.alt}
+                                  draggable={false}
+                                  className={
+                                    resolvedOpt.isCustomImage
+                                      ? 'max-h-24 w-auto object-contain rounded-lg bg-white'
+                                      : 'w-full h-auto object-contain rounded-xl block'
+                                  }
+                                />
                               </div>
                             );
                           })}

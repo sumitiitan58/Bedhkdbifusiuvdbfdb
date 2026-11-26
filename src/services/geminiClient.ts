@@ -1,3 +1,11 @@
+import type {
+  KeepStudyNote,
+  SheetPerformanceAnalysis,
+  TutorLearningPath,
+  TutorPracticeQuestion,
+  TutorSheetFeedback,
+} from '../utils/sheetTutorAnalyzer';
+
 export interface GeminiMentorPlanDay {
   day: string;
   focus: string;
@@ -171,4 +179,58 @@ export async function requestTestAiReport(payload: {
 }): Promise<TestAiReport> {
   const data = await postJson<{ report: TestAiReport }>('/api/gemini/test-report', payload);
   return data.report;
+}
+
+export async function requestTutorSheetFeedback(payload: {
+  studentName: string;
+  cohortLabel: string;
+  sheetAnalysis: SheetPerformanceAnalysis;
+  keepNotes: KeepStudyNote[];
+}): Promise<{ feedback: TutorSheetFeedback; provider?: string }> {
+  const data = await postJson<{ result: TutorSheetFeedback; provider?: string }>(
+    '/api/ai/tutor-studio',
+    {
+      action: 'analyze-sheet',
+      payload,
+    }
+  );
+  return { feedback: data.result, provider: data.provider };
+}
+
+export async function requestTutorLearningPath(payload: {
+  studentName: string;
+  cohortLabel: string;
+  subjectName: string;
+  chapterName: string;
+  currentAccuracy?: number | null;
+  sheetNotes?: string;
+  keepNotes: KeepStudyNote[];
+}): Promise<{ learningPath: TutorLearningPath; provider?: string }> {
+  const data = await postJson<{ result: TutorLearningPath; provider?: string }>(
+    '/api/ai/tutor-studio',
+    {
+      action: 'learning-path',
+      payload,
+    }
+  );
+  return { learningPath: data.result, provider: data.provider };
+}
+
+export async function requestTutorPracticeQuestions(payload: {
+  cohortLabel: string;
+  subjectName: string;
+  chapterName: string;
+  difficulty: 'Foundation' | 'Exam Level' | 'Challenge';
+  count: number;
+  focusNote?: string;
+}): Promise<{ questions: TutorPracticeQuestion[]; provider?: string }> {
+  const data = await postJson<{
+    result: { questions?: TutorPracticeQuestion[] };
+    provider?: string;
+  }>('/api/ai/tutor-studio', {
+    action: 'practice-questions',
+    payload,
+  });
+  const list = Array.isArray(data.result?.questions) ? data.result.questions : [];
+  return { questions: list, provider: data.provider };
 }

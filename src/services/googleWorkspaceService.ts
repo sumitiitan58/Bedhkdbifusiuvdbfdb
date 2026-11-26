@@ -629,6 +629,193 @@ export async function pushActionItemsToGoogleTasks(params: {
   };
 }
 
+export interface GoogleDriveSheetSummary {
+  id: string;
+  name: string;
+  modifiedTime?: string;
+  webViewLink?: string;
+}
+
+export interface GoogleSheetMetadata {
+  spreadsheetId: string;
+  title: string;
+  tabNames: string[];
+  spreadsheetUrl: string;
+}
+
+export interface GoogleSheetTabContent {
+  spreadsheetId: string;
+  title: string;
+  tabName: string;
+  headers: string[];
+  rows: string[][];
+}
+
+/**
+ * Lists the signed-in student's Google Sheets files from Google Drive (read-only).
+ */
+export async function listStudentGoogleSheets(): Promise<GoogleDriveSheetSummary[]> {
+  const token = await requireToken();
+  const q = encodeURIComponent(
+    "mimeType='application/vnd.google-apps.spreadsheet' and trashed=false"
+  );
+  const fields = encodeURIComponent('files(id,name,modifiedTime,webViewLink)');
+  const res = await fetch(
+    `https://www.googleapis.com/drive/v3/files?q=${q}&orderBy=modifiedTime%20desc&pageSize=15&fields=${fields}`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+
+  if (res.status === 401 || res.status === 403) {
+    clearWorkspaceAccessToken();
+    throw new Error('Google Drive/Sheets permission expired or missing. Please refresh Google SSO.');
+  }
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Could not list your Google Sheets (${res.status}): ${errText.slice(0, 140)}`);
+  }
+
+  const data = (await res.json()) as { files?: GoogleDriveSheetSummary[] };
+  return Array.isArray(data.files) ? data.files : [];
+}
+
+/**
+ * Fetches spreadsheet metadata and real tab names first (never assumes "Sheet1").
+ */
+export async function fetchGoogleSheetMetadata(
+  spreadsheetId: string
+): Promise<GoogleSheetMetadata> {
+  const token = await requireToken();
+  const fields = encodeURIComponent('properties.title,spreadsheetUrl,sheets.properties.title');
+  const res = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}?fields=${fields}`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+
+  if (res.status === 401 || res.status === 403) {
+    clearWorkspaceAccessToken();
+    throw new Error('Google Sheets permission expired or missing. Please refresh Google SSO.');
+  }
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Could not read spreadsheet metadata (${res.status}): ${errText.slice(0, 140)}`);
+  }
+
+  const data = (await res.json()) as {
+    properties?: { title?: string };
+    spreadsheetUrl?: string;
+    sheets?: Array<{ properties?: { title?: string } }>;
+  };
+
+  const tabNames = (data.sheets ?? [])
+    .map((s) => s.properties?.title?.trim() ?? '')
+    .filter(Boolean);
+
+  return {
+    spreadsheetId,
+    title: data.properties?.title?.trim() || 'Student Spreadsheet',
+    tabNames,
+    spreadsheetUrl:
+      data.spreadsheetUrl || `https://docs.google.com/spreadsheets/d/${spreadsheetId}`,
+  };
+}
+
+/**
+ * Reads headers and data rows from a dynamically resolved Google Sheet tab.
+ */
+export async function readGoogleSheetTab(
+  spreadsheetId: string,
+  tabName?: string
+): Promise<GoogleSheetTabContent & { availableTabs: string[] }> {
+  const token = await requireToken();
+  const meta = await fetchGoogleSheetMetadata(spreadsheetId);
+  const chosenTab =
+    (tabName && meta.tabNames.includes(tabName) ? tabName : meta.tabNames[0]) || 'Sheet1';
+  const safeRange = encodeURIComponent(`'${chosenTab.replace(/'/g, "''")}'!A1:Z200`);
+
+  const res = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}/values/${safeRange}`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+
+  if (res.status === 401 || res.status === 403) {
+    clearWorkspaceAccessToken();
+    throw new Error('Google Sheets permission expired or missing. Please refresh Google SSO.');
+  }
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Could not read tab "${chosenTab}" (${res.status}): ${errText.slice(0, 140)}`);
+  }
+
+  const data = (await res.json()) as { values?: string[][] };
+  const allRows = Array.isArray(data.values) ? data.values : [];
+  const headerRowIndex = allRows.findIndex((row) =>
+    row.some((cell) => /subject|chapter|score|accuracy|test|date|topic|marks/i.test(String(cell)))
+  );
+  const resolvedHeaderIdx = headerRowIndex >= 0 ? headerRowIndex : 0;
+  const headers = (allRows[resolvedHeaderIdx] ?? []).map((cell) => String(cell ?? '').trim());
+  const rows = allRows.slice(resolvedHeaderIdx + 1).map((r) => r.map((c) => String(c ?? '').trim()));
+
+  return {
+    spreadsheetId,
+    title: meta.title,
+    tabName: chosenTab,
+    availableTabs: meta.tabNames,
+    headers,
+    rows,
+  };
+}
+
+/**
+ * Appends mentor feedback or practice quiz rows into an existing student Google Sheet.
+ * MUST ONLY be invoked after explicit user confirmation in the UI.
+ */
+export async function appendTutorRowsToGoogleSheet(params: {
+  spreadsheetId: string;
+  tabName: string;
+  rows: Array<Array<string | number>>;
+}): Promise<{ updatedRange: string; updatedRows: number }> {
+  const token = await requireToken();
+  const safeRange = encodeURIComponent(`'${params.tabName.replace(/'/g, "''")}'!A1`);
+  const res = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(
+      params.spreadsheetId
+    )}/values/${safeRange}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        values: params.rows,
+      }),
+    }
+  );
+
+  if (res.status === 401 || res.status === 403) {
+    clearWorkspaceAccessToken();
+    throw new Error('Google Sheets write permission expired. Please refresh Google SSO.');
+  }
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Could not append rows to Google Sheet (${res.status}): ${errText.slice(0, 140)}`);
+  }
+
+  const data = (await res.json()) as {
+    updates?: { updatedRange?: string; updatedRows?: number };
+  };
+  return {
+    updatedRange: data.updates?.updatedRange || params.tabName,
+    updatedRows: data.updates?.updatedRows ?? params.rows.length,
+  };
+}
+
 /**
  * Formats a clean Google Keep revision checklist note summarizing the student's
  * Prep Score (0-100), key insights, and top chapter targets for 85+.

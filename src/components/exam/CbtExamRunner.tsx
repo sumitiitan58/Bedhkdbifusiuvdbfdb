@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -10,6 +10,7 @@ import {
   Eraser,
   Flag,
   Grid,
+  Image as ImageIcon,
   Play,
   RotateCcw,
   Send,
@@ -26,6 +27,7 @@ import type {
 } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { usePlatformData } from '../../context/PlatformDataContext';
+import { ThemeContext } from '../../context/ThemeProvider';
 import {
   evaluateFullAttempt,
   getPaletteState,
@@ -35,6 +37,10 @@ import {
   getEffectiveTestInstructions,
   getEffectiveTestSyllabus,
 } from '../../utils/examPresets';
+import {
+  resolveOptionImageSrc,
+  resolveQuestionImageSrc,
+} from '../../utils/questionImageRenderer';
 import { playClick, playSuccess, playWarning } from '../../utils/soundEffects';
 import { makeSafeDocId } from '../../services/firestoreService';
 import { ReusableButton } from '../ReusableButton';
@@ -110,6 +116,8 @@ function makeEmptyAnswer(q: TestQuestionRecord): StudentAnswerValue {
 export function CbtExamRunner({ test, questions, onExit }: CbtExamRunnerProps) {
   const { firebaseUser } = useAuth();
   const { iqConfig, recordAttempt } = usePlatformData();
+  const imageTheme = useContext(ThemeContext)?.theme === 'dark' ? 'dark' : 'light';
+  const [imageViewMode, setImageViewMode] = useState(true);
 
   const sortedQuestions = useMemo(
     () => [...questions].sort((a, b) => a.questionNumber - b.questionNumber),
@@ -628,6 +636,7 @@ export function CbtExamRunner({ test, questions, onExit }: CbtExamRunnerProps) {
   const currentAnswer = answers[currentQ.id];
   const lowTime = remainingSeconds <= 300;
   const activeSubject = currentQ.subjectName;
+  const resolvedQuestionImg = resolveQuestionImageSrc(currentQ, imageTheme);
 
   const renderPaletteContent = () => (
     <div className="space-y-4">
@@ -845,13 +854,30 @@ export function CbtExamRunner({ test, questions, onExit }: CbtExamRunnerProps) {
               </span>
               <button
                 type="button"
+                aria-pressed={imageViewMode}
+                aria-label={imageViewMode ? 'Switch to text format' : 'Switch to image format'}
+                onClick={() => {
+                  playClick();
+                  setImageViewMode((v) => !v);
+                }}
+                className={`inline-flex items-center gap-1.5 min-h-9 px-2.5 py-1.5 rounded-xl border text-xs font-semibold transition-colors ${
+                  imageViewMode
+                    ? 'border-[#2563EB] bg-blue-50 text-[#2563EB] dark:bg-blue-950/50 dark:border-sky-400 dark:text-sky-300'
+                    : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300'
+                }`}
+              >
+                <ImageIcon className="w-3.5 h-3.5" />
+                <span>{imageViewMode ? 'Image Format' : 'Text Format'}</span>
+              </button>
+              <button
+                type="button"
                 aria-label={`Zoom Question ${currentQ.questionNumber}`}
                 onClick={() => {
                   playClick();
                   setZoomPayload({
                     title: `Question ${currentQ.questionNumber} — ${currentQ.subjectName}`,
                     subtitle: currentQ.chapterName,
-                    imageUrl: currentQ.questionImageUrl,
+                    imageUrl: resolvedQuestionImg.src,
                     text: currentQ.questionText,
                     optionTexts: currentQ.optionTexts,
                     kind: 'question',
@@ -866,28 +892,51 @@ export function CbtExamRunner({ test, questions, onExit }: CbtExamRunnerProps) {
           </div>
 
           <div className="space-y-4">
-            {currentQ.questionImageUrl && (
-              <div className="relative rounded-xl border border-slate-200 dark:border-slate-700 bg-white p-2.5 sm:p-3 overflow-x-auto">
+            {imageViewMode ? (
+              <div className="relative rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0F182D] p-2 sm:p-2.5 overflow-x-auto">
                 <img
-                  src={currentQ.questionImageUrl}
-                  alt={`Question ${currentQ.questionNumber}`}
+                  data-testid="cbt-question-image"
+                  src={resolvedQuestionImg.src}
+                  alt={resolvedQuestionImg.alt}
                   onClick={() => {
                     playClick();
                     setZoomPayload({
                       title: `Question ${currentQ.questionNumber} — ${currentQ.subjectName}`,
                       subtitle: currentQ.chapterName,
-                      imageUrl: currentQ.questionImageUrl,
+                      imageUrl: resolvedQuestionImg.src,
                       kind: 'question',
                     });
                   }}
-                  className="w-full max-w-[740px] h-auto object-contain mx-auto cursor-zoom-in"
+                  className="w-full max-w-[760px] h-auto object-contain mx-auto cursor-zoom-in rounded-lg"
                 />
               </div>
-            )}
-            {currentQ.questionText && !currentQ.questionImageUrl?.startsWith('/assets/mocks/') && (
-              <div className="text-base leading-relaxed text-slate-900 dark:text-slate-100 whitespace-pre-line">
-                {currentQ.questionText}
-              </div>
+            ) : (
+              <>
+                {currentQ.questionImageUrl && (
+                  <div className="relative rounded-xl border border-slate-200 dark:border-slate-700 bg-white p-2.5 sm:p-3 overflow-x-auto">
+                    <img
+                      data-testid="cbt-question-image"
+                      src={currentQ.questionImageUrl}
+                      alt={`Question ${currentQ.questionNumber}`}
+                      onClick={() => {
+                        playClick();
+                        setZoomPayload({
+                          title: `Question ${currentQ.questionNumber} — ${currentQ.subjectName}`,
+                          subtitle: currentQ.chapterName,
+                          imageUrl: currentQ.questionImageUrl,
+                          kind: 'question',
+                        });
+                      }}
+                      className="w-full max-w-[740px] h-auto object-contain mx-auto cursor-zoom-in"
+                    />
+                  </div>
+                )}
+                {currentQ.questionText && !currentQ.questionImageUrl?.startsWith('/assets/mocks/') && (
+                  <div className="text-base leading-relaxed text-slate-900 dark:text-slate-100 whitespace-pre-line">
+                    {currentQ.questionText}
+                  </div>
+                )}
+              </>
             )}
           </div>
 
@@ -919,7 +968,82 @@ export function CbtExamRunner({ test, questions, onExit }: CbtExamRunnerProps) {
                   One or more options may be correct. Select all matching options.
                 </p>
               )}
-              {currentQ.questionImageUrl?.startsWith('/assets/mocks/') ? (
+              {imageViewMode ? (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    Select Correct Option (Image Format)
+                  </p>
+                  <div
+                    className={
+                      currentQ.questionImageUrl?.startsWith('/assets/mocks/') &&
+                      !(currentQ.optionTexts ?? []).some(Boolean) &&
+                      !(currentQ.optionImageUrls ?? []).some(Boolean)
+                        ? 'grid grid-cols-2 sm:grid-cols-4 gap-2.5'
+                        : 'grid grid-cols-1 sm:grid-cols-2 gap-3'
+                    }
+                  >
+                    {OPTION_LETTERS.map((letter, idx) => {
+                      const isSelected =
+                        currentQ.questionType === 'single-mcq'
+                          ? currentAnswer?.type === 'single-mcq' && currentAnswer.selectedIndex === idx
+                          : currentAnswer?.type === 'multi-mcq' &&
+                            currentAnswer.selectedIndices.includes(idx);
+
+                      const resolvedOpt = resolveOptionImageSrc(currentQ, idx, {
+                        theme: imageTheme,
+                        state: isSelected ? 'selected' : 'default',
+                      });
+
+                      return (
+                        <button
+                          key={letter}
+                          type="button"
+                          aria-pressed={isSelected}
+                          aria-label={resolvedOpt.alt}
+                          onClick={() =>
+                            currentQ.questionType === 'single-mcq'
+                              ? handleSelectSingle(currentQ, idx)
+                              : handleToggleMulti(currentQ, idx)
+                          }
+                          className={`w-full text-left rounded-xl transition-all overflow-hidden focus:outline-none focus:ring-2 focus:ring-[#2563EB] ${
+                            resolvedOpt.isCustomImage
+                              ? `p-2.5 border flex items-center gap-3 ${
+                                  isSelected
+                                    ? 'border-[#2563EB] bg-blue-50/70 dark:border-sky-400 dark:bg-blue-950/40 ring-1 ring-[#2563EB]'
+                                    : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-white dark:bg-slate-900/50'
+                                }`
+                              : `p-0.5 border border-transparent hover:scale-[1.005] ${
+                                  isSelected ? 'ring-2 ring-[#2563EB] dark:ring-sky-400' : ''
+                                }`
+                          }`}
+                        >
+                          {resolvedOpt.isCustomImage && (
+                            <span
+                              className={`w-7 h-7 rounded-lg flex items-center justify-center font-mono text-xs font-bold shrink-0 ${
+                                isSelected
+                                  ? 'bg-[#2563EB] text-white'
+                                  : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                              }`}
+                            >
+                              {letter}
+                            </span>
+                          )}
+                          <img
+                            data-testid={`cbt-option-image-${letter}`}
+                            src={resolvedOpt.src}
+                            alt={resolvedOpt.alt}
+                            className={
+                              resolvedOpt.isCustomImage
+                                ? 'max-h-28 w-auto object-contain rounded-lg bg-white'
+                                : 'w-full h-auto object-contain rounded-xl block'
+                            }
+                          />
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : currentQ.questionImageUrl?.startsWith('/assets/mocks/') ? (
                 <div className="space-y-2">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                     Select Correct Option

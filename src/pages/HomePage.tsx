@@ -40,6 +40,7 @@ import { ReusableCard } from '../components/ReusableCard';
 import { ClassSubClassPicker } from '../components/ClassSubClassPicker';
 import { GeminiMentorPanel } from '../components/ai/GeminiMentorPanel';
 import { StreakTargetWidget } from '../components/dashboard/StreakTargetWidget';
+import { StudyActivityHeatmap } from '../components/dashboard/StudyActivityHeatmap';
 import { AiPrepScoreCard } from '../components/analytics/AiPrepScoreCard';
 import { SeoHead } from '../components/SeoHead';
 import { useAuth } from '../context/AuthContext';
@@ -535,6 +536,11 @@ export default function HomePage() {
         {/* Daily Consistency Streak & Target Exam Countdown */}
         <motion.section {...REVEAL_PROPS} aria-label="Daily streak and exam countdown">
           <StreakTargetWidget />
+        </motion.section>
+
+        {/* GitHub-Style 30-Day Study Activity Heatmap */}
+        <motion.section {...REVEAL_PROPS} aria-label="30-day study consistency heatmap">
+          <StudyActivityHeatmap />
         </motion.section>
 
         {/* Class -> Sub-Class Selector */}

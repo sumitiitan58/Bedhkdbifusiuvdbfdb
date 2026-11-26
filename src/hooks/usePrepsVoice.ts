@@ -1,4 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  cleanTextForSpeech,
+  detectPrepsWakePhrase,
+  selectPreferredIndianVoice,
+} from '../utils/speechUtils';
+import { playWakeChime } from '../utils/soundEffects';
 
 interface SpeechRecognitionEventLike {
   resultIndex: number;
@@ -25,6 +31,8 @@ interface SpeechRecognitionLike {
 
 type SpeechRecognitionCtor = new () => SpeechRecognitionLike;
 
+const AUTO_SEND_SILENCE_MS = 2000;
+
 function getSpeechRecognitionCtor(): SpeechRecognitionCtor | null {
   if (typeof window === 'undefined') return null;
   const w = window as unknown as {
@@ -37,11 +45,13 @@ function getSpeechRecognitionCtor(): SpeechRecognitionCtor | null {
 interface UsePrepsVoiceOptions {
   onTranscriptReady: (transcript: string, viaVoice: boolean) => void;
   onWakeWordDetected?: (commandAfterWake: string) => void;
+  autoSendSilenceMs?: number;
 }
 
 export function usePrepsVoice({
   onTranscriptReady,
   onWakeWordDetected,
+  autoSendSilenceMs = AUTO_SEND_SILENCE_MS,
 }: UsePrepsVoiceOptions) {
   const [speechSupported] = useState<boolean>(() => Boolean(getSpeechRecognitionCtor()));
   const [ttsSupported] = useState<boolean>(
@@ -50,6 +60,7 @@ export function usePrepsVoice({
 
   const [isListening, setIsListening] = useState(false);
   const [wakeWordEnabled, setWakeWordEnabled] = useState(false);
+  const [wakeActivatedRecently, setWakeActivatedRecently] = useState(false);
   const [autoSpeak, setAutoSpeak] = useState(true);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [liveTranscript, setLiveTranscript] = useState('');
@@ -58,6 +69,10 @@ export function usePrepsVoice({
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const wakeRecRef = useRef<SpeechRecognitionLike | null>(null);
   const wakeEnabledRef = useRef(false);
+  const isSpeakingRef = useRef(false);
+  const silenceTimerRef = useRef<number | null>(null);
+  const wakeFlashTimerRef = useRef<number | null>(null);
+  const resumeWakeRef = useRef<() => void>(() => {});
   const onTranscriptRef = useRef(onTranscriptReady);
   const onWakeRef = useRef(onWakeWordDetected);
 
@@ -69,10 +84,35 @@ export function usePrepsVoice({
     onWakeRef.current = onWakeWordDetected;
   }, [onWakeWordDetected]);
 
+  // Pre-warm browser voice list so en-IN / hi-IN voice is ready immediately
+  useEffect(() => {
+    if (!ttsSupported || typeof window === 'undefined') return;
+    const loadVoices = () => {
+      try {
+        window.speechSynthesis.getVoices();
+      } catch {
+        // ignore
+      }
+    };
+    loadVoices();
+    window.speechSynthesis.addEventListener?.('voiceschanged', loadVoices);
+    return () => {
+      window.speechSynthesis.removeEventListener?.('voiceschanged', loadVoices);
+    };
+  }, [ttsSupported]);
+
+  const clearSilenceTimer = useCallback(() => {
+    if (silenceTimerRef.current !== null) {
+      window.clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+  }, []);
+
   const stopSpeaking = useCallback(() => {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
     }
+    isSpeakingRef.current = false;
     setIsSpeaking(false);
   }, []);
 
@@ -81,15 +121,53 @@ export function usePrepsVoice({
       if (!ttsSupported || !text.trim()) return;
       try {
         window.speechSynthesis.cancel();
-        const clean = text.replace(/[*#`_]/g, '').replace(/\s+/g, ' ').trim();
-        const utterance = new SpeechSynthesisUtterance(clean);
-        utterance.lang = 'en-IN';
-        utterance.rate = 1.03;
-        utterance.onstart = () => setIsSpeaking(true);
-        utterance.onend = () => setIsSpeaking(false);
-        utterance.onerror = () => setIsSpeaking(false);
+        const cleaned = cleanTextForSpeech(text);
+        if (!cleaned) return;
+
+        // Pause background wake listener while speaking so TTS never triggers itself
+        try {
+          wakeRecRef.current?.stop();
+        } catch {
+          // ignore
+        }
+
+        const utterance = new SpeechSynthesisUtterance(cleaned);
+        const voices = window.speechSynthesis.getVoices?.() ?? [];
+        const voiceIdx = selectPreferredIndianVoice(voices);
+        const chosenVoice = voiceIdx >= 0 ? voices[voiceIdx] : null;
+
+        if (chosenVoice) {
+          utterance.voice = chosenVoice;
+          utterance.lang = chosenVoice.lang || 'en-IN';
+        } else {
+          utterance.lang = 'en-IN';
+        }
+
+        utterance.pitch = 1.0;
+        utterance.rate = 0.95;
+
+        utterance.onstart = () => {
+          isSpeakingRef.current = true;
+          setIsSpeaking(true);
+        };
+        utterance.onend = () => {
+          isSpeakingRef.current = false;
+          setIsSpeaking(false);
+          if (wakeEnabledRef.current && !recognitionRef.current) {
+            window.setTimeout(() => resumeWakeRef.current(), 450);
+          }
+        };
+        utterance.onerror = () => {
+          isSpeakingRef.current = false;
+          setIsSpeaking(false);
+          if (wakeEnabledRef.current && !recognitionRef.current) {
+            window.setTimeout(() => resumeWakeRef.current(), 450);
+          }
+        };
+
         window.speechSynthesis.speak(utterance);
       } catch {
+        isSpeakingRef.current = false;
         setIsSpeaking(false);
       }
     },
@@ -97,6 +175,7 @@ export function usePrepsVoice({
   );
 
   const stopListening = useCallback(() => {
+    clearSilenceTimer();
     try {
       recognitionRef.current?.stop();
     } catch {
@@ -104,88 +183,217 @@ export function usePrepsVoice({
     }
     recognitionRef.current = null;
     setIsListening(false);
-  }, []);
+  }, [clearSilenceTimer]);
 
-  const startListening = useCallback(() => {
+  const startListening = useCallback(
+    (initialPrefix = '') => {
+      const Ctor = getSpeechRecognitionCtor();
+      if (!Ctor) {
+        setVoiceError('Voice recognition is not supported in this browser. Try Chrome or Edge.');
+        return;
+      }
+
+      stopSpeaking();
+      clearSilenceTimer();
+      setVoiceError('');
+      setLiveTranscript(initialPrefix.trim());
+
+      // Pause background wake-word listener while actively capturing the student's question
+      try {
+        wakeRecRef.current?.stop();
+      } catch {
+        // ignore
+      }
+
+      const rec = new Ctor();
+      rec.lang = 'en-IN';
+      rec.continuous = true;
+      rec.interimResults = true;
+
+      let finalBuffer = initialPrefix.trim() ? `${initialPrefix.trim()} ` : '';
+      let latestCombined = initialPrefix.trim();
+      let submitted = false;
+
+      const finishAndSubmit = () => {
+        if (submitted) return;
+        submitted = true;
+        clearSilenceTimer();
+        try {
+          rec.stop();
+        } catch {
+          // ignore
+        }
+        recognitionRef.current = null;
+        setIsListening(false);
+        const captured = latestCombined.trim();
+        setLiveTranscript('');
+        if (captured) {
+          onTranscriptRef.current(captured, true);
+        } else if (wakeEnabledRef.current && !isSpeakingRef.current) {
+          window.setTimeout(() => resumeWakeRef.current(), 500);
+        }
+      };
+
+      const scheduleAutoSend = () => {
+        clearSilenceTimer();
+        if (!latestCombined.trim()) return;
+        silenceTimerRef.current = window.setTimeout(() => {
+          finishAndSubmit();
+        }, autoSendSilenceMs);
+      };
+
+      rec.onresult = (event) => {
+        let interim = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const chunk = event.results[i][0]?.transcript ?? '';
+          if (event.results[i].isFinal) {
+            finalBuffer += `${chunk} `;
+          } else {
+            interim += chunk;
+          }
+        }
+        latestCombined = (finalBuffer + interim).trim();
+        setLiveTranscript(latestCombined);
+        scheduleAutoSend();
+      };
+
+      rec.onerror = (ev) => {
+        clearSilenceTimer();
+        if (ev.error !== 'no-speech' && ev.error !== 'aborted') {
+          setVoiceError(
+            ev.error === 'not-allowed'
+              ? 'Microphone permission denied. Allow mic access in browser settings.'
+              : `Mic error: ${ev.error}`
+          );
+        }
+        recognitionRef.current = null;
+        setIsListening(false);
+        if (wakeEnabledRef.current && !isSpeakingRef.current && ev.error !== 'not-allowed') {
+          window.setTimeout(() => resumeWakeRef.current(), 600);
+        }
+      };
+
+      rec.onend = () => {
+        if (!submitted) {
+          finishAndSubmit();
+        }
+      };
+
+      recognitionRef.current = rec;
+      try {
+        rec.start();
+        setIsListening(true);
+        if (latestCombined) {
+          scheduleAutoSend();
+        }
+      } catch {
+        recognitionRef.current = null;
+        setIsListening(false);
+        setVoiceError('Could not start microphone listener.');
+      }
+    },
+    [autoSendSilenceMs, clearSilenceTimer, stopSpeaking]
+  );
+
+  // Hands-Free Wake Word ("Preps AI" / "Prep AI" / "Preps") listener
+  const bootWakeListener = useCallback(() => {
+    if (!wakeEnabledRef.current || recognitionRef.current || isSpeakingRef.current) return;
     const Ctor = getSpeechRecognitionCtor();
-    if (!Ctor) {
-      setVoiceError('Voice recognition is not supported in this browser. Try Chrome or Edge.');
-      return;
-    }
-
-    stopSpeaking();
-    setVoiceError('');
-    setLiveTranscript('');
-
-    // Pause wake-word listener while active push-to-talk is running
-    try {
-      wakeRecRef.current?.stop();
-    } catch {
-      // ignore
-    }
+    if (!Ctor) return;
 
     const rec = new Ctor();
     rec.lang = 'en-IN';
-    rec.continuous = false;
+    rec.continuous = true;
     rec.interimResults = true;
 
-    let finalBuffer = '';
+    let wakeTriggered = false;
 
     rec.onresult = (event) => {
-      let interim = '';
+      if (wakeTriggered || !wakeEnabledRef.current) return;
       for (let i = event.resultIndex; i < event.results.length; i++) {
-        const chunk = event.results[i][0]?.transcript ?? '';
-        if (event.results[i].isFinal) {
-          finalBuffer += `${chunk} `;
-        } else {
-          interim += chunk;
+        const raw = (event.results[i][0]?.transcript ?? '').trim();
+        const wake = detectPrepsWakePhrase(raw);
+        if (!wake.detected) continue;
+
+        const isFinal = Boolean(event.results[i].isFinal);
+        const after = wake.commandAfterWake;
+
+        // Trigger immediately once final OR once a clear wake phrase is heard
+        if (isFinal || after.length >= 4 || /^preps?\s*a\.?\s*i\.?$/i.test(wake.matchedPhrase)) {
+          wakeTriggered = true;
+          try {
+            rec.stop();
+          } catch {
+            // ignore
+          }
+          wakeRecRef.current = null;
+
+          // Subtle listening chime + open/focus Preps AI UI
+          playWakeChime();
+          setWakeActivatedRecently(true);
+          if (wakeFlashTimerRef.current !== null) {
+            window.clearTimeout(wakeFlashTimerRef.current);
+          }
+          wakeFlashTimerRef.current = window.setTimeout(() => {
+            setWakeActivatedRecently(false);
+          }, 3000);
+
+          if (onWakeRef.current) {
+            onWakeRef.current(after);
+          }
+
+          if (isFinal && after.length >= 3) {
+            // Full question was spoken right after "Preps AI" -> submit automatically!
+            onTranscriptRef.current(after, true);
+          } else {
+            // Capture the student's spoken question right after the wake word (with 2s silence auto-send)
+            startListening(after);
+          }
+          break;
         }
       }
-      setLiveTranscript((finalBuffer + interim).trim());
     };
 
     rec.onerror = (ev) => {
-      if (ev.error !== 'no-speech' && ev.error !== 'aborted') {
-        setVoiceError(
-          ev.error === 'not-allowed'
-            ? 'Microphone permission denied. Allow mic access in browser settings.'
-            : `Mic error: ${ev.error}`
-        );
+      if (ev.error === 'not-allowed') {
+        wakeEnabledRef.current = false;
+        setWakeWordEnabled(false);
+        setVoiceError('Allow microphone permission to use Hands-Free "Preps AI" Voice Mode.');
       }
-      setIsListening(false);
     };
 
     rec.onend = () => {
-      setIsListening(false);
-      recognitionRef.current = null;
-      const captured = finalBuffer.trim();
-      setLiveTranscript('');
-      if (captured) {
-        onTranscriptRef.current(captured, true);
+      if (wakeRecRef.current === rec) {
+        wakeRecRef.current = null;
+      }
+      if (wakeEnabledRef.current && !recognitionRef.current && !isSpeakingRef.current) {
+        window.setTimeout(() => {
+          resumeWakeRef.current();
+        }, 650);
       }
     };
 
-    recognitionRef.current = rec;
+    wakeRecRef.current = rec;
     try {
       rec.start();
-      setIsListening(true);
     } catch {
-      setIsListening(false);
-      setVoiceError('Could not start microphone listener.');
+      // ignore duplicate start race
     }
-  }, [stopSpeaking]);
+  }, [startListening]);
 
-  // Optional Hands-Free Wake Word ("Hello Preps" / "Preps") listener
+  resumeWakeRef.current = bootWakeListener;
+
   const toggleWakeWord = useCallback(() => {
     const Ctor = getSpeechRecognitionCtor();
     if (!Ctor) {
-      setVoiceError('Wake-word listening requires Chrome or Edge Web Speech API.');
+      setVoiceError('Hands-Free "Preps AI" wake word requires Chrome or Edge Web Speech API.');
       return;
     }
 
     if (wakeEnabledRef.current) {
       wakeEnabledRef.current = false;
       setWakeWordEnabled(false);
+      setWakeActivatedRecently(false);
       try {
         wakeRecRef.current?.abort();
       } catch {
@@ -198,69 +406,16 @@ export function usePrepsVoice({
     wakeEnabledRef.current = true;
     setWakeWordEnabled(true);
     setVoiceError('');
-
-    const bootWakeListener = () => {
-      if (!wakeEnabledRef.current) return;
-      const rec = new Ctor();
-      rec.lang = 'en-IN';
-      rec.continuous = true;
-      rec.interimResults = true;
-
-      rec.onresult = (event) => {
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const raw = (event.results[i][0]?.transcript ?? '').trim();
-          const lower = raw.toLowerCase();
-          const match = lower.match(/\b(?:hello\s+preps|hey\s+preps|preps)\b(.*)$/i);
-          if (match) {
-            const after = (match[1] ?? '').trim();
-            if (event.results[i].isFinal || after.length > 4) {
-              try {
-                rec.stop();
-              } catch {
-                // ignore
-              }
-              if (onWakeRef.current) {
-                onWakeRef.current(after);
-              }
-              if (after.length > 2) {
-                onTranscriptRef.current(after, true);
-              } else {
-                startListening();
-              }
-              break;
-            }
-          }
-        }
-      };
-
-      rec.onerror = (ev) => {
-        if (ev.error === 'not-allowed') {
-          wakeEnabledRef.current = false;
-          setWakeWordEnabled(false);
-          setVoiceError('Allow microphone permission to use "Hello Preps" wake word.');
-        }
-      };
-
-      rec.onend = () => {
-        if (wakeEnabledRef.current && !recognitionRef.current) {
-          window.setTimeout(bootWakeListener, 650);
-        }
-      };
-
-      wakeRecRef.current = rec;
-      try {
-        rec.start();
-      } catch {
-        // ignore duplicate start
-      }
-    };
-
     bootWakeListener();
-  }, [startListening]);
+  }, [bootWakeListener]);
 
   useEffect(() => {
     return () => {
       wakeEnabledRef.current = false;
+      clearSilenceTimer();
+      if (wakeFlashTimerRef.current !== null) {
+        window.clearTimeout(wakeFlashTimerRef.current);
+      }
       try {
         recognitionRef.current?.abort();
         wakeRecRef.current?.abort();
@@ -271,13 +426,14 @@ export function usePrepsVoice({
         window.speechSynthesis.cancel();
       }
     };
-  }, []);
+  }, [clearSilenceTimer]);
 
   return {
     speechSupported,
     ttsSupported,
     isListening,
     wakeWordEnabled,
+    wakeActivatedRecently,
     autoSpeak,
     setAutoSpeak,
     isSpeaking,

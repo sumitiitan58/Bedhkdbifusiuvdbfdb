@@ -214,3 +214,10 @@ export function playZoomTick(zoomIn: boolean): void {
   playTone(zoomIn ? 620 : 520, zoomIn ? 840 : 390, 0.045, 0.022, 'triangle', 0);
 }
 
+/** Crisp subtle ascending two-note listening chime when "Preps AI" wake word is detected */
+export function playWakeChime(): void {
+  playTone(587.33, 659.25, 0.075, 0.036, 'sine', 0);
+  playTone(880, 1046.5, 0.12, 0.032, 'sine', 0.065);
+}
+
+
