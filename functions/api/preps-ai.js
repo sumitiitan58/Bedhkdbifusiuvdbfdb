@@ -35,15 +35,15 @@ export function countConfiguredProviders(env = {}) {
   const runtimeEnv = env && typeof env === 'object' ? env : {};
   let count = 0;
 
-  if (getSingleApiKey(runtimeEnv.GROQ_API_KEY)) count += 1;
-  if (getSingleApiKey(runtimeEnv.GEMINI_API_KEY)) count += 1;
-  if (getSingleApiKey(runtimeEnv.DEEPSEEK_API_KEY)) count += 1;
-  if (getSingleApiKey(runtimeEnv.OPENROUTER_API_KEY)) count += 1;
-  if (getSingleApiKey(runtimeEnv.MISTRAL_API_KEY)) count += 1;
+  if (getSingleApiKey(runtimeEnv.GROQ_API_KEY || runtimeEnv.VITE_GROQ_API_KEY)) count += 1;
+  if (getSingleApiKey(runtimeEnv.GEMINI_API_KEY || runtimeEnv.VITE_GEMINI_API_KEY)) count += 1;
+  if (getSingleApiKey(runtimeEnv.DEEPSEEK_API_KEY || runtimeEnv.VITE_DEEPSEEK_API_KEY)) count += 1;
+  if (getSingleApiKey(runtimeEnv.OPENROUTER_API_KEY || runtimeEnv.VITE_OPENROUTER_API_KEY)) count += 1;
+  if (getSingleApiKey(runtimeEnv.MISTRAL_API_KEY || runtimeEnv.VITE_MISTRAL_API_KEY)) count += 1;
 
   const hasCloudflareRest =
-    Boolean(getSingleApiKey(runtimeEnv.CLOUDFLARE_WORKERS_AI_API_KEY)) &&
-    Boolean(getSingleApiKey(runtimeEnv.CLOUDFLARE_ACCOUNT_ID));
+    Boolean(getSingleApiKey(runtimeEnv.CLOUDFLARE_WORKERS_AI_API_KEY || runtimeEnv.VITE_CLOUDFLARE_WORKERS_AI_API_KEY)) &&
+    Boolean(getSingleApiKey(runtimeEnv.CLOUDFLARE_ACCOUNT_ID || runtimeEnv.VITE_CLOUDFLARE_ACCOUNT_ID));
   const hasCloudflareBinding = Boolean(runtimeEnv.AI && typeof runtimeEnv.AI.run === 'function');
   if (hasCloudflareRest || hasCloudflareBinding) {
     count += 1;
@@ -57,8 +57,10 @@ export function resolveCorsHeaders(requestOrigin) {
     requestOrigin &&
     (requestOrigin === 'https://prepskm.in' ||
       requestOrigin === 'https://www.prepskm.in' ||
+      /^https:\/\/[a-z0-9-]+\.prepskm\.in$/i.test(requestOrigin) ||
       /^https:\/\/[a-z0-9-]+\.pages\.dev$/i.test(requestOrigin) ||
       /^https:\/\/[a-z0-9-]+\.[a-z0-9-]+\.pages\.dev$/i.test(requestOrigin) ||
+      /^https:\/\/[a-z0-9-]+\.workers\.dev$/i.test(requestOrigin) ||
       /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(requestOrigin))
       ? requestOrigin
       : 'https://prepskm.in';
@@ -66,7 +68,7 @@ export function resolveCorsHeaders(requestOrigin) {
   return {
     'Access-Control-Allow-Origin': allowedOrigin,
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     Vary: 'Origin',
     'Content-Type': 'application/json; charset=utf-8',
     'Cache-Control': 'no-store',
@@ -346,13 +348,17 @@ export async function runPrepsAiWithFallback({
   const runtimeEnv = env && typeof env === 'object' ? env : {};
   const systemPrompt = buildSystemPrompt(context);
 
-  const groqKey = getSingleApiKey(runtimeEnv.GROQ_API_KEY);
-  const geminiKey = getSingleApiKey(runtimeEnv.GEMINI_API_KEY);
-  const deepseekKey = getSingleApiKey(runtimeEnv.DEEPSEEK_API_KEY);
-  const openrouterKey = getSingleApiKey(runtimeEnv.OPENROUTER_API_KEY);
-  const mistralKey = getSingleApiKey(runtimeEnv.MISTRAL_API_KEY);
-  const cloudflareKey = getSingleApiKey(runtimeEnv.CLOUDFLARE_WORKERS_AI_API_KEY);
-  const cloudflareAccountId = getSingleApiKey(runtimeEnv.CLOUDFLARE_ACCOUNT_ID);
+  const groqKey = getSingleApiKey(runtimeEnv.GROQ_API_KEY || runtimeEnv.VITE_GROQ_API_KEY);
+  const geminiKey = getSingleApiKey(runtimeEnv.GEMINI_API_KEY || runtimeEnv.VITE_GEMINI_API_KEY);
+  const deepseekKey = getSingleApiKey(runtimeEnv.DEEPSEEK_API_KEY || runtimeEnv.VITE_DEEPSEEK_API_KEY);
+  const openrouterKey = getSingleApiKey(runtimeEnv.OPENROUTER_API_KEY || runtimeEnv.VITE_OPENROUTER_API_KEY);
+  const mistralKey = getSingleApiKey(runtimeEnv.MISTRAL_API_KEY || runtimeEnv.VITE_MISTRAL_API_KEY);
+  const cloudflareKey = getSingleApiKey(
+    runtimeEnv.CLOUDFLARE_WORKERS_AI_API_KEY || runtimeEnv.VITE_CLOUDFLARE_WORKERS_AI_API_KEY
+  );
+  const cloudflareAccountId = getSingleApiKey(
+    runtimeEnv.CLOUDFLARE_ACCOUNT_ID || runtimeEnv.VITE_CLOUDFLARE_ACCOUNT_ID
+  );
   const cloudflareBinding =
     runtimeEnv.AI && typeof runtimeEnv.AI.run === 'function' ? runtimeEnv.AI : null;
 

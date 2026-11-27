@@ -74,7 +74,7 @@ export function AppSidebar({ mobileOpen, onCloseMobile }: AppSidebarProps) {
     const collapsed = !isMobileDrawer && sidebarCollapsed;
 
     return (
-      <div className="flex flex-col h-full bg-white dark:bg-[#070A12] border-r border-slate-200/90 dark:border-white/10">
+      <div className="flex flex-col h-full bg-white/72 dark:bg-[#070A12]/68 backdrop-blur-2xl border-r border-white/65 dark:border-[#00B4FF]/15">
         {/* Brand Header */}
         <div
           className={`h-16 flex items-center border-b border-slate-100 dark:border-white/10 shrink-0 ${

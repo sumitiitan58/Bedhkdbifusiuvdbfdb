@@ -2,9 +2,17 @@
  * Cloudflare Pages Function: POST /api/ai/generate-game
  * Generates a structured JSON Prepskm 2.0 Arena interactive study game via Gemini REST API.
  */
+import { resolveCorsHeaders } from '../preps-ai.js';
+
+export async function onRequestOptions({ request }) {
+  const origin = request.headers.get('origin') || '';
+  return new Response(null, { status: 204, headers: resolveCorsHeaders(origin) });
+}
+
 export async function onRequestPost({ request, env }) {
-  const headers = { 'Content-Type': 'application/json; charset=utf-8' };
-  const apiKey = String(env?.GEMINI_API_KEY || '').trim();
+  const origin = request.headers.get('origin') || '';
+  const headers = resolveCorsHeaders(origin);
+  const apiKey = String(env?.GEMINI_API_KEY || env?.VITE_GEMINI_API_KEY || '').trim();
   if (!apiKey) {
     return new Response(
       JSON.stringify({
@@ -39,7 +47,7 @@ export async function onRequestPost({ request, env }) {
   ].join('\n');
 
   try {
-    const model = env?.GEMINI_MODEL || 'gemini-4-hydrogen';
+    const model = env?.GEMINI_MODEL || 'gemini-2.5-flash';
     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
     const resp = await fetch(endpoint, {
       method: 'POST',

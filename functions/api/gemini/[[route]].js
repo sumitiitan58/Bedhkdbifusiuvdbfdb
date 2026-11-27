@@ -32,7 +32,7 @@ function jsonResponse(payload, status = 200, corsHeaders = {}) {
 }
 
 async function callGeminiJson({ env, systemInstruction, contents, responseSchema }) {
-  const apiKey = getSingleApiKey(env?.GEMINI_API_KEY);
+  const apiKey = getSingleApiKey(env?.GEMINI_API_KEY || env?.VITE_GEMINI_API_KEY);
   if (!apiKey) {
     throw new Error(
       'GEMINI_API_KEY is not configured. Add GEMINI_API_KEY in Cloudflare Pages Environment Variables.'

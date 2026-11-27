@@ -10,14 +10,14 @@ export const PUBLIC_NAV_ROUTES: NavRouteItem[] = [
   },
   {
     path: '/arena',
-    label: 'Arena Games',
-    shortDescription: 'AI Custom Game Generator, Reaction Chain Duel, Formula Blitz & Elo League',
+    label: 'Apex Arena',
+    shortDescription: 'Quantum Clash, Synthesis Strike, Logic Labyrinth & 1v1 vs AI Point-Trading Duels',
     showInPublicNav: true,
   },
   {
     path: '/cbt-mocks',
     label: 'CBT Mocks',
-    shortDescription: 'Auto NTA Light Mode CBT Simulator, Custom Generator & Tilt Diagnostics',
+    shortDescription: 'Custom Mock Builder (10/25/45Q + AI Balanced), NTA CBT Simulator & Tilt Diagnostics',
     showInPublicNav: true,
   },
   {
@@ -35,6 +35,12 @@ export const PUBLIC_NAV_ROUTES: NavRouteItem[] = [
 ];
 
 export const SECONDARY_SIDEBAR_ROUTES: NavRouteItem[] = [
+  {
+    path: '/dpp',
+    label: 'Chapter DPPs',
+    shortDescription: 'Instant Generate DPP studio & chapter-wise daily practice problem sets',
+    showInPublicNav: false,
+  },
   {
     path: '/preps-ai',
     label: 'Preps AI Chat',

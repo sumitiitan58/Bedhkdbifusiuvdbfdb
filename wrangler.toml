@@ -1,9 +1,10 @@
 # Cloudflare Pages configuration for PREPSKM.IN
-# Deploy via Cloudflare Pages Git integration (`npm run build`, output: `dist`)
-# or via CLI: `npx wrangler pages deploy dist`
+# Build command (Cloudflare Pages Dashboard): `bun run build` (or `npm run build`)
+# Build output directory: `dist`
+# CLI deploy: `npx wrangler pages deploy dist` (or `bunx wrangler pages deploy dist`)
 #
-# Configure these 6 individual API keys separately in Cloudflare Pages Dashboard ->
-# Settings -> Environment Variables (or local `.dev.vars` for `npx wrangler pages dev dist`):
+# Configure API keys in Cloudflare Pages Dashboard -> Settings -> Environment Variables
+# (or local `.dev.vars` for `npx wrangler pages dev dist`):
 #   GEMINI_API_KEY
 #   GROQ_API_KEY
 #   MISTRAL_API_KEY
@@ -14,9 +15,5 @@
 #   CLOUDFLARE_ACCOUNT_ID
 
 name = "prepskm"
-main = "src/index.ts"
-pages_build_output_dir = "dist"
 compatibility_date = "2025-02-01"
-
-[vars]
-NODE_VERSION = "22"
+pages_build_output_dir = "dist"

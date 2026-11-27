@@ -22,10 +22,10 @@ export function ReusableCard({
 }: ReusableCardProps) {
   return (
     <div
-      className={`bg-white dark:bg-[#0D1324] border border-slate-200/90 dark:border-[#00B4FF]/[0.14] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] rounded-2xl transition-all duration-200 ${
+      className={`bg-white/76 dark:bg-[#0D1324]/70 backdrop-blur-xl border border-white/80 dark:border-[#00B4FF]/20 shadow-[0_10px_30px_-14px_rgba(14,35,78,0.12),inset_0_1px_0_rgba(255,255,255,0.65)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.09),0_14px_34px_-16px_rgba(0,0,0,0.65)] rounded-2xl transition-all duration-200 ${
         interactive
-          ? 'hover:border-slate-300 dark:hover:border-[#00B4FF]/35 hover:shadow-md dark:hover:shadow-[0_10px_30px_-10px_rgba(0,180,255,0.18)] hover:-translate-y-0.5'
-          : 'shadow-xs'
+          ? 'hover:border-sky-300/90 dark:hover:border-[#00B4FF]/45 hover:bg-white/88 dark:hover:bg-[#101830]/80 hover:shadow-[0_16px_38px_-14px_rgba(0,180,255,0.22)] hover:-translate-y-0.5'
+          : ''
       } ${PADDING_CLASSES[padding]} ${className}`}
     >
       {children}

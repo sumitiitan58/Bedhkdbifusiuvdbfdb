@@ -14,6 +14,7 @@ import { ReusableButton } from '../components/ReusableButton';
 import { SeoHead } from '../components/SeoHead';
 import { CbtExamRunner } from '../components/exam/CbtExamRunner';
 import { AttemptReviewModal } from '../components/analytics/AttemptReviewModal';
+import { DppGeneratorPanel } from '../components/dpp/DppGeneratorPanel';
 import { NativeBannerAd } from '../components/ads/NativeBannerAd';
 import { useAuth } from '../context/AuthContext';
 import { usePlatformData } from '../context/PlatformDataContext';
@@ -25,7 +26,7 @@ import {
 } from '../utils/catalogMerge';
 import { getHierarchicalMockTestPath } from '../utils/seoHelpers';
 import { playClick } from '../utils/soundEffects';
-import type { MockTestRecord, StudentCohortId, TestAttemptRecord } from '../types';
+import type { MockTestRecord, StudentCohortId, TestAttemptRecord, TestQuestionRecord } from '../types';
 
 export default function DppPage() {
   const { cohortId } = useAuth();
@@ -35,6 +36,7 @@ export default function DppPage() {
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>('all');
   const [selectedChapterId, setSelectedChapterId] = useState<string>('all');
   const [activeDpp, setActiveDpp] = useState<MockTestRecord | null>(null);
+  const [customDppQuestions, setCustomDppQuestions] = useState<TestQuestionRecord[] | null>(null);
   const [reviewAttempt, setReviewAttempt] = useState<TestAttemptRecord | null>(null);
 
   useEffect(() => {
@@ -82,10 +84,11 @@ export default function DppPage() {
     [attempts]
   );
 
-  const activeQuestions = useMemo(
-    () => (activeDpp ? questions.filter((q) => q.testId === activeDpp.id) : []),
-    [activeDpp, questions]
-  );
+  const activeQuestions = useMemo(() => {
+    if (!activeDpp) return [];
+    if (customDppQuestions && customDppQuestions.length > 0) return customDppQuestions;
+    return questions.filter((q) => q.testId === activeDpp.id);
+  }, [activeDpp, customDppQuestions, questions]);
 
   if (activeDpp) {
     return (
@@ -99,7 +102,10 @@ export default function DppPage() {
           <CbtExamRunner
             test={activeDpp}
             questions={activeQuestions}
-            onExit={() => setActiveDpp(null)}
+            onExit={() => {
+              setActiveDpp(null);
+              setCustomDppQuestions(null);
+            }}
           />
         </ResponsiveContainer>
       </PageLayout>
@@ -122,10 +128,22 @@ export default function DppPage() {
           <h1 className="font-display text-3xl font-extrabold text-[#0F214D] dark:text-white mt-0.5">
             Chapter-Wise DPP Practice
           </h1>
-          <p className="mt-1.5 text-sm sm:text-base text-slate-600 dark:text-slate-400">
-            Targeted Daily Practice Problems supporting Single MCQ, Multi-Correct, and Integer questions with step-by-step solutions.
+          <p className="mt-1.5 text-sm sm:text-base text-slate-600 dark:text-slate-300">
+            Targeted Daily Practice Problems supporting Single MCQ, Multi-Correct, and Integer questions — plus instant custom chapter DPP generation.
           </p>
         </div>
+
+        {/* Instant Generate DPP Builder for Any Chapter */}
+        <DppGeneratorPanel
+          cohortId={selectedCohort === 'all' ? cohortId : selectedCohort}
+          subjects={visibleSubjects}
+          chapters={availableChapters}
+          allQuestions={questions}
+          onLaunchDpp={(genTest, genQs) => {
+            setCustomDppQuestions(genQs);
+            setActiveDpp(genTest);
+          }}
+        />
 
         {/* Hierarchical Filter Strip */}
         <ReusableCard padding="sm">

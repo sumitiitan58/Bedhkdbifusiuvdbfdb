@@ -10,6 +10,10 @@ const rootDir = import.meta.dirname ?? path.dirname(fileURLToPath(import.meta.ur
 export default defineConfig(() => {
   return {
     base: '/',
+    build: {
+      outDir: 'dist',
+      emptyOutDir: true,
+    },
     plugins: [
       react(),
       tailwindcss(),

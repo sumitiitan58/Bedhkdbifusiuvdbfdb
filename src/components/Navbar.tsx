@@ -6,6 +6,7 @@ import {
   Flame,
   Maximize2,
   Menu,
+  Palette,
   Search,
   Sparkles,
   UserCircle2,
@@ -14,6 +15,8 @@ import {
 } from 'lucide-react';
 import { BrandLogo } from './BrandLogo';
 import { ThemeToggle } from './ThemeToggle';
+import { BACKDROP_THEMES } from '../context/ThemeProvider';
+import { useTheme } from '../hooks/useTheme';
 import { isRouteActive } from '../utils/navigation';
 import { useAuth } from '../context/AuthContext';
 import { usePlatformData } from '../context/PlatformDataContext';
@@ -79,7 +82,10 @@ export function Navbar({ onOpenSidebar, hideSidebarToggle = false }: NavbarProps
   const { firebaseUser, profile, cohortId, selectCohort } = useAuth();
   const { allCohorts, activeStudyDates } = usePlatformData();
   const { progression, levelProgress, setCommandPaletteOpen, setZenMode, sidebarCollapsed } = usePrepskm2();
+  const { backdropTheme, cycleBackdropTheme } = useTheme();
   const [soundOn, setSoundOn] = useState<boolean>(() => isSoundEnabled());
+  const currentBackdropMeta =
+    BACKDROP_THEMES.find((t) => t.id === backdropTheme) ?? BACKDROP_THEMES[0];
 
   const avatarSrc = profile?.photoURL || firebaseUser?.photoURL || '';
   const displayFirstName =
@@ -129,7 +135,7 @@ export function Navbar({ onOpenSidebar, hideSidebarToggle = false }: NavbarProps
   };
 
   return (
-    <header className="sticky top-0 z-30 backdrop-blur-xl bg-white/90 dark:bg-[#070A12]/80 border-b border-slate-200/90 dark:border-white/10">
+    <header className="sticky top-0 z-30 backdrop-blur-2xl bg-white/70 dark:bg-[#070A12]/65 border-b border-white/60 dark:border-[#00B4FF]/15 shadow-[0_6px_24px_-12px_rgba(14,35,78,0.16)]">
       <div className="w-full max-w-[1440px] mx-auto px-2.5 sm:px-4 md:px-6 h-16 flex items-center justify-between gap-2 sm:gap-3">
         {/* Left: Sidebar trigger, Logo (mobile/collapsed) + Exam Track Sliding Pill Switcher */}
         <div className="flex items-center gap-1.5 sm:gap-3 min-w-0">
@@ -277,6 +283,25 @@ export function Navbar({ onOpenSidebar, hideSidebarToggle = false }: NavbarProps
             ) : (
               <VolumeX className="w-4 h-4" />
             )}
+          </button>
+
+          {/* Dynamic Colorful Background Theme Switcher */}
+          <button
+            type="button"
+            data-testid="backdrop-theme-toggle"
+            onClick={() => {
+              playClick();
+              cycleBackdropTheme();
+            }}
+            aria-label={`Switch background theme (current: ${currentBackdropMeta.label})`}
+            title={`Backdrop Theme: ${currentBackdropMeta.label} — click to switch`}
+            className="inline-flex items-center justify-center gap-1.5 h-8 sm:h-9 px-2 rounded-xl border border-slate-200/90 dark:border-white/15 bg-white/70 dark:bg-[#0D1324]/75 text-slate-700 dark:text-slate-200 hover:border-[#00B4FF]/60 transition-colors shrink-0"
+          >
+            <span
+              className="w-3.5 h-3.5 rounded-full shrink-0 ring-1 ring-white/60"
+              style={{ background: currentBackdropMeta.swatch }}
+            />
+            <Palette className="w-3.5 h-3.5 text-[#00B4FF] hidden sm:inline" />
           </button>
 
           <ThemeToggle />

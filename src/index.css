@@ -71,6 +71,10 @@
   color: #f1f5f9;
 }
 
+.dark .live-whiteboard-grid .katex {
+  color: #0E234E;
+}
+
 .tabular-nums {
   font-variant-numeric: tabular-nums;
 }
@@ -376,6 +380,147 @@ iframe[src*="netlify"],
 
 .preps-orb-pulse {
   animation: preps-orb-pulse 2.8s ease-in-out infinite;
+}
+
+.font-handwriting {
+  font-family: "Caveat", "Plus Jakarta Sans", cursive, sans-serif;
+}
+
+.live-whiteboard-grid {
+  background-color: #F8FAFC;
+  background-image: radial-gradient(rgba(14, 35, 78, 0.14) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* ============================================================================
+   DYNAMIC COLORFUL AURORA BACKDROP THEMES & TRANSLUCENT GLASSMORPHISM
+   ============================================================================ */
+@keyframes aurora-drift-slow {
+  0%, 100% {
+    transform: translate3d(0px, 0px, 0) scale(1);
+  }
+  33% {
+    transform: translate3d(32px, -22px, 0) scale(1.06);
+  }
+  66% {
+    transform: translate3d(-24px, 18px, 0) scale(0.96);
+  }
+}
+
+@keyframes aurora-drift-alt {
+  0%, 100% {
+    transform: translate3d(0px, 0px, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(-34px, -26px, 0) scale(1.08);
+  }
+}
+
+.ambient-backdrop-layer {
+  position: fixed;
+  inset: 0;
+  z-index: -10;
+  pointer-events: none;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 12% 14%, rgba(56, 189, 248, 0.24), transparent 44%),
+    radial-gradient(circle at 86% 18%, rgba(168, 85, 247, 0.2), transparent 42%),
+    radial-gradient(circle at 54% 88%, rgba(249, 115, 22, 0.16), transparent 46%),
+    linear-gradient(135deg, #e0f2fe 0%, #ede9fe 52%, #ffedd5 100%);
+  transition: background 420ms ease;
+}
+
+.dark .ambient-backdrop-layer {
+  background:
+    radial-gradient(circle at 10% 12%, rgba(0, 180, 255, 0.22), transparent 42%),
+    radial-gradient(circle at 88% 16%, rgba(124, 58, 237, 0.24), transparent 44%),
+    radial-gradient(circle at 52% 92%, rgba(242, 123, 19, 0.18), transparent 46%),
+    linear-gradient(145deg, #060c1c 0%, #0d1430 50%, #090e24 100%);
+}
+
+html[data-backdrop="emerald"] .ambient-backdrop-layer {
+  background:
+    radial-gradient(circle at 14% 16%, rgba(16, 185, 129, 0.26), transparent 45%),
+    radial-gradient(circle at 86% 22%, rgba(6, 182, 212, 0.24), transparent 44%),
+    radial-gradient(circle at 48% 90%, rgba(59, 130, 246, 0.2), transparent 48%),
+    linear-gradient(135deg, #d1fae5 0%, #cffafe 50%, #dbeafe 100%);
+}
+
+html.dark[data-backdrop="emerald"] .ambient-backdrop-layer {
+  background:
+    radial-gradient(circle at 14% 16%, rgba(16, 185, 129, 0.26), transparent 44%),
+    radial-gradient(circle at 86% 20%, rgba(6, 182, 212, 0.24), transparent 44%),
+    radial-gradient(circle at 50% 92%, rgba(37, 99, 235, 0.22), transparent 48%),
+    linear-gradient(145deg, #041517 0%, #071e29 52%, #071126 100%);
+}
+
+html[data-backdrop="solar"] .ambient-backdrop-layer {
+  background:
+    radial-gradient(circle at 15% 15%, rgba(249, 115, 22, 0.26), transparent 45%),
+    radial-gradient(circle at 84% 20%, rgba(236, 72, 153, 0.22), transparent 44%),
+    radial-gradient(circle at 50% 90%, rgba(99, 102, 241, 0.2), transparent 48%),
+    linear-gradient(135deg, #ffedd5 0%, #fce7f3 50%, #e0e7ff 100%);
+}
+
+html.dark[data-backdrop="solar"] .ambient-backdrop-layer {
+  background:
+    radial-gradient(circle at 14% 14%, rgba(249, 115, 22, 0.26), transparent 44%),
+    radial-gradient(circle at 85% 22%, rgba(236, 72, 153, 0.24), transparent 45%),
+    radial-gradient(circle at 52% 92%, rgba(99, 102, 241, 0.26), transparent 48%),
+    linear-gradient(145deg, #180b16 0%, #1a0f2e 52%, #0a0f24 100%);
+}
+
+html[data-backdrop="arctic"] .ambient-backdrop-layer {
+  background:
+    radial-gradient(circle at 16% 18%, rgba(56, 189, 248, 0.28), transparent 46%),
+    radial-gradient(circle at 82% 18%, rgba(129, 140, 248, 0.24), transparent 44%),
+    radial-gradient(circle at 50% 88%, rgba(45, 212, 191, 0.22), transparent 46%),
+    linear-gradient(135deg, #e0f2fe 0%, #e0e7ff 50%, #ccfbf1 100%);
+}
+
+html.dark[data-backdrop="arctic"] .ambient-backdrop-layer {
+  background:
+    radial-gradient(circle at 14% 16%, rgba(56, 189, 248, 0.27), transparent 45%),
+    radial-gradient(circle at 84% 18%, rgba(129, 140, 248, 0.26), transparent 45%),
+    radial-gradient(circle at 52% 90%, rgba(45, 212, 191, 0.22), transparent 46%),
+    linear-gradient(145deg, #051324 0%, #0e193b 52%, #071c2b 100%);
+}
+
+.ambient-orb-1 {
+  animation: aurora-drift-slow 22s ease-in-out infinite;
+  will-change: transform;
+}
+
+.ambient-orb-2 {
+  animation: aurora-drift-alt 28s ease-in-out infinite;
+  will-change: transform;
+}
+
+.ambient-mesh-grid {
+  background-image:
+    linear-gradient(rgba(148, 163, 184, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.08) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+.dark .ambient-mesh-grid {
+  background-image:
+    linear-gradient(rgba(56, 189, 248, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(56, 189, 248, 0.05) 1px, transparent 1px);
+}
+
+.preps-glass-panel {
+  background: rgba(255, 255, 255, 0.76);
+  backdrop-filter: blur(20px) saturate(145%);
+  -webkit-backdrop-filter: blur(20px) saturate(145%);
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  box-shadow: 0 12px 34px -14px rgba(14, 35, 78, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.dark .preps-glass-panel {
+  background: rgba(13, 19, 36, 0.72);
+  border: 1px solid rgba(56, 189, 248, 0.22);
+  box-shadow: 0 16px 40px -16px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.09);
 }
 
 @media (prefers-reduced-motion: reduce) {

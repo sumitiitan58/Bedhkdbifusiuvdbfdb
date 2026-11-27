@@ -1,3 +1,4 @@
+import { generateLiveTeacherLesson } from '../utils/liveTeacherEngine';
 import type {
   KeepStudyNote,
   SheetPerformanceAnalysis,
@@ -38,15 +39,37 @@ export interface GeminiQuestionExplanation {
   examShortcut: string;
 }
 
+export function resolveApiUrl(path: string, envBase?: string): string {
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  const rawBase =
+    typeof envBase === 'string'
+      ? envBase
+      : typeof import.meta !== 'undefined' &&
+          (import.meta as unknown as { env?: Record<string, string | undefined> }).env?.VITE_API_BASE_URL
+        ? (import.meta as unknown as { env?: Record<string, string | undefined> }).env!.VITE_API_BASE_URL!
+        : '';
+  const trimmedBase = rawBase.trim().replace(/\/+$/, '');
+  return trimmedBase ? `${trimmedBase}${cleanPath}` : cleanPath;
+}
+
+class ApiHttpError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
+}
+
 async function postJson<T>(url: string, body: unknown): Promise<T> {
-  const res = await fetch(url, {
+  const resolvedUrl = resolveApiUrl(url);
+  const res = await fetch(resolvedUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
   const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string } & T;
   if (!res.ok || data.ok === false) {
-    throw new Error(data.error || `Request failed with status ${res.status}`);
+    throw new ApiHttpError(data.error || `Request failed with status ${res.status}`, res.status);
   }
   return data;
 }
@@ -110,21 +133,67 @@ export interface PrepsAiChatResponse {
   suggestedFollowUps: string[];
 }
 
+function buildOfflineStudyChatFallback(
+  messages: Array<{ role: 'user' | 'assistant'; content: string }>
+): PrepsAiChatResponse {
+  const latestPrompt =
+    [...messages].reverse().find((m) => m.role === 'user')?.content?.trim() ||
+    'Explain core JEE/NEET problem solving strategy';
+  const lesson = generateLiveTeacherLesson({
+    questionText: latestPrompt,
+    source: 'preps-ai',
+  });
+  const reply = [
+    `Chalo ${lesson.topicTitle} ko step-by-step samajhte hain:`,
+    `1. ${lesson.steps[0].boardNotes}`,
+    `2. ${lesson.steps[1].boardNotes}`,
+    `3. ${lesson.steps[2].boardNotes}`,
+    `Exam Rule: ${lesson.steps[3].proTip} (Tap "Explain Like a Teacher" for full animated whiteboard & voice!)`,
+  ].join('\n');
+
+  return {
+    reply,
+    provider: 'prepskm-local-tutor',
+    suggestedFollowUps: lesson.quickDoubtSuggestions,
+  };
+}
+
 export async function requestPrepsAiMessages(payload: {
   messages: Array<{ role: 'user' | 'assistant'; content: string }>;
   context?: Record<string, unknown>;
 }): Promise<PrepsAiChatResponse> {
-  const data = await postJson<{
-    reply?: string;
-    provider?: string;
-    suggestedFollowUps?: string[];
-  }>('/api/preps-ai', payload);
+  const endpoints = ['/api/preps-ai', '/api/gemini/chat', '/api/chat'];
+  let lastErr: unknown = null;
 
-  return {
-    reply: data.reply || 'Preps AI could not generate a response right now. Please try again.',
-    provider: data.provider,
-    suggestedFollowUps: Array.isArray(data.suggestedFollowUps) ? data.suggestedFollowUps : [],
-  };
+  for (const endpoint of endpoints) {
+    try {
+      const data = await postJson<{
+        reply?: string;
+        provider?: string;
+        suggestedFollowUps?: string[];
+      }>(endpoint, payload);
+
+      return {
+        reply: data.reply || 'Preps AI could not generate a response right now. Please try again.',
+        provider: data.provider,
+        suggestedFollowUps: Array.isArray(data.suggestedFollowUps) ? data.suggestedFollowUps : [],
+      };
+    } catch (err) {
+      lastErr = err;
+      const status = err instanceof ApiHttpError ? err.status : 0;
+      // Retry next fallback route when endpoint returns 404/405/503 or network error
+      if (status === 404 || status === 405 || status === 503 || status === 0) {
+        continue;
+      }
+      throw err;
+    }
+  }
+
+  // Seamless zero-404 local study fallback if deployed on static-only hosting without Functions/keys
+  if (lastErr instanceof ApiHttpError && (lastErr.status === 404 || lastErr.status === 503)) {
+    return buildOfflineStudyChatFallback(payload.messages);
+  }
+  return buildOfflineStudyChatFallback(payload.messages);
 }
 
 export async function requestPrepsAiChat(payload: {

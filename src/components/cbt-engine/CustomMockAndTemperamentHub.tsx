@@ -18,6 +18,11 @@ import {
   buildSundayWeaknessKillerQuestions,
 } from '../../utils/examTemperamentEngine';
 import { getDefaultExamInstructions } from '../../utils/examPresets';
+import {
+  buildBalancedCustomMock,
+  computeBalancedSubjectQuota,
+  type CustomMockCount,
+} from '../../utils/customMockAndDppEngine';
 import { playClick, playSuccess } from '../../utils/soundEffects';
 
 interface CustomMockAndTemperamentHubProps {
@@ -106,74 +111,39 @@ export function CustomMockAndTemperamentHub({
     [attempts, allBankQuestions, resolvedMistakeIds]
   );
 
-  const handleLaunchPreset = () => {
-    playClick();
-    const preset = PRESETS.find((p) => p.id === presetId) ?? PRESETS[0];
-    let pool = allBankQuestions.filter((q) => {
-      if (selectedSubjects.length > 0 && !selectedSubjects.includes(q.subjectName)) return false;
-      if (selectedChapters.length > 0 && q.chapterName && !selectedChapters.includes(q.chapterName)) {
-        return false;
-      }
-      return true;
-    });
-    if (pool.length === 0) pool = allBankQuestions;
+  const selectedPreset = useMemo(
+    () => PRESETS.find((p) => p.id === presetId) ?? PRESETS[0],
+    [presetId]
+  );
 
-    // Build exact question count (for JEE Full 75: enforce 60 MCQ + 15 NAT = 80%/20%)
-    const builtQuestions: TestQuestionRecord[] = [];
-    const targetNatCount = preset.id === 'jee-full-75' ? 15 : 0;
-    const mcqPool = pool.filter((q) => q.questionType !== 'integer');
-    const natPool = pool.filter((q) => q.questionType === 'integer');
-    const fallbackPool = pool.length > 0 ? pool : allBankQuestions;
+  const liveSubjectQuota = useMemo(
+    () => computeBalancedSubjectQuota(selectedPreset.count, selectedSubjects),
+    [selectedPreset.count, selectedSubjects]
+  );
 
-    for (let i = 0; i < preset.count; i++) {
-      const wantNat = targetNatCount > 0 && i >= preset.count - targetNatCount;
-      const sourceArr = wantNat
-        ? natPool.length > 0
-          ? natPool
-          : fallbackPool
-        : mcqPool.length > 0
-          ? mcqPool
-          : fallbackPool;
-      const base = sourceArr[i % sourceArr.length];
-      if (!base) continue;
-      builtQuestions.push({
-        ...base,
-        id: `custom-${preset.id}-q-${i + 1}-${base.id}`,
-        testId: `custom-${preset.id}`,
-        questionNumber: i + 1,
-        questionType: wantNat ? 'integer' : base.questionType,
-        numericalAnswer: wantNat ? base.numericalAnswer || '5' : base.numericalAnswer,
-      });
+  const launchCustomBuilder = (aiBalanced: boolean) => {
+    if (aiBalanced) {
+      playSuccess();
+    } else {
+      playClick();
     }
+    const weakChapters = temperament.sm2Queue
+      .map((item) => item.chapterName)
+      .filter((c): c is string => Boolean(c));
 
-    const customTest: MockTestRecord = {
-      id: `custom-${preset.id}-${Date.now()}`,
-      title: `Custom ${preset.label} (${builtQuestions.length}Q · ${preset.examType})`,
-      slug: `custom-${preset.id}`,
-      destination: 'cbt-mock',
-      cohortId: preset.examType === 'NEET UG' ? 'class-12-neet' : 'class-12-jee',
-      examCategory: `${preset.examType} Custom NTA CBT`,
-      examType: preset.examType,
-      totalQuestions: builtQuestions.length,
-      totalMarks: builtQuestions.length * 4,
-      durationMinutes: preset.duration,
-      positiveMarks: 4,
-      negativeMarks: 1,
-      negativeMarkingEnabled: true,
-      showSolutionsAfterSubmit: true,
-      status: 'published',
-      instructions: getDefaultExamInstructions({
-        examType: preset.examType,
-        durationMinutes: preset.duration,
-        positiveMarks: 4,
-        negativeMarks: 1,
-        negativeMarkingEnabled: true,
-        totalQuestions: builtQuestions.length,
-      }),
-      createdAtIso: new Date().toISOString(),
-    };
+    const built = buildBalancedCustomMock(
+      {
+        questionCount: selectedPreset.count as CustomMockCount,
+        examType: selectedPreset.examType,
+        subjects: selectedSubjects,
+        chapters: aiBalanced ? [] : selectedChapters,
+        aiBalanced,
+        weakChapters,
+      },
+      allBankQuestions
+    );
 
-    onLaunchCustomTest(customTest, builtQuestions);
+    onLaunchCustomTest(built.test, built.questions);
   };
 
   const handleLaunchSundayKiller = () => {
@@ -275,21 +245,24 @@ export function CustomMockAndTemperamentHub({
   };
 
   return (
-    <div className="rounded-2xl bg-white dark:bg-[#111114] border border-slate-200 dark:border-white/[0.08] p-5 sm:p-6 space-y-5">
+    <div
+      data-testid="custom-mock-builder-hub"
+      className="preps-glass-panel rounded-2xl p-5 sm:p-6 space-y-5"
+    >
       {/* Sub-navigation Tabs */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-white/[0.08] pb-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/70 dark:border-white/[0.1] pb-4">
         <div>
-          <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
-            Prepskm 2.0 CBT Engine &amp; Exam-Temperament AI
+          <p className="text-xs font-mono font-bold uppercase tracking-wider text-[#1D56C6] dark:text-[#00B4FF]">
+            Centralized Custom Mock Builder · 10 / 25 / 45Q &amp; AI Balanced Auto-Generator
           </p>
-          <h2 className="font-display text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
+          <h2 className="font-display text-lg sm:text-xl font-extrabold text-[#0E234E] dark:text-white mt-0.5">
             Custom Mock Builder, Tilt Diagnostics &amp; 6-Step Cropper
           </h2>
         </div>
 
-        <div className="flex flex-wrap items-center gap-1 p-1 rounded-xl bg-slate-100 dark:bg-[#09090B] border border-slate-200 dark:border-white/[0.08]">
+        <div className="flex flex-wrap items-center gap-1 p-1 rounded-xl bg-slate-100/80 dark:bg-[#070B18]/80 border border-slate-200/80 dark:border-white/[0.1]">
           {[
-            { id: 'generator', label: 'Custom Mock Generator', icon: Sliders },
+            { id: 'generator', label: 'Custom Mock Builder', icon: Sliders },
             { id: 'temperament', label: 'Tilt & SM-2 AI', icon: Brain },
             { id: 'cropper', label: '6-Step Crop Builder', icon: Crop },
           ].map((tab) => {
@@ -422,18 +395,54 @@ export function CustomMockAndTemperamentHub({
             </div>
           )}
 
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100 dark:border-white/[0.08]">
-            <p className="text-xs text-slate-500 dark:text-zinc-400">
-              Authentic NTA interface: +4 / -1 marking, countdown timer, section switcher &amp; exam-day light mode.
+          {/* Live Balanced Subject Distribution Bar */}
+          <div className="rounded-xl bg-slate-50/85 dark:bg-[#070B18]/80 border border-slate-200/80 dark:border-white/10 p-3.5 space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+              <span className="font-bold text-[#0E234E] dark:text-white">
+                Balanced Question Blueprint ({selectedPreset.count} Questions · {selectedPreset.duration}m)
+              </span>
+              <span className="font-mono text-slate-500 dark:text-slate-400 tabular-nums">
+                {liveSubjectQuota.map((q) => `${q.subject}: ${q.count}Q`).join(' · ')}
+              </span>
+            </div>
+            <div className="h-2 rounded-full overflow-hidden flex bg-slate-200 dark:bg-white/10">
+              {liveSubjectQuota.map((q, idx) => {
+                const colors = ['bg-[#00B4FF]', 'bg-[#10B981]', 'bg-[#F27B13]', 'bg-purple-500'];
+                return (
+                  <div
+                    key={q.subject}
+                    className={colors[idx % colors.length]}
+                    style={{ width: `${(q.count / Math.max(1, selectedPreset.count)) * 100}%` }}
+                  />
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-200/70 dark:border-white/[0.08]">
+            <p className="text-xs text-slate-600 dark:text-zinc-300">
+              Authentic NTA CBT room: +4 / -1 marking, countdown timer, section switcher &amp; exam-day light mode.
             </p>
-            <button
-              type="button"
-              onClick={handleLaunchPreset}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-colors whitespace-nowrap"
-            >
-              <Play className="w-4 h-4" />
-              Launch Custom NTA CBT Mock
-            </button>
+            <div className="flex flex-wrap items-center gap-2.5">
+              <button
+                type="button"
+                data-testid="ai-balanced-mock-btn"
+                onClick={() => launchCustomBuilder(true)}
+                className="preps-3d-btn inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#00B4FF] hover:bg-sky-300 text-[#070A12] text-xs sm:text-sm font-extrabold transition-colors whitespace-nowrap"
+              >
+                <Sparkles className="w-4 h-4" />
+                AI Auto-Generate Balanced ({selectedPreset.count}Q)
+              </button>
+              <button
+                type="button"
+                data-testid="launch-custom-mock-btn"
+                onClick={() => launchCustomBuilder(false)}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#1D56C6] hover:bg-indigo-500 text-white text-xs sm:text-sm font-bold transition-colors whitespace-nowrap"
+              >
+                <Play className="w-4 h-4" />
+                Launch Custom {selectedPreset.count}Q Mock
+              </button>
+            </div>
           </div>
         </div>
       )}
