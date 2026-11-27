@@ -278,20 +278,21 @@ const SUBJECT_CURATED_TEMPLATES: Record<string, ChapterTemplate[]> = {
 function synthesizeQuestionForSubject(
   subjectName: string,
   chapterName: string,
-  index: number,
+  templateIndex: number,
+  questionNumber: number,
   testId: string,
   asNumerical: boolean,
   difficultyLabel: string
 ): TestQuestionRecord {
   const bank = SUBJECT_CURATED_TEMPLATES[subjectName] ?? SUBJECT_CURATED_TEMPLATES.Physics;
-  const tpl = bank[index % bank.length];
+  const tpl = bank[templateIndex % bank.length];
   const cleanChapter = chapterName.trim() || `${subjectName} Core Concepts`;
   const prompt = tpl.questionText.replace(/\{chapter\}/g, cleanChapter);
 
   return {
-    id: `${testId}-gen-q-${index + 1}`,
+    id: `${testId}-gen-q-${questionNumber}`,
     testId,
-    questionNumber: index + 1,
+    questionNumber,
     subjectName,
     chapterName: cleanChapter,
     questionType: asNumerical ? 'integer' : 'single-mcq',
@@ -371,17 +372,17 @@ export function buildBalancedCustomMock(
           request.chapters && request.chapters.length > 0
             ? request.chapters[i % request.chapters.length]
             : `${subject} High-Yield`;
-        builtQuestions.push({
-          ...synthesizeQuestionForSubject(
+        builtQuestions.push(
+          synthesizeQuestionForSubject(
             subject,
             chosenChapter,
             i,
+            qNum,
             testId,
             wantNat,
             request.aiBalanced ? 'AI Balanced' : 'Custom Mock'
-          ),
-          questionNumber: qNum,
-        });
+          )
+        );
       }
       qNum += 1;
     }
@@ -468,6 +469,7 @@ export function generateTailoredChapterDpp(
           request.subjectName,
           cleanChapter,
           i,
+          i + 1,
           testId,
           wantNat,
           request.difficulty

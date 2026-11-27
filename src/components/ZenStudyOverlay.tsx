@@ -121,10 +121,10 @@ export function ZenStudyOverlay() {
         </button>
       </div>
 
-      {/* Main Two-Column Deep Work Canvas */}
-      <div className="flex-1 w-full max-w-6xl mx-auto px-6 py-8 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left: Timer Stage */}
-        <div className="lg:col-span-6 rounded-2xl bg-[#0D1324] border border-[#00B4FF]/20 p-6 sm:p-8 space-y-6">
+      {/* Main Full-Screen Two-Column Deep Work Canvas */}
+      <div className="flex-1 w-full px-5 sm:px-8 lg:px-12 py-6 lg:py-8 grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-stretch">
+        {/* Left: Oversized High-Visibility Timer Stage */}
+        <div className="lg:col-span-6 rounded-2xl bg-[#0D1324] border border-[#00B4FF]/25 p-6 sm:p-10 flex flex-col justify-between gap-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-1.5 bg-[#070A12] p-1 rounded-lg border border-white/10">
               {PRESET_MINUTES.map((m) => (
@@ -138,9 +138,9 @@ export function ZenStudyOverlay() {
                     setRunning(false);
                     setLoggedBanner('');
                   }}
-                  className={`px-3 py-1.5 rounded-md text-xs font-mono font-semibold transition-colors ${
+                  className={`px-3.5 py-1.5 rounded-md text-xs font-mono font-semibold transition-colors ${
                     presetMins === m
-                      ? 'bg-indigo-600 text-white'
+                      ? 'bg-[#00B4FF] text-[#070A12] font-bold'
                       : 'text-zinc-400 hover:text-white'
                   }`}
                 >
@@ -153,7 +153,7 @@ export function ZenStudyOverlay() {
               aria-label="Study subject"
               value={subject}
               onChange={(e) => setSubject(e.target.value as (typeof SUBJECTS)[number])}
-              className="px-3 py-1.5 rounded-lg bg-[#09090B] border border-white/[0.1] text-xs font-semibold text-zinc-200"
+              className="px-3.5 py-2 rounded-lg bg-[#070A12] border border-white/15 text-xs font-semibold text-zinc-100"
             >
               {SUBJECTS.map((s) => (
                 <option key={s} value={s}>
@@ -163,14 +163,14 @@ export function ZenStudyOverlay() {
             </select>
           </div>
 
-          <div className="py-8 text-center space-y-2">
-            <p className="text-xs font-medium text-zinc-400">
-              {subject} Deep-Work Sprint · Tab-switch monitor active
+          <div className="py-10 sm:py-14 text-center space-y-4">
+            <p className="text-xs sm:text-sm font-semibold uppercase tracking-wider text-[#00B4FF]">
+              {subject} Deep-Work Sprint · Focus Guard Active
             </p>
-            <p className="font-mono text-6xl sm:text-7xl font-bold tracking-tight text-white tabular-nums">
+            <p className="font-mono text-7xl sm:text-8xl xl:text-9xl font-extrabold tracking-tight text-white tabular-nums leading-none">
               {formatTimer(secondsLeft)}
             </p>
-            <p className="text-xs font-mono tabular-nums text-zinc-400">
+            <p className="text-xs sm:text-sm font-mono tabular-nums text-slate-400">
               Focus breaks detected:{' '}
               <span className={focusBreaks > 0 ? 'text-amber-400 font-semibold' : 'text-emerald-400 font-semibold'}>
                 {focusBreaks}
@@ -178,74 +178,76 @@ export function ZenStudyOverlay() {
             </p>
           </div>
 
-          {focusBreaks > 0 && (
-            <div className="px-4 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-300 flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 shrink-0" />
-              <span>
-                You switched away {focusBreaks} time{focusBreaks === 1 ? '' : 's'}. Keep this tab focused to protect deep flow.
-              </span>
+          <div className="space-y-4">
+            {focusBreaks > 0 && (
+              <div className="px-4 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-300 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span>
+                  You switched away {focusBreaks} time{focusBreaks === 1 ? '' : 's'}. Keep this tab focused to protect deep flow.
+                </span>
+              </div>
+            )}
+
+            {loggedBanner && (
+              <div className="px-4 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-300 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span>{loggedBanner}</span>
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  playClick();
+                  setRunning((r) => !r);
+                }}
+                className="inline-flex items-center gap-2 px-7 py-3.5 rounded-xl bg-[#00B4FF] hover:bg-[#33C4FF] text-[#070A12] text-sm font-extrabold transition-colors shadow-[0_0_24px_rgba(0,180,255,0.35)]"
+              >
+                {running ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                {running ? 'Pause Session' : 'Start Focus Block'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  playClick();
+                  setRunning(false);
+                  setSecondsLeft(presetMins * 60);
+                  setFocusBreaks(0);
+                }}
+                className="inline-flex items-center gap-2 px-5 py-3.5 rounded-xl bg-[#070A12] border border-white/15 text-zinc-200 hover:text-white text-sm font-semibold"
+              >
+                <RotateCcw className="w-4 h-4" />
+                Reset
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  playSuccess();
+                  setRunning(false);
+                  const minsToLog = Math.max(25, elapsedMins);
+                  logFocusMinutes(minsToLog);
+                  recordFocusBlockVerified(minsToLog, focusBreaks);
+                  setLoggedBanner(
+                    `Logged ${minsToLog}m verified ${subject} focus block & unlocked Daily Trifecta Pillar #2.`
+                  );
+                }}
+                className="inline-flex items-center gap-2 px-5 py-3.5 rounded-xl bg-emerald-600/20 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-600/30 text-sm font-semibold"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                Complete &amp; Log
+              </button>
             </div>
-          )}
-
-          {loggedBanner && (
-            <div className="px-4 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-300 flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 shrink-0" />
-              <span>{loggedBanner}</span>
-            </div>
-          )}
-
-          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-            <button
-              type="button"
-              onClick={() => {
-                playClick();
-                setRunning((r) => !r);
-              }}
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[#00B4FF] hover:bg-[#33C4FF] text-[#070A12] text-sm font-extrabold transition-colors shadow-[0_0_24px_rgba(0,180,255,0.35)]"
-            >
-              {running ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-              {running ? 'Pause Session' : 'Start Focus Block'}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                playClick();
-                setRunning(false);
-                setSecondsLeft(presetMins * 60);
-                setFocusBreaks(0);
-              }}
-              className="inline-flex items-center gap-2 px-4 py-3 rounded-xl bg-[#09090B] border border-white/[0.1] text-zinc-300 hover:text-white text-sm font-medium"
-            >
-              <RotateCcw className="w-4 h-4" />
-              Reset
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                playSuccess();
-                setRunning(false);
-                const minsToLog = Math.max(25, elapsedMins);
-                logFocusMinutes(minsToLog);
-                recordFocusBlockVerified(minsToLog, focusBreaks);
-                setLoggedBanner(
-                  `Logged ${minsToLog}m verified ${subject} focus block & unlocked Daily Trifecta Pillar #2.`
-                );
-              }}
-              className="inline-flex items-center gap-2 px-4 py-3 rounded-xl bg-emerald-600/20 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-600/30 text-sm font-semibold"
-            >
-              <CheckCircle2 className="w-4 h-4" />
-              Complete &amp; Log
-            </button>
           </div>
         </div>
 
-        {/* Right: Distraction-Free Formula & Derivation Scratchpad */}
-        <div className="lg:col-span-6 rounded-2xl bg-[#0D1324] border border-[#00B4FF]/20 p-6 flex flex-col gap-4 min-h-[420px]">
+        {/* Right: Full-Height Distraction-Free Formula & Derivation Scratchpad */}
+        <div className="lg:col-span-6 rounded-2xl bg-[#0D1324] border border-[#00B4FF]/25 p-6 sm:p-8 flex flex-col gap-4 min-h-[460px] lg:min-h-0">
           <div className="flex items-center justify-between gap-2">
             <div>
-              <h2 className="font-display text-base font-bold text-white">
+              <h2 className="font-display text-lg font-bold text-white">
                 Derivation &amp; Formula Scratchpad
               </h2>
               <p className="text-xs text-slate-400">
@@ -267,7 +269,7 @@ export function ZenStudyOverlay() {
             value={scratchpad}
             onChange={(e) => setScratchpad(e.target.value)}
             placeholder="Example:&#10;v_e = sqrt(2GM/R)&#10;Parallel axis: I = I_cm + Md^2&#10;O2 is paramagnetic (2 unpaired e- in pi*2p)..."
-            className="flex-1 min-h-[320px] w-full rounded-xl bg-[#070A12] border border-white/10 p-4 font-mono text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-[#00B4FF] resize-none leading-relaxed"
+            className="flex-1 min-h-[360px] lg:min-h-0 w-full rounded-xl bg-[#070A12] border border-white/10 p-5 font-mono text-sm sm:text-base text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-[#00B4FF] resize-none leading-relaxed"
           />
         </div>
       </div>

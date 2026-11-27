@@ -5,46 +5,52 @@ export const PUBLIC_NAV_ROUTES: NavRouteItem[] = [
   {
     path: '/',
     label: 'Home',
-    shortDescription: 'Clean Hero, Tabbed Interactive Study Deck, Daily Trifecta & Quick Launch',
+    shortDescription: 'Focused Study Dashboard, Daily Trifecta & Quick Launch',
     showInPublicNav: true,
   },
   {
-    path: '/learn',
-    label: 'Learn & PYQs',
-    shortDescription: 'Concept-Mapped PYQs, 2027 High-Yield Predictor & NCERT-to-PYQ Split Mapper',
+    path: '/materials',
+    label: 'Study Materials',
+    shortDescription: 'Curated Chapter Notes, Formula Sheets, Syllabus PDFs & Keep Notes',
+    showInPublicNav: true,
+  },
+  {
+    path: '/dpp',
+    label: 'Chapter DPPs',
+    shortDescription: 'Chapter-wise Daily Practice Problems & Interactive Quizzes',
     showInPublicNav: true,
   },
   {
     path: '/cbt-mocks',
     label: 'CBT Mocks',
-    shortDescription: 'Custom Mock Builder (10/25/45Q + AI Balanced), NTA CBT Simulator & Tilt Diagnostics',
+    shortDescription: 'NTA CBT Mock Tests & Dedicated Custom Mock Builder',
     showInPublicNav: true,
   },
   {
-    path: '/community',
-    label: 'Community',
-    shortDescription: 'Live Exam Rooms, Find Study Peers & JoSAA / MCC Rank-to-College Cut-off Explorer',
-    showInPublicNav: true,
-  },
-  {
-    path: '/mentors',
-    label: 'Mentors & Arena',
-    shortDescription: 'Verified IIT/AIIMS 1:1 Mentorship Passes (₹129–₹149) & Apex Arena 1v1 Duels',
+    path: '/arena',
+    label: 'Apex Arena',
+    shortDescription: 'Tactical Shooter, Bubble Shooter, 1v1 AI Duels & Level-Based Study Games',
     showInPublicNav: true,
   },
 ];
 
 export const SECONDARY_SIDEBAR_ROUTES: NavRouteItem[] = [
   {
-    path: '/dpp',
-    label: 'Chapter DPPs',
-    shortDescription: 'Instant Generate DPP studio & chapter-wise daily practice problem sets',
+    path: '/learn',
+    label: 'NCERT-to-PYQ',
+    shortDescription: 'Concept-Mapped PYQs, 2027 High-Yield Predictor & NCERT-to-PYQ Mapper',
     showInPublicNav: false,
   },
   {
-    path: '/materials',
-    label: 'NCERT & Notes',
-    shortDescription: 'Concise NCERT chapter notes, formula sheets, mind maps & PDF library',
+    path: '/preps-ai',
+    label: 'Preps AI Chat',
+    shortDescription: 'AI Mentor, Doubt Solver Tutor & Live Classroom Whiteboard',
+    showInPublicNav: false,
+  },
+  {
+    path: '/analytics',
+    label: 'Test Analysis',
+    shortDescription: 'Score Diagnostics, Predicted Percentile & Compact Solution Review',
     showInPublicNav: false,
   },
   {
@@ -54,43 +60,19 @@ export const SECONDARY_SIDEBAR_ROUTES: NavRouteItem[] = [
     showInPublicNav: false,
   },
   {
-    path: '/analytics',
-    label: 'Test Analysis',
-    shortDescription: 'Prep Score (0–100), Tilt / SM-2 diagnostics & Google Sheets sync',
-    showInPublicNav: false,
-  },
-  {
-    path: '/preps-ai',
-    label: 'Preps AI Chat',
-    shortDescription: 'Full-screen AI mentor synced with live exam context & voice tutor',
-    showInPublicNav: false,
-  },
-  {
-    path: '/arena',
-    label: 'Apex Arena',
-    shortDescription: 'Quantum Clash, Synthesis Strike, Logic Labyrinth & 1v1 AI Point-Trading Duels',
-    showInPublicNav: false,
-  },
-  {
     path: '/profile',
     label: 'Profile & Streaks',
     shortDescription: 'Student profile, active exam track, Season XP & daily streak calendar',
-    showInPublicNav: false,
-  },
-  {
-    path: '/pricing',
-    label: 'Pricing & Plans',
-    shortDescription: 'Free Forever, Prepskm Pro (₹499/yr) & 1:1 IIT/AIIMS Mentorship Packs',
     showInPublicNav: false,
   },
 ];
 
 export const MOBILE_BOTTOM_TABS: { path: RoutePath; label: string; langKey: string }[] = [
   { path: '/', label: 'Home', langKey: 'mobile.home' },
-  { path: '/learn', label: 'Learn', langKey: 'mobile.learn' },
+  { path: '/materials', label: 'Notes', langKey: 'mobile.materials' },
+  { path: '/dpp', label: 'DPPs', langKey: 'mobile.dpp' },
   { path: '/cbt-mocks', label: 'Mocks', langKey: 'mobile.mocks' },
-  { path: '/community', label: 'Community', langKey: 'mobile.community' },
-  { path: '/mentors', label: 'Mentors', langKey: 'mobile.mentors' },
+  { path: '/arena', label: 'Arena', langKey: 'mobile.arena' },
 ];
 
 export const ALL_APP_ROUTES: NavRouteItem[] = [

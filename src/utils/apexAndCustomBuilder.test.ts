@@ -70,6 +70,7 @@ test('Custom Mock Builder balances 10, 25, and 45 questions cleanly across subje
     );
     assert.equal(mock.questions.length, count);
     assert.equal(mock.test.totalQuestions, count);
+    assert.equal(new Set(mock.questions.map((q) => q.id)).size, count);
     assert.ok(mock.test.title.includes('AI Balanced'));
   }
 });
@@ -88,6 +89,7 @@ test('Generate DPP creates a tailored chapter practice set with exact count and 
   );
   assert.equal(bundle.test.destination, 'dpp');
   assert.equal(bundle.questions.length, 15);
+  assert.equal(new Set(bundle.questions.map((q) => q.id)).size, 15);
   assert.ok(bundle.test.title.includes('Rotational Motion'));
   assert.ok(bundle.questions.some((q) => q.questionType === 'integer'));
   assert.ok(bundle.questions.every((q) => Boolean(q.solutionText)));

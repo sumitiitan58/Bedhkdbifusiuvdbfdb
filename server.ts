@@ -1234,6 +1234,84 @@ async function createApp() {
     }
   });
 
+  // 9. Gemini Natural 18-Year-Old Friend TTS Voice Endpoint (mirrors Vercel /api/tts)
+  app.post('/api/tts', async (req, res) => {
+    try {
+      const body = (req.body ?? {}) as { text?: unknown; language?: unknown };
+      const rawText = typeof body.text === 'string' ? body.text.trim() : '';
+      const language = body.language === 'english' ? 'english' : 'hinglish';
+
+      if (!rawText) {
+        res.status(400).json({ ok: false, error: 'text is required for TTS.' });
+        return;
+      }
+
+      const cleanSpokenText = rawText
+        .replace(/\$\$([^$]+)\$\$/g, ' $1 ')
+        .replace(/\$([^$]+)\$/g, ' $1 ')
+        .replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, '$1 over $2')
+        .replace(/\\sqrt\{([^}]+)\}/g, 'square root of $1')
+        .replace(/\\[a-zA-Z]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 1400);
+
+      const stylePrompt =
+        language === 'hinglish'
+          ? 'Warm, friendly 18-year-old Indian peer mentor speaking natural Hinglish to a close friend, calm and clear at a relaxed normal conversational pace, encouraging and approachable, never robotic or rushed'
+          : 'Warm, friendly 18-year-old peer mentor explaining clearly to a close friend in natural English, relaxed normal conversational pace, encouraging and easy to follow, never robotic or rushed';
+
+      const ai = getGeminiClient();
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.8-flash-lite-tts',
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              {
+                text: cleanSpokenText,
+                speechMetadata: { style: stylePrompt },
+              } as unknown as { text: string },
+            ],
+          },
+        ],
+        config: {
+          responseModalities: ['AUDIO'],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: {
+                voiceName: 'Puck',
+              },
+            },
+          },
+        },
+      });
+
+      const inlinePart = response.candidates?.[0]?.content?.parts?.find(
+        (part) => Boolean((part as { inlineData?: { data?: string } }).inlineData?.data)
+      ) as { inlineData?: { data?: string; mimeType?: string } } | undefined;
+
+      const audioBase64 = inlinePart?.inlineData?.data;
+      const mimeType = inlinePart?.inlineData?.mimeType || 'audio/wav';
+
+      if (!audioBase64) {
+        res.status(502).json({ ok: false, error: 'Gemini TTS returned empty audio data.' });
+        return;
+      }
+
+      res.status(200).json({
+        ok: true,
+        audioBase64,
+        mimeType,
+        model: 'gemini-3.8-flash-lite-tts',
+        voice: 'Puck',
+      });
+    } catch (err) {
+      const { status, message } = formatGeminiError(err);
+      res.status(status).json({ ok: false, error: message });
+    }
+  });
+
   const isProd = process.env.NODE_ENV === 'production';
   const distDir = path.resolve(__dirname, 'dist');
   const httpServer = http.createServer(app);

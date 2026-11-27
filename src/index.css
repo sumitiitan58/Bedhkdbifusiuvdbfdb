@@ -289,6 +289,23 @@
   animation: pencil-scribble 0.28s ease-in-out infinite;
 }
 
+@keyframes tutor-stylus-write {
+  0%, 100% {
+    transform: translate3d(0px, 0px, 0) scale(1.02) rotate(0deg);
+  }
+  30% {
+    transform: translate3d(1px, -1.5px, 0) scale(1.04) rotate(-0.8deg);
+  }
+  65% {
+    transform: translate3d(-1px, 0.5px, 0) scale(1.03) rotate(0.7deg);
+  }
+}
+
+.animate-tutor-write {
+  animation: tutor-stylus-write 2.8s ease-in-out infinite;
+  will-change: transform;
+}
+
 /* GPU-Accelerated 3D Tactile Bento Cards & Physical 3D Press CTAs */
 .preps-3d-card {
   transform: perspective(1000px) rotateX(0deg) rotateY(0deg) translateY(0px);

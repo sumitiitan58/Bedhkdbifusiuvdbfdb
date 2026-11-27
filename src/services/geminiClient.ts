@@ -363,6 +363,26 @@ export async function requestLiveTeacherLesson(
   };
 }
 
+export async function requestTutorTtsAudio(payload: {
+  text: string;
+  language: 'hinglish' | 'english';
+}): Promise<{ audioBase64: string; mimeType: string }> {
+  const data = await postJson<{ audioBase64?: string; mimeType?: string }>(
+    '/api/tts',
+    payload,
+    { timeoutMs: 22_000, maxRetries: 0 }
+  );
+
+  if (!data.audioBase64) {
+    throw new ApiHttpError('Gemini TTS returned empty audio.', 502);
+  }
+
+  return {
+    audioBase64: data.audioBase64,
+    mimeType: data.mimeType || 'audio/wav',
+  };
+}
+
 export async function requestPrepsAiChat(payload: {
   message: string;
   history: PrepsAiChatMessage[];
