@@ -78,7 +78,7 @@ export function Navbar({ onOpenSidebar, hideSidebarToggle = false }: NavbarProps
   const location = useLocation();
   const { firebaseUser, profile, cohortId, selectCohort } = useAuth();
   const { allCohorts, activeStudyDates } = usePlatformData();
-  const { progression, setCommandPaletteOpen, setZenMode, sidebarCollapsed } = usePrepskm2();
+  const { progression, levelProgress, setCommandPaletteOpen, setZenMode, sidebarCollapsed } = usePrepskm2();
   const [soundOn, setSoundOn] = useState<boolean>(() => isSoundEnabled());
 
   const avatarSrc = profile?.photoURL || firebaseUser?.photoURL || '';
@@ -186,8 +186,8 @@ export function Navbar({ onOpenSidebar, hideSidebarToggle = false }: NavbarProps
                       className="absolute inset-0 rounded-lg bg-[#0E234E] dark:bg-[#1D56C6] border border-[#00B4FF]/40 shadow-[0_0_16px_rgba(0,180,255,0.28)]"
                     />
                   )}
-                  <span className="relative z-10 hidden md:inline">{pill.label}</span>
-                  <span className="relative z-10 md:hidden">{pill.shortLabel}</span>
+                  <span className="relative z-10 hidden xl:inline">{pill.label}</span>
+                  <span className="relative z-10 xl:hidden">{pill.shortLabel}</span>
                 </button>
               );
             })}
@@ -202,11 +202,11 @@ export function Navbar({ onOpenSidebar, hideSidebarToggle = false }: NavbarProps
             setCommandPaletteOpen(true);
           }}
           aria-label="Open global command palette"
-          className="hidden lg:flex items-center justify-between gap-3 w-full max-w-[300px] xl:max-w-[340px] h-9 px-3 rounded-xl border border-slate-200/90 dark:border-[#00B4FF]/20 bg-slate-50/90 dark:bg-[#0D1324] text-xs text-slate-500 dark:text-slate-400 hover:border-[#00B4FF]/60 hover:text-slate-900 dark:hover:text-white transition-all shrink"
+          className="hidden lg:flex items-center justify-between gap-2 flex-1 min-w-[170px] max-w-[270px] xl:max-w-[330px] h-9 px-3 rounded-xl border border-slate-200/90 dark:border-[#00B4FF]/20 bg-slate-50/90 dark:bg-[#0D1324] text-xs text-slate-500 dark:text-slate-400 hover:border-[#00B4FF]/60 hover:text-slate-900 dark:hover:text-white transition-all"
         >
-          <span className="inline-flex items-center gap-2 truncate">
+          <span className="inline-flex items-center gap-2 min-w-0">
             <Search className="w-3.5 h-3.5 text-[#00B4FF] shrink-0" />
-            <span className="truncate">Jump to chapter, game, mock...</span>
+            <span className="truncate">Search chapters, games, mocks</span>
           </span>
           <kbd className="inline-flex items-center gap-0.5 font-mono text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-white dark:bg-[#070A12] border border-slate-200 dark:border-white/10 text-slate-600 dark:text-[#00B4FF] shrink-0">
             <Command className="w-2.5 h-2.5" />K
@@ -237,14 +237,15 @@ export function Navbar({ onOpenSidebar, hideSidebarToggle = false }: NavbarProps
             <span>{streakDays}d</span>
           </div>
 
-          {/* Season XP Animated Counter */}
+          {/* Season XP & Level Animated Counter */}
           <Link
             to="/arena"
             onClick={() => playNav()}
-            title="Season XP — click to open Prepskm Arena"
-            className="hidden sm:inline-flex items-center gap-1.5 h-9 px-2.5 rounded-xl border border-[#00B4FF]/25 bg-[#00B4FF]/10 text-[#1D56C6] dark:text-[#00B4FF] font-mono text-xs font-bold tabular-nums hover:border-[#00B4FF]/60 transition-colors shrink-0"
+            title={`Level ${levelProgress.level} (${levelProgress.currentLevelXp}/${levelProgress.nextLevelXp} XP) — click to open Prepskm Arena`}
+            className="hidden sm:inline-flex items-center gap-1.5 h-9 px-2.5 rounded-xl border border-[#00B4FF]/25 bg-[#00B4FF]/10 text-[#1D56C6] dark:text-[#00B4FF] font-mono text-xs font-bold tabular-nums hover:border-[#00B4FF]/60 transition-colors whitespace-nowrap shrink-0"
           >
-            <Sparkles className="w-3.5 h-3.5 text-[#F27B13]" />
+            <Sparkles className="w-3.5 h-3.5 text-[#F27B13] shrink-0" />
+            <span className="hidden xl:inline text-amber-300">L{levelProgress.level}</span>
             <span>{animatedXp.toLocaleString('en-IN')} XP</span>
           </Link>
 

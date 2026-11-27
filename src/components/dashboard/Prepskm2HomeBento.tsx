@@ -177,7 +177,9 @@ export function Prepskm2HomeBento() {
     setDuelIdx((i) => (i + 1) % HERO_FORMULA_DUELS.length);
   };
 
-  // ── WIDGET 2: Focus Block Timer Widget (25:00 circular SVG ring) ──
+  // ── WIDGET 2: Focus Block Timer Widget (25m / 50m circular SVG ring) ──
+  const [focusPresetMin, setFocusPresetMin] = useState<25 | 50>(25);
+  const focusTotalSeconds = focusPresetMin * 60;
   const [focusSecLeft, setFocusSecLeft] = useState(FOCUS_TOTAL_SECONDS);
   const [focusRunning, setFocusRunning] = useState(false);
   const [focusLoggedToast, setFocusLoggedToast] = useState(false);
@@ -189,17 +191,25 @@ export function Prepskm2HomeBento() {
         if (prev <= 1) {
           setFocusRunning(false);
           playSuccess();
-          recordFocusBlockVerified(25, 0);
+          recordFocusBlockVerified(focusPresetMin, 0);
           setFocusLoggedToast(true);
-          return FOCUS_TOTAL_SECONDS;
+          return focusPresetMin * 60;
         }
         return prev - 1;
       });
     }, 1000);
     return () => window.clearInterval(id);
-  }, [focusRunning, recordFocusBlockVerified]);
+  }, [focusRunning, focusPresetMin, recordFocusBlockVerified]);
 
-  const focusProgress = 1 - focusSecLeft / FOCUS_TOTAL_SECONDS;
+  const handleSelectFocusPreset = (mins: 25 | 50) => {
+    playClick();
+    setFocusRunning(false);
+    setFocusLoggedToast(false);
+    setFocusPresetMin(mins);
+    setFocusSecLeft(mins * 60);
+  };
+
+  const focusProgress = 1 - focusSecLeft / focusTotalSeconds;
   const focusRadius = 34;
   const focusCircumference = 2 * Math.PI * focusRadius;
   const focusDashOffset = focusCircumference * (1 - focusProgress);
@@ -262,12 +272,12 @@ export function Prepskm2HomeBento() {
             </p>
           </div>
 
-          {/* Primary Glowing Cyan CTA + Secondary Launch Arcade CTA */}
+          {/* Primary Physical 3D Glowing Cyan CTA + Secondary Launch Arcade CTA */}
           <div className="flex flex-wrap items-center gap-3 pt-1">
             <button
               type="button"
               onClick={handleStartGuest}
-              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#00B4FF] hover:bg-[#2EC2FF] text-[#070A12] font-display text-sm font-extrabold transition-all shadow-[0_0_25px_rgba(0,180,255,0.35)] hover:shadow-[0_0_32px_rgba(0,180,255,0.55)] active:translate-y-[1px]"
+              className="preps-3d-btn inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#00B4FF] hover:bg-[#2EC2FF] text-[#070A12] font-display text-sm font-extrabold shadow-[0_0_25px_rgba(0,180,255,0.35)] hover:shadow-[0_0_32px_rgba(0,180,255,0.55)]"
             >
               <Sparkles className="w-4 h-4" />
               Start Free (Guest Mode)
@@ -276,7 +286,7 @@ export function Prepskm2HomeBento() {
             <Link
               to="/arena"
               onClick={() => playNav()}
-              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#0E234E] dark:bg-[#0D1324] border border-[#00B4FF]/30 hover:border-[#00B4FF] text-white font-display text-sm font-bold transition-all"
+              className="preps-3d-card inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#0E234E] dark:bg-[#0D1324] border border-[#00B4FF]/30 hover:border-[#00B4FF] text-white font-display text-sm font-bold"
             >
               <Gamepad2 className="w-4 h-4 text-[#F27B13]" />
               Launch Arcade
@@ -286,11 +296,11 @@ export function Prepskm2HomeBento() {
         </div>
 
         {/* Compact Daily Trifecta & PrepsBot Trigger Card */}
-        <div className="rounded-2xl bg-white dark:bg-[#0D1324] border border-slate-200/90 dark:border-[#00B4FF]/[0.14] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] p-4 space-y-3">
+        <div className="preps-3d-card rounded-2xl bg-white dark:bg-[#0D1324] border border-slate-200/90 dark:border-[#00B4FF]/[0.16] p-4 space-y-3">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
               <Shield className="w-4 h-4 text-[#10B981] shrink-0" />
-              <span className="font-display text-xs font-bold text-[#0E234E] dark:text-white truncate">
+              <span className="font-display text-xs font-bold text-[#0E234E] dark:text-white leading-tight">
                 Daily Trifecta Shield ({trifecta.completedCount}/3)
               </span>
             </div>
@@ -329,17 +339,17 @@ export function Prepskm2HomeBento() {
       {/* RIGHT 7 COLS: 2×2 Grid of 4 Live "Poke-able" Mini-Widgets */}
       <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* MINI-WIDGET 1: 10-Second Formula Duel Card */}
-        <article className="rounded-2xl bg-white dark:bg-[#0D1324] border border-slate-200/90 dark:border-[#00B4FF]/[0.14] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] p-4 flex flex-col justify-between gap-3">
-          <div className="flex items-center justify-between gap-2">
+        <article className="preps-3d-card rounded-2xl bg-white dark:bg-[#0D1324] border border-slate-200/90 dark:border-[#00B4FF]/[0.16] p-4 flex flex-col justify-between gap-3">
+          <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
               <span className="h-7 w-7 rounded-lg bg-[#00B4FF]/15 text-[#00B4FF] inline-flex items-center justify-center shrink-0">
                 <Zap className="w-4 h-4" />
               </span>
               <div className="min-w-0">
-                <h2 className="font-display text-xs font-bold text-[#0E234E] dark:text-white truncate">
+                <h2 className="font-display text-[13px] font-bold text-[#0E234E] dark:text-white leading-snug">
                   10-Second Formula Duel
                 </h2>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
                   {duel.subject} · {duel.chapter}
                 </p>
               </div>
@@ -429,25 +439,38 @@ export function Prepskm2HomeBento() {
           </div>
         </article>
 
-        {/* MINI-WIDGET 2: Focus Block Timer Widget (25:00 circular SVG ring) */}
-        <article className="rounded-2xl bg-white dark:bg-[#0D1324] border border-slate-200/90 dark:border-[#00B4FF]/[0.14] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] p-4 flex flex-col justify-between gap-3">
-          <div className="flex items-center justify-between gap-2">
+        {/* MINI-WIDGET 2: Focus Block Timer Widget (25m / 50m circular SVG ring) */}
+        <article className="preps-3d-card rounded-2xl bg-white dark:bg-[#0D1324] border border-slate-200/90 dark:border-[#00B4FF]/[0.16] p-4 flex flex-col justify-between gap-3">
+          <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
               <span className="h-7 w-7 rounded-lg bg-[#F27B13]/15 text-[#F27B13] inline-flex items-center justify-center shrink-0">
                 <Clock className="w-4 h-4" />
               </span>
               <div className="min-w-0">
-                <h2 className="font-display text-xs font-bold text-[#0E234E] dark:text-white truncate">
+                <h2 className="font-display text-[13px] font-bold text-[#0E234E] dark:text-white leading-snug">
                   Focus Block Timer
                 </h2>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                  25m deep sprint · +50 XP
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
+                  {focusPresetMin}m deep sprint · +{focusPresetMin * 2} XP
                 </p>
               </div>
             </div>
-            <span className="font-mono text-[11px] font-bold text-[#10B981] tabular-nums">
-              {progression.trifecta.focusMinutesToday}m today
-            </span>
+            <div className="inline-flex rounded-lg border border-slate-200 dark:border-white/10 p-0.5 bg-slate-50 dark:bg-[#070A12] shrink-0">
+              {([25, 50] as const).map((mins) => (
+                <button
+                  key={mins}
+                  type="button"
+                  onClick={() => handleSelectFocusPreset(mins)}
+                  className={`px-1.5 py-0.5 rounded-md font-mono text-[10px] font-bold transition-colors ${
+                    focusPresetMin === mins
+                      ? 'bg-[#F27B13] text-[#070A12]'
+                      : 'text-slate-500 dark:text-slate-400 hover:text-white'
+                  }`}
+                >
+                  {mins}m
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="flex items-center justify-between gap-3 py-1">
@@ -507,7 +530,7 @@ export function Prepskm2HomeBento() {
                   onClick={() => {
                     playClick();
                     setFocusRunning(false);
-                    setFocusSecLeft(FOCUS_TOTAL_SECONDS);
+                    setFocusSecLeft(focusTotalSeconds);
                   }}
                   aria-label="Reset focus timer"
                   className="p-2 rounded-xl border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 hover:text-white"
@@ -517,27 +540,27 @@ export function Prepskm2HomeBento() {
               </div>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
                 {focusLoggedToast
-                  ? '25m verified & logged to Trifecta!'
+                  ? `${focusPresetMin}m verified & logged to Trifecta!`
                   : focusRunning
                     ? 'Focus lock active — stay in tab'
-                    : 'Hit Start to log a verified sprint'}
+                    : `${progression.trifecta.focusMinutesToday}m logged today · Hit Start`}
               </p>
             </div>
           </div>
         </article>
 
         {/* MINI-WIDGET 3: 5-Stage Chapter Mastery Bar */}
-        <article className="rounded-2xl bg-white dark:bg-[#0D1324] border border-slate-200/90 dark:border-[#00B4FF]/[0.14] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] p-4 flex flex-col justify-between gap-3">
-          <div className="flex items-center justify-between gap-2">
+        <article className="preps-3d-card rounded-2xl bg-white dark:bg-[#0D1324] border border-slate-200/90 dark:border-[#00B4FF]/[0.16] p-4 flex flex-col justify-between gap-3">
+          <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
               <span className="h-7 w-7 rounded-lg bg-[#10B981]/15 text-[#10B981] inline-flex items-center justify-center shrink-0">
                 <Layers className="w-4 h-4" />
               </span>
               <div className="min-w-0">
-                <h2 className="font-display text-xs font-bold text-[#0E234E] dark:text-white truncate">
+                <h2 className="font-display text-[13px] font-bold text-[#0E234E] dark:text-white leading-snug">
                   {activeMasteryChapter.name}
                 </h2>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
                   {activeMasteryChapter.subject}
                 </p>
               </div>
@@ -603,13 +626,13 @@ export function Prepskm2HomeBento() {
         </article>
 
         {/* MINI-WIDGET 4: Live Percentile Predictor */}
-        <article className="rounded-2xl bg-white dark:bg-[#0D1324] border border-slate-200/90 dark:border-[#00B4FF]/[0.14] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] p-4 flex flex-col justify-between gap-3">
-          <div className="flex items-center justify-between gap-2">
+        <article className="preps-3d-card rounded-2xl bg-white dark:bg-[#0D1324] border border-slate-200/90 dark:border-[#00B4FF]/[0.16] p-4 flex flex-col justify-between gap-3">
+          <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
               <span className="h-7 w-7 rounded-lg bg-[#1D56C6]/20 text-[#00B4FF] inline-flex items-center justify-center shrink-0">
                 <SlidersHorizontal className="w-4 h-4" />
               </span>
-              <h2 className="font-display text-xs font-bold text-[#0E234E] dark:text-white truncate">
+              <h2 className="font-display text-[13px] font-bold text-[#0E234E] dark:text-white leading-snug">
                 Live Percentile Predictor
               </h2>
             </div>

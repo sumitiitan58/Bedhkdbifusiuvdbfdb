@@ -5,6 +5,7 @@ import {
   ChevronDown,
   ChevronUp,
   FileSpreadsheet,
+  GraduationCap,
   HelpCircle,
   Loader2,
   MessageSquare,
@@ -27,6 +28,7 @@ import {
 } from '../components/ai/TutorWorkspaceStudio';
 import { useAuth } from '../context/AuthContext';
 import { usePlatformData } from '../context/PlatformDataContext';
+import { usePrepskm2 } from '../context/Prepskm2Context';
 import {
   requestPrepsAiChat,
   type PrepsAiChatMessage,
@@ -103,6 +105,7 @@ export default function PrepsAiPage() {
     bookmarkedQuestionIds,
     resolvedMistakeIds,
   } = usePlatformData();
+  const { openLiveTeacher } = usePrepskm2();
 
   const [activeTab, setActiveTab] = useState<TutorStudioMode>('chat');
   const [contextOpen, setContextOpen] = useState(false);
@@ -332,6 +335,27 @@ export default function PrepsAiPage() {
             <div className="flex flex-wrap items-center gap-2 shrink-0">
               <button
                 type="button"
+                onClick={() => {
+                  playClick();
+                  const latestUserQ =
+                    [...messages].reverse().find((m) => m.role === 'user')?.text ||
+                    'Block of mass m sliding down a rough inclined plane of angle θ with friction μ — derive acceleration.';
+                  const latestReply =
+                    [...messages].reverse().find((m) => m.role === 'assistant')?.text;
+                  openLiveTeacher({
+                    questionText: latestUserQ,
+                    solutionText: latestReply,
+                    source: 'preps-ai',
+                  });
+                }}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-extrabold bg-gradient-to-r from-[#00B4FF] to-[#1D56C6] text-[#070A12] shadow-[0_0_20px_rgba(0,180,255,0.4)] hover:brightness-110 transition-all whitespace-nowrap"
+              >
+                <GraduationCap className="w-4 h-4" />
+                Explain Like a Teacher
+              </button>
+
+              <button
+                type="button"
                 onClick={voice.toggleWakeWord}
                 aria-pressed={voice.wakeWordEnabled}
                 title='Enable continuous background listening for "Preps AI" wake word'
@@ -521,27 +545,50 @@ export default function PrepsAiPage() {
                         }`}
                       >
                         <div>{msg.text}</div>
-                        {msg.role === 'assistant' && voice.ttsSupported && (
-                          <div className="mt-2 pt-1.5 border-t border-slate-200/70 dark:border-slate-700/70 flex justify-end">
+                        {msg.role === 'assistant' && (
+                          <div className="mt-2 pt-1.5 border-t border-slate-200/70 dark:border-slate-700/70 flex flex-wrap items-center justify-between gap-2">
                             <button
                               type="button"
                               onClick={() => {
-                                if (voice.isSpeaking) {
-                                  voice.stopSpeaking();
-                                } else {
-                                  voice.speakText(msg.text);
-                                }
+                                playClick();
+                                const prevUserMsg = [...messages.slice(0, idx)]
+                                  .reverse()
+                                  .find((m) => m.role === 'user')?.text;
+                                openLiveTeacher({
+                                  questionText:
+                                    prevUserMsg ||
+                                    'Inclined plane free-body diagram and acceleration derivation for JEE/NEET',
+                                  solutionText: msg.text,
+                                  source: 'preps-ai',
+                                });
                               }}
-                              aria-label={voice.isSpeaking ? 'Stop reading aloud' : 'Read reply aloud'}
-                              className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#2563EB] dark:text-sky-400 hover:underline"
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-[#00B4FF]/15 border border-[#00B4FF]/45 text-[#00B4FF] hover:bg-[#00B4FF]/25 shadow-[0_0_12px_rgba(0,180,255,0.22)] transition-colors"
                             >
-                              {voice.isSpeaking ? (
-                                <VolumeX className="w-3 h-3" />
-                              ) : (
-                                <Volume2 className="w-3 h-3" />
-                              )}
-                              <span>{voice.isSpeaking ? 'Stop' : 'Listen'}</span>
+                              <GraduationCap className="w-3.5 h-3.5" />
+                              Explain Like a Teacher
                             </button>
+
+                            {voice.ttsSupported && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (voice.isSpeaking) {
+                                    voice.stopSpeaking();
+                                  } else {
+                                    voice.speakText(msg.text);
+                                  }
+                                }}
+                                aria-label={voice.isSpeaking ? 'Stop reading aloud' : 'Read reply aloud'}
+                                className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#2563EB] dark:text-sky-400 hover:underline"
+                              >
+                                {voice.isSpeaking ? (
+                                  <VolumeX className="w-3 h-3" />
+                                ) : (
+                                  <Volume2 className="w-3 h-3" />
+                                )}
+                                <span>{voice.isSpeaking ? 'Stop' : 'Listen'}</span>
+                              </button>
+                            )}
                           </div>
                         )}
                       </div>

@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  GraduationCap,
   Loader2,
   Minus,
   MinusCircle,
@@ -22,6 +23,7 @@ import type {
 } from '../../types';
 import type { GeminiQuestionExplanation } from '../../services/geminiClient';
 import { usePlatformData } from '../../context/PlatformDataContext';
+import { usePrepskm2 } from '../../context/Prepskm2Context';
 import { ThemeContext } from '../../context/ThemeProvider';
 import {
   resolveOptionImageSrc,
@@ -86,6 +88,7 @@ export function SolutionCardDeck({
   aiErrorById,
 }: SolutionCardDeckProps) {
   const { bookmarkedQuestionIds, toggleQuestionBookmark } = usePlatformData();
+  const { openLiveTeacher } = usePrepskm2();
   const imageTheme = useContext(ThemeContext)?.theme === 'dark' ? 'dark' : 'light';
   const [filterMode, setFilterMode] = useState<'all' | SolutionReviewStatus>('all');
   const [activeIndex, setActiveIndex] = useState(0);
@@ -606,16 +609,40 @@ export function SolutionCardDeck({
                     </div>
                   </div>
 
-                  {/* BOTTOM SECTION: DETAILED SOLUTION */}
-                  {(currentItem.question.solutionImageUrl ||
-                    currentItem.question.solutionText ||
-                    onExplainWithAi) && (
-                    <div className="p-3.5 sm:p-4 rounded-xl bg-slate-50 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 space-y-2.5">
+                  {/* BOTTOM SECTION: DETAILED SOLUTION & LIVE TEACHER */}
+                  <div className="p-3.5 sm:p-4 rounded-xl bg-slate-50 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 space-y-2.5">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <p className="text-xs font-bold uppercase tracking-wider text-[#0B1B3B] dark:text-sky-400">
                           Detailed Solution
                         </p>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              playClick();
+                              openLiveTeacher({
+                                questionText:
+                                  currentItem.question.questionText ||
+                                  `Question ${currentItem.question.questionNumber} (${currentItem.question.subjectName} — ${currentItem.question.chapterName || 'Core Concept'})`,
+                                subjectName: currentItem.question.subjectName,
+                                chapterName: currentItem.question.chapterName,
+                                solutionText: currentItem.question.solutionText,
+                                officialAnswer: formatOfficialAnswer(currentItem.question),
+                                studentAnswer: formatStudentAnswer(
+                                  currentItem.question,
+                                  currentItem.studentAnswer
+                                ),
+                                source: title.toLowerCase().includes('dpp')
+                                  ? 'chapter-dpp'
+                                  : 'cbt-analysis',
+                              });
+                            }}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-extrabold bg-gradient-to-r from-[#00B4FF] to-[#1D56C6] text-[#070A12] shadow-[0_0_16px_rgba(0,180,255,0.4)] hover:brightness-110 transition-all"
+                          >
+                            <GraduationCap className="w-3.5 h-3.5" />
+                            Explain Like a Teacher
+                          </button>
+
                           {currentItem.question.solutionImageUrl && (
                             <button
                               type="button"
@@ -715,7 +742,6 @@ export function SolutionCardDeck({
                         </div>
                       )}
                     </div>
-                  )}
                 </div>
 
                 {/* Card Bottom Deck Navigation Controls */}

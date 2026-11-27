@@ -11,6 +11,7 @@ import {
   ClipboardCheck,
   Clock,
   Eye,
+  GraduationCap,
   Loader2,
   Play,
   RotateCcw,
@@ -29,6 +30,7 @@ import { ReusableButton } from '../components/ReusableButton';
 import { SeoHead } from '../components/SeoHead';
 import { useAuth } from '../context/AuthContext';
 import { usePlatformData } from '../context/PlatformDataContext';
+import { usePrepskm2 } from '../context/Prepskm2Context';
 import { ThemeContext } from '../context/ThemeProvider';
 import { requestPrepsAiMessages } from '../services/geminiClient';
 import {
@@ -128,6 +130,7 @@ function InteractiveQuestionVaultCard({
   onToggleBookmark,
 }: ReattemptCardProps) {
   const imageTheme = useContext(ThemeContext)?.theme === 'dark' ? 'dark' : 'light';
+  const { openLiveTeacher } = usePrepskm2();
   const tts = useSimpleIndianTts();
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [selectedMulti, setSelectedMulti] = useState<number[]>([]);
@@ -449,6 +452,26 @@ function InteractiveQuestionVaultCard({
             )}
             {aiLoading ? 'Analyzing...' : aiReply ? 'Refresh AI Fix' : 'Ask Preps AI'}
           </ReusableButton>
+          <button
+            type="button"
+            onClick={() => {
+              playClick();
+              openLiveTeacher({
+                questionText:
+                  question.questionText ||
+                  `Question ${question.questionNumber} (${question.subjectName}${question.chapterName ? ` — ${question.chapterName}` : ''})`,
+                subjectName: question.subjectName,
+                chapterName: question.chapterName,
+                solutionText: question.solutionText,
+                officialAnswer: officialAnswerText,
+                source: 'mistake-notebook',
+              });
+            }}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-extrabold bg-gradient-to-r from-[#00B4FF] to-[#1D56C6] text-[#070A12] shadow-[0_0_18px_rgba(0,180,255,0.42)] hover:brightness-110 transition-all"
+          >
+            <GraduationCap className="w-4 h-4" />
+            Explain Like a Teacher
+          </button>
           {checkedResult && (
             <button
               type="button"

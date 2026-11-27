@@ -11,6 +11,7 @@ import { DownloadGateModal } from './components/monetization/DownloadGateModal';
 import { CommandPalette } from './components/CommandPalette';
 import { ZenStudyOverlay } from './components/ZenStudyOverlay';
 import { PrepsBotWidget } from './components/ai-copilot/PrepsBotWidget';
+import { LiveTeacherModal } from './components/live-teacher/LiveTeacherModal';
 
 const HomePage = lazy(() => import('./pages/HomePage'));
 const ArenaPage = lazy(() => import('./pages/ArenaPage'));
@@ -74,6 +75,7 @@ export default function App() {
                   <CommandPalette />
                   <ZenStudyOverlay />
                   <PrepsBotWidget />
+                  <LiveTeacherModal />
                 </BrowserRouter>
               </Prepskm2Provider>
             </PlatformDataProvider>

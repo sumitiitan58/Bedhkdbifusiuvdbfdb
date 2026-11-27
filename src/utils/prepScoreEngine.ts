@@ -57,6 +57,7 @@ export interface PrepScoreDiagnostics {
   activeStreakDays: number;
   mistakeTotalCount: number;
   mistakeResolvedCount: number;
+  mistakeTaggedCount: number;
   mistakeRecoveryPercent: number;
   highYieldChaptersCovered: number;
 }
@@ -82,6 +83,7 @@ export interface PrepScoreInput {
   chapters: ChapterRecord[];
   activeStudyDates: string[];
   resolvedMistakeIds: string[];
+  taggedMistakeIds?: string[];
   cohortLabel?: string;
   referenceDate?: Date;
 }
@@ -196,6 +198,7 @@ function computeCorePrepScore(input: PrepScoreInput): RawScoreComputation {
     chapters,
     activeStudyDates,
     resolvedMistakeIds,
+    taggedMistakeIds = [],
     cohortLabel = 'JEE Main',
     referenceDate = new Date(),
   } = input;
@@ -435,21 +438,37 @@ function computeCorePrepScore(input: PrepScoreInput): RawScoreComputation {
 
   const mistakeEntries = extractMistakeEntries(attempts, questions);
   const resolvedSet = new Set(resolvedMistakeIds);
+  const taggedSet = new Set(taggedMistakeIds);
   const mistakeTotalCount = mistakeEntries.length;
   const mistakeResolvedCount = mistakeEntries.filter((m) => resolvedSet.has(m.questionId)).length;
+  const mistakeTaggedCount =
+    mistakeTotalCount > 0
+      ? mistakeEntries.filter((m) => taggedSet.has(m.questionId)).length
+      : taggedSet.size;
   const mistakeRecoveryPercent =
     mistakeTotalCount > 0
-      ? Math.round((mistakeResolvedCount / mistakeTotalCount) * 100)
+      ? Math.min(
+          100,
+          Math.round(((mistakeResolvedCount + mistakeTaggedCount * 0.35) / mistakeTotalCount) * 100)
+        )
       : hasAttempts
         ? 100
-        : 0;
+        : taggedSet.size > 0
+          ? Math.min(40, taggedSet.size * 10)
+          : 0;
 
   const mistakeSubScore =
     mistakeTotalCount > 0
-      ? Math.round((mistakeResolvedCount / mistakeTotalCount) * 10)
+      ? Math.min(
+          10,
+          Math.round(
+            (mistakeResolvedCount / mistakeTotalCount) * 8 +
+              (mistakeTaggedCount / mistakeTotalCount) * 3
+          )
+        )
       : hasAttempts
         ? 10
-        : 0;
+        : Math.min(3, taggedSet.size);
 
   const consistencyRecoveryScore = Math.min(20, streakSubScore + mistakeSubScore);
 
@@ -508,8 +527,10 @@ function computeCorePrepScore(input: PrepScoreInput): RawScoreComputation {
       percent: Math.round((consistencyRecoveryScore / 20) * 100),
       summary:
         mistakeTotalCount > 0
-          ? `${streak.currentStreak}-day active streak · ${mistakeResolvedCount}/${mistakeTotalCount} mistakes mastered (${mistakeRecoveryPercent}%)`
-          : `${streak.currentStreak}-day active streak · ${activeDaysLast7}/7 days active this week`,
+          ? `${streak.currentStreak}-day streak · ${mistakeResolvedCount}/${mistakeTotalCount} mastered · ${mistakeTaggedCount} root-cause tagged`
+          : mistakeTaggedCount > 0
+            ? `${streak.currentStreak}-day streak · ${mistakeTaggedCount} mistake error-tag${mistakeTaggedCount === 1 ? '' : 's'} logged`
+            : `${streak.currentStreak}-day active streak · ${activeDaysLast7}/7 days active this week`,
     },
   ];
 
@@ -527,6 +548,7 @@ function computeCorePrepScore(input: PrepScoreInput): RawScoreComputation {
     activeStreakDays: streak.currentStreak,
     mistakeTotalCount,
     mistakeResolvedCount,
+    mistakeTaggedCount,
     mistakeRecoveryPercent,
     highYieldChaptersCovered,
   };

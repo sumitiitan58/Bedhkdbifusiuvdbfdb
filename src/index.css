@@ -147,6 +147,184 @@ iframe[src*="netlify"],
   animation: prepsbot-shadow 3.4s ease-in-out infinite;
 }
 
+/* PrepsBot Triumphant Victory Pose (Mock Test Completed / Level Up) */
+@keyframes prepsbot-victory {
+  0% {
+    transform: translateY(0px) scale(1) rotateY(0deg) rotateZ(0deg);
+    filter: drop-shadow(0 14px 22px rgba(0, 180, 255, 0.45));
+  }
+  20% {
+    transform: translateY(-20px) scale(1.16) rotateY(180deg) rotateZ(-8deg);
+    filter: drop-shadow(0 18px 34px rgba(242, 123, 19, 0.85)) drop-shadow(0 0 22px rgba(16, 185, 129, 0.7));
+  }
+  42% {
+    transform: translateY(-10px) scale(1.12) rotateY(360deg) rotateZ(7deg);
+    filter: drop-shadow(0 16px 30px rgba(16, 185, 129, 0.85)) drop-shadow(0 0 24px rgba(0, 180, 255, 0.75));
+  }
+  64% {
+    transform: translateY(-18px) scale(1.14) rotateY(372deg) rotateZ(-5deg);
+    filter: drop-shadow(0 18px 34px rgba(242, 123, 19, 0.8)) drop-shadow(0 0 20px rgba(250, 204, 21, 0.75));
+  }
+  84% {
+    transform: translateY(-6px) scale(1.06) rotateY(356deg) rotateZ(3deg);
+    filter: drop-shadow(0 14px 26px rgba(0, 180, 255, 0.65));
+  }
+  100% {
+    transform: translateY(0px) scale(1) rotateY(360deg) rotateZ(0deg);
+    filter: drop-shadow(0 14px 22px rgba(0, 180, 255, 0.45));
+  }
+}
+
+.prepsbot-victory {
+  animation: prepsbot-victory 1.65s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  transform-style: preserve-3d;
+  will-change: transform, filter;
+}
+
+/* Preps AI Live Teacher 60fps Pose Animations */
+@keyframes teacher-wave {
+  0% {
+    transform: translateY(6px) scale(0.95) rotateZ(-4deg);
+  }
+  25% {
+    transform: translateY(-6px) scale(1.03) rotateZ(4deg);
+  }
+  50% {
+    transform: translateY(-2px) scale(1.02) rotateZ(-3deg);
+  }
+  75% {
+    transform: translateY(-7px) scale(1.04) rotateZ(3deg);
+  }
+  100% {
+    transform: translateY(0px) scale(1) rotateZ(0deg);
+  }
+}
+
+.teacher-pose-wave {
+  animation: teacher-wave 1.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: transform;
+}
+
+@keyframes teacher-speaking {
+  0%, 100% {
+    transform: translateY(0px) rotateZ(-1.2deg) rotateY(-4deg);
+  }
+  35% {
+    transform: translateY(-6px) rotateZ(2.2deg) rotateY(7deg) scale(1.015);
+  }
+  70% {
+    transform: translateY(-3px) rotateZ(-0.6deg) rotateY(4deg);
+  }
+}
+
+.teacher-pose-speaking {
+  animation: teacher-speaking 2.4s ease-in-out infinite;
+  will-change: transform;
+}
+
+@keyframes teacher-idle {
+  0%, 100% {
+    transform: translateY(0px) scale(1);
+  }
+  50% {
+    transform: translateY(-5px) scale(1.01);
+  }
+}
+
+.teacher-pose-idle {
+  animation: teacher-idle 3.6s ease-in-out infinite;
+  will-change: transform;
+}
+
+@keyframes teacher-listening {
+  0%, 100% {
+    transform: translateY(-2px) translateX(6px) scale(1.03) rotateZ(2.5deg);
+    filter: drop-shadow(0 16px 28px rgba(0, 180, 255, 0.55));
+  }
+  50% {
+    transform: translateY(-5px) translateX(8px) scale(1.045) rotateZ(3.5deg);
+    filter: drop-shadow(0 18px 36px rgba(0, 180, 255, 0.85));
+  }
+}
+
+.teacher-pose-listening {
+  animation: teacher-listening 1.8s ease-in-out infinite;
+  will-change: transform, filter;
+}
+
+/* Digital Blackboard Subtle Chalk-Grid Pattern */
+.live-blackboard-grid {
+  background-color: #0b1222;
+  background-image:
+    linear-gradient(rgba(0, 180, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 180, 255, 0.045) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+/* GPU-Accelerated 3D Tactile Bento Cards & Physical 3D Press CTAs */
+.preps-3d-card {
+  transform: perspective(1000px) rotateX(0deg) rotateY(0deg) translateY(0px);
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1), border-color 200ms ease, box-shadow 220ms ease;
+  will-change: transform;
+}
+
+.dark .preps-3d-card {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 12px 28px -16px rgba(0, 0, 0, 0.75);
+}
+
+@media (hover: hover) {
+  .preps-3d-card:hover {
+    transform: perspective(1000px) rotateX(1.4deg) rotateY(-1.4deg) translateY(-3px);
+  }
+  .dark .preps-3d-card:hover {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 20px 38px -16px rgba(0, 180, 255, 0.24);
+  }
+}
+
+.preps-3d-btn {
+  box-shadow: 0 4px 0 rgba(0, 110, 180, 0.65), 0 0 24px rgba(0, 180, 255, 0.32);
+  transition: transform 120ms ease, box-shadow 120ms ease, background-color 150ms ease;
+}
+
+.preps-3d-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 5px 0 rgba(0, 110, 180, 0.7), 0 0 32px rgba(0, 180, 255, 0.5);
+}
+
+.preps-3d-btn:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 rgba(0, 110, 180, 0.65), 0 0 14px rgba(0, 180, 255, 0.3);
+}
+
+/* 1-Minute 3D Flip Formula Cards (rotateY 180deg) */
+.preps-flip-scene {
+  perspective: 1100px;
+}
+
+.preps-flip-card {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 520ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+.preps-flip-card.is-flipped {
+  transform: rotateY(180deg);
+}
+
+.preps-flip-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.preps-flip-back {
+  transform: rotateY(180deg);
+}
+
 /* Prepskm Arena Arcade Juice Keyframes */
 @keyframes arcade-shake {
   0% { transform: translateX(0); }

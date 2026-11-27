@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   computeEloUpdate,
   createInitialArenaProgression,
@@ -7,7 +7,20 @@ import {
   type EloSubjectKey,
 } from '../utils/arenaProgression';
 import type { MasteryStageKey } from '../data/prepskm2Data';
+import {
+  getLevelFromXp,
+  type MistakeErrorTag,
+  type XpLevelProgress,
+} from '../utils/prepskm2Upgrades';
+import type { LiveTeacherLessonRequest } from '../utils/liveTeacherEngine';
 import { useAuth } from './AuthContext';
+
+export interface PrepsBotVictoryEvent {
+  id: number;
+  title: string;
+  subtitle: string;
+  badge: string;
+}
 
 export interface MentorshipPassRecord {
   token: string;
@@ -65,6 +78,15 @@ interface Prepskm2ContextValue {
   sidebarCollapsed: boolean;
   setSidebarCollapsed: (collapsed: boolean) => void;
   toggleSidebarCollapsed: () => void;
+  levelProgress: XpLevelProgress;
+  prepsbotVictory: PrepsBotVictoryEvent | null;
+  triggerPrepsBotVictory: (payload: Omit<PrepsBotVictoryEvent, 'id'>) => void;
+  clearPrepsBotVictory: () => void;
+  mistakeErrorTags: Record<string, MistakeErrorTag>;
+  setMistakeErrorTag: (questionId: string, tag: MistakeErrorTag | null) => void;
+  liveTeacherRequest: LiveTeacherLessonRequest | null;
+  openLiveTeacher: (request: LiveTeacherLessonRequest) => void;
+  closeLiveTeacher: () => void;
 }
 
 const Prepskm2Context = createContext<Prepskm2ContextValue | null>(null);
@@ -73,6 +95,7 @@ const PROGRESSION_KEY_PREFIX = 'prepskm2_progression_v1_';
 const MASTERY_KEY_PREFIX = 'prepskm2_mastery_v1_';
 const PASSES_KEY_PREFIX = 'prepskm2_passes_v1_';
 const BACKLOG_KEY_PREFIX = 'prepskm2_backlog_v1_';
+const MISTAKE_TAGS_KEY_PREFIX = 'prepskm2_mistake_tags_v1_';
 
 function readJson<T>(key: string, fallback: T): T {
   try {
@@ -138,6 +161,7 @@ export function Prepskm2Provider({ children }: { children: ReactNode }) {
   const masteryKey = `${MASTERY_KEY_PREFIX}${userScope}`;
   const passesKey = `${PASSES_KEY_PREFIX}${userScope}`;
   const backlogKey = `${BACKLOG_KEY_PREFIX}${userScope}`;
+  const mistakeTagsKey = `${MISTAKE_TAGS_KEY_PREFIX}${userScope}`;
 
   const [progression, setProgression] = useState<ArenaProgressionState>(() => {
     const saved = readJson<ArenaProgressionState | null>(progKey, null);
@@ -172,11 +196,58 @@ export function Prepskm2Provider({ children }: { children: ReactNode }) {
     readJson<BacklogTaskItem[]>(backlogKey, makeDefaultBacklogTasks())
   );
 
+  const [mistakeErrorTags, setMistakeErrorTags] = useState<Record<string, MistakeErrorTag>>(() =>
+    readJson<Record<string, MistakeErrorTag>>(mistakeTagsKey, {})
+  );
+
   const [zenMode, setZenMode] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [copilotOpen, setCopilotOpen] = useState(false);
   const [pendingCopilotPrompt, setPendingCopilotPrompt] = useState<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [prepsbotVictory, setPrepsbotVictory] = useState<PrepsBotVictoryEvent | null>(null);
+  const [liveTeacherRequest, setLiveTeacherRequest] = useState<LiveTeacherLessonRequest | null>(null);
+
+  const openLiveTeacher = useCallback((request: LiveTeacherLessonRequest) => {
+    setCopilotOpen(false);
+    setLiveTeacherRequest(request);
+  }, []);
+
+  const closeLiveTeacher = useCallback(() => {
+    setLiveTeacherRequest(null);
+  }, []);
+
+  const levelProgress = useMemo(() => getLevelFromXp(progression.seasonXp), [progression.seasonXp]);
+  const prevLevelRef = useRef<number>(levelProgress.level);
+  const prevScopeRef = useRef<string>(userScope);
+
+  const triggerPrepsBotVictory = useCallback((payload: Omit<PrepsBotVictoryEvent, 'id'>) => {
+    setPrepsbotVictory({
+      ...payload,
+      id: Date.now(),
+    });
+  }, []);
+
+  const clearPrepsBotVictory = useCallback(() => {
+    setPrepsbotVictory(null);
+  }, []);
+
+  // Automatically celebrate whenever the student crosses a new XP level
+  useEffect(() => {
+    if (prevScopeRef.current !== userScope) {
+      prevScopeRef.current = userScope;
+      prevLevelRef.current = levelProgress.level;
+      return;
+    }
+    if (levelProgress.level > prevLevelRef.current) {
+      triggerPrepsBotVictory({
+        title: `Level ${levelProgress.level} Unlocked!`,
+        subtitle: `${progression.seasonXp.toLocaleString('en-IN')} Season XP reached — PrepsBot salutes your consistency!`,
+        badge: 'LEVEL UP',
+      });
+    }
+    prevLevelRef.current = levelProgress.level;
+  }, [levelProgress.level, progression.seasonXp, triggerPrepsBotVictory, userScope]);
 
   // Sync user scope on login/logout
   useEffect(() => {
@@ -205,7 +276,8 @@ export function Prepskm2Provider({ children }: { children: ReactNode }) {
     setMasteryMap(readJson<Record<string, Record<MasteryStageKey, boolean>>>(masteryKey, {}));
     setMentorshipPasses(readJson<MentorshipPassRecord[]>(passesKey, []));
     setBacklogTasks(readJson<BacklogTaskItem[]>(backlogKey, makeDefaultBacklogTasks()));
-  }, [progKey, masteryKey, passesKey, backlogKey]);
+    setMistakeErrorTags(readJson<Record<string, MistakeErrorTag>>(mistakeTagsKey, {}));
+  }, [progKey, masteryKey, passesKey, backlogKey, mistakeTagsKey]);
 
   // Global Cmd+K / Ctrl+K listener & Escape for Zen Mode
   useEffect(() => {
@@ -433,6 +505,22 @@ export function Prepskm2Provider({ children }: { children: ReactNode }) {
     setPendingCopilotPrompt(null);
   }, []);
 
+  const setMistakeErrorTag = useCallback(
+    (questionId: string, tag: MistakeErrorTag | null) => {
+      setMistakeErrorTags((prev) => {
+        const next = { ...prev };
+        if (!tag || next[questionId] === tag) {
+          delete next[questionId];
+        } else {
+          next[questionId] = tag;
+        }
+        writeJson(mistakeTagsKey, next);
+        return next;
+      });
+    },
+    [mistakeTagsKey]
+  );
+
   const toggleZenMode = useCallback(() => setZenMode((z) => !z), []);
   const toggleSidebarCollapsed = useCallback(() => setSidebarCollapsed((c) => !c), []);
 
@@ -464,6 +552,15 @@ export function Prepskm2Provider({ children }: { children: ReactNode }) {
       sidebarCollapsed,
       setSidebarCollapsed,
       toggleSidebarCollapsed,
+      levelProgress,
+      prepsbotVictory,
+      triggerPrepsBotVictory,
+      clearPrepsBotVictory,
+      mistakeErrorTags,
+      setMistakeErrorTag,
+      liveTeacherRequest,
+      openLiveTeacher,
+      closeLiveTeacher,
     }),
     [
       progression,
@@ -488,6 +585,15 @@ export function Prepskm2Provider({ children }: { children: ReactNode }) {
       addMentorshipPass,
       sidebarCollapsed,
       toggleSidebarCollapsed,
+      levelProgress,
+      prepsbotVictory,
+      triggerPrepsBotVictory,
+      clearPrepsBotVictory,
+      mistakeErrorTags,
+      setMistakeErrorTag,
+      liveTeacherRequest,
+      openLiveTeacher,
+      closeLiveTeacher,
     ]
   );
 
