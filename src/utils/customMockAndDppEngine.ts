@@ -485,7 +485,7 @@ export function generateTailoredChapterDpp(
     slug: `dpp-${cleanChapter.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now()}`,
     destination: 'dpp',
     cohortId: request.cohortId,
-    targetCohorts: [request.cohortId],
+    cohortIds: [request.cohortId],
     subjectId: request.subjectId,
     chapterId: request.chapterId,
     examCategory: `${request.subjectName} Chapter DPP`,

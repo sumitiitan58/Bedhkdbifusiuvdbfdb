@@ -3,9 +3,217 @@ import { motion } from 'motion/react';
 import { CheckCircle2, Eraser, Lightbulb, PenTool, RotateCcw } from 'lucide-react';
 import type { LiveTeacherStep } from '../../utils/liveTeacherEngine';
 import { buildHandwritingLines } from '../../utils/lipSyncEngine';
-import { KatexFormula } from '../math/KatexFormula';
+import { KatexFormula, RichMathText } from '../math/KatexFormula';
 
 export type BoardSurfaceTheme = 'blackboard' | 'whiteboard';
+
+/**
+ * Animated tilted graphite pencil nib that visibly writes along the active character stroke.
+ */
+export function PencilWritingNib({ isLightBoard }: { isLightBoard: boolean }) {
+  return (
+    <span
+      aria-hidden="true"
+      data-testid="pencil-writing-nib"
+      className="pencil-writing-nib ml-0.5 -mt-1.5 select-none"
+    >
+      <svg
+        width="22"
+        height="22"
+        viewBox="0 0 28 28"
+        fill="none"
+        className={
+          isLightBoard
+            ? 'drop-shadow-[0_2px_4px_rgba(29,86,198,0.35)]'
+            : 'drop-shadow-[0_0_8px_rgba(0,180,255,0.65)]'
+        }
+      >
+        {/* Eraser cap */}
+        <rect
+          x="19.5"
+          y="2.2"
+          width="5.2"
+          height="3.4"
+          rx="1.2"
+          transform="rotate(45 19.5 2.2)"
+          fill="#FB7185"
+        />
+        {/* Metallic ferrule */}
+        <rect
+          x="17.2"
+          y="4.5"
+          width="5.2"
+          height="2.4"
+          transform="rotate(45 17.2 4.5)"
+          fill="#CBD5E1"
+        />
+        {/* Yellow/Amber wooden pencil shaft */}
+        <path
+          d="M17.2 6.2L21.0 10.0L9.2 21.8L5.4 18.0L17.2 6.2Z"
+          fill="#F59E0B"
+          stroke={isLightBoard ? '#B45309' : '#FDE68A'}
+          strokeWidth="0.9"
+        />
+        {/* Sharpened wood cone */}
+        <path d="M5.4 18.0L9.2 21.8L3.4 24.4L5.4 18.0Z" fill="#FDE68A" />
+        {/* Graphite tip + active ink glow */}
+        <path d="M4.2 21.6L6.0 23.4L2.8 24.9L4.2 21.6Z" fill={isLightBoard ? '#1D56C6' : '#00B4FF'} />
+        <circle
+          cx="2.6"
+          cy="25.0"
+          r="1.6"
+          fill={isLightBoard ? '#1D56C6' : '#00B4FF'}
+          fillOpacity="0.85"
+        />
+      </svg>
+    </span>
+  );
+}
+
+interface HandwrittenQuestionCardProps {
+  questionPrompt: string;
+  studentAnswer?: string;
+  officialAnswer?: string;
+  surface: BoardSurfaceTheme;
+  /** Live normalized speech progress (0..1) during Step 0 */
+  speechProgress: number;
+  isFirstStep: boolean;
+  isPlaying: boolean;
+  replayNonce: number;
+}
+
+/**
+ * Dynamically hand-writes the full problem statement onto the whiteboard
+ * in real-time synchronization with the tutor's opening speech, then locks into crisp KaTeX.
+ */
+export function HandwrittenQuestionCard({
+  questionPrompt,
+  studentAnswer,
+  officialAnswer,
+  surface,
+  speechProgress,
+  isFirstStep,
+  isPlaying,
+  replayNonce,
+}: HandwrittenQuestionCardProps) {
+  const isLightBoard = surface === 'whiteboard';
+  const plainReadablePrompt = useMemo(
+    () =>
+      questionPrompt
+        .replace(/\$\$([^$]+)\$\$/g, '$1')
+        .replace(/\$([^$]+)\$/g, '$1')
+        .replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, '($1)/($2)')
+        .replace(/\\sqrt\{([^}]+)\}/g, '√($1)')
+        .replace(/\\theta/g, 'θ')
+        .replace(/\\mu/g, 'μ')
+        .replace(/\\pi/g, 'π')
+        .replace(/\\times/g, '×')
+        .replace(/\\/g, '')
+        .trim(),
+    [questionPrompt]
+  );
+
+  // Allow student to replay question handwriting anytime
+  const [manualReplayProgress, setManualReplayProgress] = useState<number | null>(null);
+
+  useEffect(() => {
+    setManualReplayProgress(null);
+  }, [questionPrompt, replayNonce]);
+
+  useEffect(() => {
+    if (manualReplayProgress === null) return;
+    if (manualReplayProgress >= 1) {
+      setManualReplayProgress(null);
+      return;
+    }
+    let rafId = 0;
+    const startPerf = performance.now();
+    const durationMs = Math.max(1200, Math.min(2600, plainReadablePrompt.length * 16));
+    const tick = (now: number) => {
+      const next = Math.min(1, (now - startPerf) / durationMs);
+      setManualReplayProgress(next);
+      if (next < 1) {
+        rafId = window.requestAnimationFrame(tick);
+      }
+    };
+    rafId = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(rafId);
+  }, [manualReplayProgress !== null, plainReadablePrompt.length]);
+
+  // Question writes during the opening 38% of Step 0 speech so full question finishes cleanly as Step 1 equations unfold
+  const questionProgress =
+    manualReplayProgress !== null
+      ? manualReplayProgress
+      : !isFirstStep
+        ? 1
+        : Math.min(1, Math.max(0.08, speechProgress / 0.38));
+
+  const isWritingQuestion = questionProgress < 0.99 && (isPlaying || manualReplayProgress !== null);
+  const revealedCharCount = Math.max(1, Math.ceil(questionProgress * plainReadablePrompt.length));
+  const revealedPrompt = plainReadablePrompt.slice(0, revealedCharCount);
+
+  return (
+    <div
+      data-testid="handwritten-question-card"
+      className={`relative z-10 rounded-2xl border p-3 sm:p-3.5 space-y-2 transition-colors ${
+        isLightBoard
+          ? 'bg-white/95 border-slate-200 text-slate-900 shadow-xs'
+          : 'bg-[#0D1528]/90 border-white/10 text-slate-100'
+      }`}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono">
+        <div className="flex items-center gap-2">
+          <span
+            className={`font-bold uppercase tracking-wider ${
+              isLightBoard ? 'text-[#1D56C6]' : 'text-[#00B4FF]'
+            }`}
+          >
+            Full Question on Whiteboard
+          </span>
+          {isWritingQuestion && (
+            <span className="text-[10px] font-bold text-amber-400">Writing with voice…</span>
+          )}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {studentAnswer && (
+            <span className="font-semibold text-rose-500">Your Pick: {studentAnswer}</span>
+          )}
+          {officialAnswer && (
+            <span className="font-bold text-emerald-500">Official: {officialAnswer}</span>
+          )}
+          <button
+            type="button"
+            onClick={() => setManualReplayProgress(0.02)}
+            title="Replay pencil handwriting for full question"
+            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-[10px] font-semibold transition-colors ${
+              isLightBoard
+                ? 'bg-slate-100 border-slate-200 text-slate-600 hover:text-[#1D56C6]'
+                : 'bg-white/5 border-white/10 text-slate-300 hover:text-[#00B4FF]'
+            }`}
+          >
+            <RotateCcw className="w-2.5 h-2.5" />
+            Rewrite Q
+          </button>
+        </div>
+      </div>
+
+      {isWritingQuestion ? (
+        <p
+          className={`font-handwriting text-lg sm:text-[21px] leading-snug font-semibold ${
+            isLightBoard ? 'text-[#0E234E]' : 'text-slate-100'
+          }`}
+        >
+          {revealedPrompt}
+          <PencilWritingNib isLightBoard={isLightBoard} />
+        </p>
+      ) : (
+        <p className="font-handwriting text-lg sm:text-[21px] leading-snug font-semibold">
+          <RichMathText text={questionPrompt} />
+        </p>
+      )}
+    </div>
+  );
+}
 
 interface HandwritingStepCardProps {
   step: LiveTeacherStep;
@@ -15,6 +223,8 @@ interface HandwritingStepCardProps {
   replayNonce: number;
   handRaised: boolean;
   surface: BoardSurfaceTheme;
+  /** Real-time normalized speech progress (0..1) from SpeechSynthesis onboundary + prosody clock */
+  speechProgress: number;
   onSelectStep: () => void;
   cardRef?: React.Ref<HTMLDivElement>;
 }
@@ -27,6 +237,7 @@ export function HandwritingStepCard({
   replayNonce,
   handRaised,
   surface,
+  speechProgress,
   onSelectStep,
   cardRef,
 }: HandwritingStepCardProps) {
@@ -36,38 +247,55 @@ export function HandwritingStepCard({
     return last ? last.startMs + last.durationMs : 1200;
   }, [lines]);
 
-  // Previous completed steps appear already written; active step writes progressively in real time!
-  const [elapsedMs, setElapsedMs] = useState(isCurrent ? 0 : totalDurationMs + 200);
-  const [localReplay, setLocalReplay] = useState(0);
+  // Allow independent local "Ink" replay override when clicked by student
+  const [localReplayElapsed, setLocalReplayElapsed] = useState<number | null>(null);
+  const [localReplayCount, setLocalReplayCount] = useState(0);
 
   useEffect(() => {
-    if (!isCurrent) {
-      setElapsedMs(totalDurationMs + 200);
-      return;
-    }
-    setElapsedMs(0);
-  }, [isCurrent, step.stepNumber, replayNonce, localReplay, totalDurationMs]);
+    setLocalReplayElapsed(null);
+  }, [isCurrent, step.stepNumber, replayNonce]);
 
   useEffect(() => {
-    if (!isCurrent) return;
-    if (!isPlaying && elapsedMs > 0) return;
-
+    if (localReplayCount === 0 || !isCurrent) return;
+    setLocalReplayElapsed(0);
     let rafId = 0;
     let lastTs = performance.now();
 
     const tick = (now: number) => {
       const dt = Math.min(80, now - lastTs);
       lastTs = now;
-      setElapsedMs((prev) => {
+      setLocalReplayElapsed((prev) => {
+        if (prev === null) return null;
         const next = prev + dt;
-        return next >= totalDurationMs + 160 ? totalDurationMs + 160 : next;
+        if (next >= totalDurationMs + 120) {
+          return null;
+        }
+        return next;
       });
       rafId = window.requestAnimationFrame(tick);
     };
 
     rafId = window.requestAnimationFrame(tick);
     return () => window.cancelAnimationFrame(rafId);
-  }, [isCurrent, isPlaying, totalDurationMs, step.stepNumber, replayNonce, localReplay]);
+  }, [localReplayCount, isCurrent, totalDurationMs]);
+
+  // Synchronize active step handwriting directly to live spoken audio progress (0..1)!
+  // On Step 1, start revealing solution lines right after the opening 22% question intro.
+  const syncedProgress = useMemo(() => {
+    if (!isCurrent) return 1;
+    if (localReplayElapsed !== null) {
+      return Math.min(1, localReplayElapsed / Math.max(1, totalDurationMs));
+    }
+    const clampedSpeech = Math.max(0, Math.min(1, speechProgress));
+    if (step.stepNumber === 1) {
+      // Gently lead into Step 1 lines while finishing question read-out, reaching 100% by 96% speech
+      const shifted = Math.max(0.06, (clampedSpeech - 0.14) / 0.82);
+      return Math.min(1, shifted);
+    }
+    return Math.min(1, Math.max(0.04, clampedSpeech / 0.94));
+  }, [isCurrent, localReplayElapsed, totalDurationMs, speechProgress, step.stepNumber]);
+
+  const effectiveElapsedMs = syncedProgress * totalDurationMs;
 
   const isLightBoard = surface === 'whiteboard';
   const headingLine = lines[0];
@@ -77,17 +305,17 @@ export function HandwritingStepCard({
 
   const getRevealedText = (line: (typeof lines)[number]) => {
     if (!line) return { visible: '', writing: false, done: true };
-    if (!isCurrent || elapsedMs >= line.startMs + line.durationMs) {
+    if (!isCurrent || effectiveElapsedMs >= line.startMs + line.durationMs) {
       return { visible: line.text, writing: false, done: true };
     }
-    if (elapsedMs <= line.startMs) {
+    if (effectiveElapsedMs <= line.startMs) {
       return { visible: '', writing: false, done: false };
     }
-    const progress = (elapsedMs - line.startMs) / Math.max(1, line.durationMs);
+    const progress = (effectiveElapsedMs - line.startMs) / Math.max(1, line.durationMs);
     const charCount = Math.max(1, Math.ceil(progress * line.text.length));
     return {
       visible: line.text.slice(0, charCount),
-      writing: charCount < line.text.length,
+      writing: charCount < line.text.length && (isPlaying || localReplayElapsed !== null),
       done: false,
     };
   };
@@ -97,21 +325,13 @@ export function HandwritingStepCard({
   const noteState = getRevealedText(noteLine);
   const tipState = getRevealedText(tipLine);
 
-  const penNib = (
-    <span
-      aria-hidden="true"
-      className={`inline-flex items-center ml-1 align-middle animate-pulse ${
-        isLightBoard ? 'text-[#1D56C6]' : 'text-[#00B4FF]'
-      }`}
-    >
-      <PenTool className="w-3.5 h-3.5 -rotate-90" />
-    </span>
-  );
+  const penNib = <PencilWritingNib isLightBoard={isLightBoard} />;
 
   return (
     <motion.article
       ref={cardRef}
       data-testid={`handwriting-step-${step.stepNumber}`}
+      data-sync-progress={Math.round(syncedProgress * 100)}
       initial={{ opacity: 0, y: 14, scale: 0.99 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ type: 'spring', stiffness: 320, damping: 26 }}
@@ -126,7 +346,7 @@ export function HandwritingStepCard({
             : 'bg-[#0D1324]/75 border-white/10 opacity-85 hover:opacity-100 hover:border-white/25 text-slate-200'
       }`}
     >
-      {/* Handwritten Step Heading + Animated Chalk Underline */}
+      {/* Handwritten Step Heading + Animated Chalk/Pencil Underline */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <span
@@ -160,8 +380,8 @@ export function HandwritingStepCard({
                 strokeWidth="2.2"
                 strokeLinecap="round"
                 initial={{ pathLength: isCurrent ? 0 : 1 }}
-                animate={{ pathLength: headingState.done ? 1 : 0.25 }}
-                transition={{ duration: 0.45 }}
+                animate={{ pathLength: headingState.done ? 1 : Math.max(0.2, syncedProgress * 2.5) }}
+                transition={{ duration: 0.2 }}
               />
             </svg>
           </div>
@@ -173,10 +393,10 @@ export function HandwritingStepCard({
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                setLocalReplay((n) => n + 1);
+                setLocalReplayCount((n) => n + 1);
               }}
               aria-label={`Replay handwriting for step ${step.stepNumber}`}
-              title="Replay step handwriting"
+              title="Replay step pencil handwriting"
               className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-mono font-semibold border transition-colors ${
                 isLightBoard
                   ? 'bg-slate-100 border-slate-200 text-slate-600 hover:text-[#1D56C6]'
@@ -193,7 +413,11 @@ export function HandwritingStepCard({
                 isLightBoard ? 'text-[#D97706]' : 'text-amber-300'
               }`}
             >
-              {handRaised ? 'Paused' : isPlaying ? 'Writing…' : 'Active'}
+              {handRaised
+                ? 'Paused'
+                : syncedProgress < 0.99 && isPlaying
+                  ? `Writing ${Math.round(syncedProgress * 100)}%`
+                  : 'Synced'}
             </span>
           )}
         </div>

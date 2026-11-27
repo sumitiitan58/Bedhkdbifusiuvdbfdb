@@ -3,8 +3,17 @@ import { motion } from 'motion/react';
 import prepsbotTeacherImg from '../../assets/images/prepsbot_teacher_transparent.png';
 import type { VisemeSample } from '../../utils/lipSyncEngine';
 
-export type AvatarViewMode = 'lipsync' | '3d';
+export type AvatarViewMode = 'lipsync' | 'robot-squad' | '3d';
 export type TutorPose = 'wave' | 'speaking' | 'idle' | 'listening';
+
+export const PREPSBOT_SQUAD_IMAGE_URL = '/assets/aistudio/IMG_1608_9fc2c23c.png';
+
+const ROBOT_SQUAD_PERSONAS = [
+  { id: 'formula', label: 'Formula', pos: '5% 52%', accent: '#00B4FF' },
+  { id: 'analytics', label: 'Stats', pos: '36% 52%', accent: '#F27B13' },
+  { id: 'mentor', label: 'NCERT', pos: '65% 50%', accent: '#10B981' },
+  { id: 'study', label: 'Focus', pos: '95% 52%', accent: '#A855F7' },
+] as const;
 
 interface LipSyncTutorAvatarProps {
   mode: AvatarViewMode;
@@ -45,6 +54,8 @@ export function LipSyncTutorAvatar({
 }: LipSyncTutorAvatarProps) {
   const [blinking, setBlinking] = useState(false);
   const [pulseTick, setPulseTick] = useState(0);
+  const [squadPersonaIdx, setSquadPersonaIdx] = useState(0);
+  const activePersona = ROBOT_SQUAD_PERSONAS[squadPersonaIdx] ?? ROBOT_SQUAD_PERSONAS[0];
 
   // Natural autonomous eye blinking every ~3.4s
   useEffect(() => {
@@ -377,6 +388,72 @@ export function LipSyncTutorAvatar({
               />
             </g>
           </svg>
+        </div>
+      ) : mode === 'robot-squad' ? (
+        <div
+          data-testid="robot-squad-avatar"
+          className="relative flex-1 min-h-0 w-full flex flex-col items-center justify-between gap-2 py-1 overflow-hidden"
+        >
+          {/* Audio-reactive ambient halo matched to active PrepsBot persona */}
+          <div
+            aria-hidden="true"
+            style={{
+              backgroundColor: activePersona.accent,
+              transform: `scale(${(0.92 + visemeSample.energy * 0.18).toFixed(3)})`,
+              opacity: isPlaying || micListening ? 0.28 + visemeSample.energy * 0.28 : 0.14,
+            }}
+            className="pointer-events-none absolute top-8 w-44 h-44 rounded-full blur-2xl transition-all duration-100"
+          />
+
+          <motion.div
+            animate={{
+              y: isPlaying ? [-2, -6 - visemeSample.openness * 5, -2] : 0,
+              rotate: stepPointTiltDeg * 0.65,
+            }}
+            transition={{ duration: 0.45, ease: 'easeInOut' }}
+            className="relative z-10 w-[210px] h-[230px] rounded-2xl overflow-hidden border border-white/15 bg-gradient-to-b from-slate-100 via-sky-50 to-indigo-50 shadow-[0_18px_36px_-12px_rgba(0,180,255,0.4)]"
+          >
+            <img
+              src={PREPSBOT_SQUAD_IMAGE_URL}
+              alt={`PrepsBot ${activePersona.label} AI Tutor`}
+              draggable={false}
+              style={{
+                objectPosition: activePersona.pos,
+              }}
+              className="w-full h-full object-cover scale-[1.06] transition-all duration-300 select-none"
+            />
+            {/* Live Audio-Reactive Voice Equalizer Pill on Robot Stage */}
+            <div className="absolute bottom-2 inset-x-2 px-2.5 py-1 rounded-xl bg-[#070B14]/85 backdrop-blur-md border border-white/15 flex items-center justify-between gap-2">
+              <span className="text-[10px] font-mono font-bold text-white truncate">
+                PrepsBot · {activePersona.label}
+              </span>
+              <span
+                style={{
+                  transform: `scaleY(${(0.55 + visemeSample.openness * 1.1).toFixed(2)})`,
+                  backgroundColor: activePersona.accent,
+                }}
+                className="w-5 h-2 rounded-full transition-transform duration-75"
+              />
+            </div>
+          </motion.div>
+
+          {/* 4-Robot Squad Persona Selector */}
+          <div className="relative z-10 grid grid-cols-4 gap-1 w-full">
+            {ROBOT_SQUAD_PERSONAS.map((bot, idx) => (
+              <button
+                key={bot.id}
+                type="button"
+                onClick={() => setSquadPersonaIdx(idx)}
+                className={`py-1 px-1 rounded-lg text-[10px] font-bold border transition-all ${
+                  idx === squadPersonaIdx
+                    ? 'bg-[#00B4FF]/20 border-[#00B4FF] text-white shadow-xs'
+                    : 'bg-[#070C18]/80 border-white/10 text-slate-400 hover:text-white'
+                }`}
+              >
+                {bot.label}
+              </button>
+            ))}
+          </div>
         </div>
       ) : (
         <div className="relative flex-1 min-h-0 w-full flex items-end justify-center pb-1 overflow-hidden">

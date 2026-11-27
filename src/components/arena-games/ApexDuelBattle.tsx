@@ -120,7 +120,7 @@ export function ApexDuelBattle() {
     (finalPlayerPts: number, finalAiPts: number, finalLog: RoundLogEntry[]) => {
       const won = finalPlayerPts >= finalAiPts;
       const correctCount = finalLog.filter((l) => l.playerCorrect).length;
-      const accuracy = Math.round((correctCount / Math.max(1, finalLog.length)) * 100);
+      const accuracyRatio = correctCount / Math.max(1, finalLog.length);
       const subjectKey =
         trackId === 'quantum-clash'
           ? 'physics'
@@ -130,18 +130,20 @@ export function ApexDuelBattle() {
       const xpGain = won ? 140 + correctCount * 15 : 55 + correctCount * 10;
       setEarnedXp(xpGain);
       recordArenaGameResult({
+        gameName: `Apex 1v1 vs ${rival.name}`,
         subject: subjectKey,
+        score: finalPlayerPts,
+        accuracyRatio,
+        maxCombo: Math.max(1, playerStreak),
         xpEarned: xpGain,
-        won,
-        accuracyPercent: accuracy,
       });
       if (won) {
         playSuccess();
-        triggerComboConfetti();
+        triggerComboConfetti(5);
       }
       setPhase('summary');
     },
-    [recordArenaGameResult, trackId]
+    [playerStreak, recordArenaGameResult, rival.name, trackId]
   );
 
   const resolveRound = useCallback(
@@ -169,7 +171,7 @@ export function ApexDuelBattle() {
       const nextTier = getApexRankTier(trade.nextPlayerPoints);
       if (nextTier.rankIndex > prevTier.rankIndex) {
         setRankFlash(`RANK UP → ${nextTier.tierName}!`);
-        triggerComboConfetti();
+        triggerComboConfetti(4);
       } else if (nextTier.rankIndex < prevTier.rankIndex) {
         setRankFlash(`Rank Dropped → ${nextTier.tierName}`);
       } else {
@@ -633,7 +635,7 @@ export function ApexDuelBattle() {
                           questionText: entry.question.prompt,
                           officialAnswer: entry.question.options[entry.question.correctIndex],
                           solutionText: entry.question.explanation,
-                          source: 'arena',
+                          source: 'preps-ai',
                         })
                       }
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#00B4FF] text-[#070A12] text-xs font-extrabold whitespace-nowrap"

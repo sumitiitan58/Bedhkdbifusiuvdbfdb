@@ -1,6 +1,0 @@
-# Canonical route redirects for Cloudflare Pages
-# Valid 301 permanent redirects only (no Netlify 200! syntax, no catch-all SPA redirect loops).
-# Cloudflare Pages automatically routes /api/* to Functions and serves /index.html for SPA routes.
-/tests /cbt-mocks 301
-/analysis /analytics 301
-/mistake-notebook /mistakes 301

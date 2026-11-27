@@ -28,12 +28,17 @@ import {
   buildTestSeoDescription,
   buildTestSeoTitle,
 } from './src/data/seoContent';
-import { countConfiguredProviders, runPrepsAiWithFallback } from './functions/api/preps-ai.js';
 import {
   buildTutorStudioPrompt,
+  countConfiguredProviders,
   extractJsonObject,
+  isAllowedCorsOrigin,
+  normalizeMessages,
+  runPrepsAiWithFallback,
   runTutorStudioWithFallback,
-} from './functions/api/ai/tutor-studio.js';
+  sanitizeClientContext,
+  sanitizeErrorMessage,
+} from './api/_lib/aiGateway';
 import {
   JEE_CONCISE_CHAPTERS,
   JEE_CONCISE_MATERIALS,
@@ -506,25 +511,25 @@ function getGeminiClient(): GoogleGenAI {
 }
 
 function formatGeminiError(err: unknown): { status: number; message: string } {
-  const raw = err instanceof Error ? err.message : String(err);
+  const raw = sanitizeErrorMessage(err);
   if (raw.includes('GEMINI_API_KEY is not configured')) {
     return { status: 503, message: raw };
   }
   if (raw.includes('API_KEY_INVALID') || raw.includes('PERMISSION_DENIED') || raw.includes('403')) {
     return {
       status: 403,
-      message: 'Gemini API key was rejected. Please verify your key in Settings > Secrets.',
+      message: 'AI provider key was rejected. Please verify your server environment variables.',
     };
   }
   if (raw.includes('RESOURCE_EXHAUSTED') || raw.includes('429')) {
     return {
       status: 429,
-      message: 'Gemini API quota reached temporarily. Please wait a moment and try again.',
+      message: 'AI API quota reached temporarily. Please wait a moment and try again.',
     };
   }
   return {
     status: 500,
-    message: raw || 'Gemini AI request failed.',
+    message: raw || 'AI request failed.',
   };
 }
 
@@ -961,16 +966,10 @@ async function createApp() {
     }
   });
 
-  // 4. Preps AI Multi-Provider Fallback Endpoint (mirrors functions/api/preps-ai.js for local & Node runtimes)
-  app.options('/api/preps-ai', (req, res) => {
+  // 4. Preps AI Multi-Provider Fallback Endpoint (mirrors Vercel /api/preps-ai, /api/chat & /api/gemini/chat)
+  app.options(['/api/preps-ai', '/api/chat', '/api/gemini/chat'], (req, res) => {
     const origin = req.headers.origin || '';
-    if (
-      origin === 'https://prepskm.in' ||
-      origin === 'https://www.prepskm.in' ||
-      /^https:\/\/[a-z0-9-]+\.pages\.dev$/i.test(origin) ||
-      /^https:\/\/[a-z0-9-]+\.[a-z0-9-]+\.pages\.dev$/i.test(origin) ||
-      /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin)
-    ) {
+    if (isAllowedCorsOrigin(origin)) {
       res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader('Vary', 'Origin');
     }
@@ -979,49 +978,16 @@ async function createApp() {
     res.status(204).end();
   });
 
-  app.post(['/api/preps-ai', '/api/gemini/chat'], async (req, res) => {
+  app.post(['/api/preps-ai', '/api/chat', '/api/gemini/chat'], async (req, res) => {
     const origin = req.headers.origin || '';
-    if (
-      origin === 'https://prepskm.in' ||
-      origin === 'https://www.prepskm.in' ||
-      /^https:\/\/[a-z0-9-]+\.pages\.dev$/i.test(origin) ||
-      /^https:\/\/[a-z0-9-]+\.[a-z0-9-]+\.pages\.dev$/i.test(origin) ||
-      /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin)
-    ) {
+    if (isAllowedCorsOrigin(origin)) {
       res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader('Vary', 'Origin');
     }
 
     try {
-      const body = (req.body ?? {}) as {
-        messages?: Array<{ role?: string; content?: string; text?: string }>;
-        context?: Record<string, unknown>;
-        message?: string;
-        history?: Array<{ role?: string; text?: string; content?: string }>;
-        studentContext?: Record<string, unknown>;
-        voiceMode?: boolean;
-      };
-
-      const normalizedMessages: Array<{ role: 'user' | 'assistant'; content: string }> = [];
-      if (Array.isArray(body.messages) && body.messages.length > 0) {
-        for (const item of body.messages.slice(-14)) {
-          const role = item?.role === 'assistant' || item?.role === 'model' ? 'assistant' : 'user';
-          const content = String(item?.content ?? item?.text ?? '').trim().slice(0, 3000);
-          if (content) normalizedMessages.push({ role, content });
-        }
-      } else {
-        if (Array.isArray(body.history)) {
-          for (const item of body.history.slice(-13)) {
-            const role = item?.role === 'assistant' || item?.role === 'model' ? 'assistant' : 'user';
-            const content = String(item?.content ?? item?.text ?? '').trim().slice(0, 3000);
-            if (content) normalizedMessages.push({ role, content });
-          }
-        }
-        const single = String(body.message ?? '').trim().slice(0, 3000);
-        if (single) {
-          normalizedMessages.push({ role: 'user', content: single });
-        }
-      }
+      const body = (req.body ?? {}) as Record<string, unknown>;
+      const normalizedMessages = normalizeMessages(body);
 
       if (normalizedMessages.length === 0) {
         res.status(400).json({
@@ -1031,10 +997,10 @@ async function createApp() {
         return;
       }
 
-      const context = {
-        ...(body.context ?? body.studentContext ?? {}),
-        ...(body.voiceMode ? { voiceMode: true } : {}),
-      };
+      const context = sanitizeClientContext(body.context ?? body.studentContext ?? {});
+      if (body.voiceMode) {
+        context.voiceMode = true;
+      }
 
       const result = await runPrepsAiWithFallback({
         messages: normalizedMessages,

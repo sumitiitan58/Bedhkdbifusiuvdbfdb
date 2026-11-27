@@ -3,9 +3,10 @@
 Official repository for **[https://prepskm.in](https://prepskm.in)** by **Sumit (`@unfiltereddsumit`)**.
 
 ## Tech Stack
-- **Frontend**: React 19 + TypeScript + Vite 8 + Tailwind CSS v4 + Motion + Recharts
-- **Backend & Persistence**: Firebase Auth (Google Sign-In), Cloud Firestore (`ai-studio-prepskminjeeneet-730a42da-491c-4a04-bc9c-abb88c4d760c`), Firebase Storage
-- **AI Endpoints**: Express (`server.ts`) for Node/Cloud Run + Netlify Function (`netlify/functions/gemini.mjs`) for serverless hosting
+- **Frontend**: React 19 + TypeScript + Vite 8 + Tailwind CSS v4 + Motion + Recharts + KaTeX
+- **Deployment & Serverless API**: Exclusively configured for **Vercel** (`vercel.json` + `/api/*.ts` Vercel Functions)
+- **Local Dev Server**: Express + Vite middleware (`server.ts`) mirroring `/api/*` locally on port `3000`
+- **Persistence**: Firebase Auth (Google Sign-In), Cloud Firestore, and local guest study storage
 
 ## Local Development
 ```bash
@@ -17,34 +18,26 @@ npm run dev
 ```bash
 npm run build
 ```
-Build output is generated in `dist/` (including `index.html`, favicons, manifest, robots.txt, sitemap.xml, `_redirects`, and bundled assets).
+Build output is generated in `dist/` (including `index.html`, favicons, manifest, `robots.txt`, `sitemap.xml`, pre-rendered SEO routes, and hashed assets).
 
-## Deploying from GitHub (Works Identically on Any Host)
+## Deploying on Vercel (`prepskm.in`)
+This repository is configured exclusively for **Vercel** via `vercel.json`:
+- **Framework Preset**: Vite
+- **Build Command**: `npm run build`
+- **Output Directory**: `dist`
+- **Node.js Version**: `20.x` or `22.x`
 
-### 1. Netlify (`prepskm.in`)
-`netlify.toml` and `public/_redirects` are pre-configured in this repository:
-- **Build command**: `npm run build`
-- **Publish directory**: `dist`
-- **Node version**: `22` (pinned in `netlify.toml` & `.nvmrc`)
-- **Optional Environment Variable**: Add `GEMINI_API_KEY` in **Site configuration → Environment variables** to enable live Gemini AI Mentor, PDF Question Extraction, and Question Explainer on Netlify.
-- **Important**: If your existing Netlify site previously had an empty Build Command or Publish Directory set to `.`, go to **Site configuration → Build & deploy → Build settings** and ensure Build command is `npm run build` and Publish directory is `dist`, then trigger **Clear cache and deploy site**.
+### Required Server-Only Environment Variables (Vercel Project Settings → Environment Variables)
+Add one or more AI provider keys as **server-only** variables (never prefix private keys with `VITE_`):
+- `GROQ_API_KEY`
+- `GEMINI_API_KEY`
+- `DEEPSEEK_API_KEY`
+- `OPENROUTER_API_KEY`
+- `MISTRAL_API_KEY`
 
-### 2. Firebase Hosting (`prepskm.in`)
-`firebase.json` and `.firebaserc` are pre-configured for project `gen-lang-client-0309095308`:
-```bash
-npm run build
-npx firebase-tools deploy --only hosting
-```
-Then connect `prepskm.in` under **Firebase Console → Hosting → Add custom domain**.
+Leave `VITE_API_BASE_URL` blank on Vercel so all frontend requests call same-origin `/api/*` Vercel Functions directly.
 
-### 3. Vercel / Cloudflare Pages
-- **Vercel**: Auto-detected via `vercel.json` (`npm run build` → `dist`).
-- **Cloudflare Pages**: Set **Build command** to `npm run build`, **Build output directory** to `dist`, and `NODE_VERSION=22` (`public/_redirects` handles SPA routes).
-
-## Required One-Time Firebase Setup for `prepskm.in`
-For **Google Sign-In** to work on your custom domain:
-1. Open **Firebase Console** → Project `gen-lang-client-0309095308`
-2. Go to **Authentication → Settings → Authorized domains**
-3. Click **Add domain** and add:
-   - `prepskm.in`
-   - `www.prepskm.in`
+### Firebase Auth Authorized Domains
+For Google Sign-In on your Vercel domain:
+1. Open **Firebase Console → Authentication → Settings → Authorized domains**
+2. Add `prepskm.in`, `www.prepskm.in`, and your `*.vercel.app` preview domain.

@@ -173,22 +173,6 @@
       href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <style id="prepskm-block-netlify-badge">
-      iframe[src*="netlify"],
-      [id*="netlify"],
-      [class*="netlify"],
-      [data-netlify-deploy-id],
-      [data-netlify-deploy-preview],
-      .netlify-drawer,
-      #netlify-drawer,
-      #netlify-identity-widget {
-        display: none !important;
-        visibility: hidden !important;
-        opacity: 0 !important;
-        pointer-events: none !important;
-        z-index: -9999 !important;
-      }
-    </style>
     <script>
       (function () {
         try {
@@ -196,53 +180,12 @@
           if (saved !== 'light') {
             document.documentElement.classList.add('dark');
           }
+          var savedBackdrop = localStorage.getItem('prepskm_backdrop_v1');
+          if (savedBackdrop) {
+            document.documentElement.dataset.backdrop = savedBackdrop;
+          }
         } catch (e) {
           document.documentElement.classList.add('dark');
-        }
-
-        var NETLIFY_SELECTOR =
-          'iframe[src*="netlify"], [id*="netlify"], [class*="netlify"], [data-netlify-deploy-id], [data-netlify-deploy-preview], .netlify-drawer, #netlify-drawer, #netlify-identity-widget';
-
-        function removeNetlifyWidgets(root) {
-          if (!root || !root.querySelectorAll) return;
-          try {
-            var nodes = root.querySelectorAll(NETLIFY_SELECTOR);
-            for (var i = 0; i < nodes.length; i++) {
-              var el = nodes[i];
-              var tag = el.tagName;
-              if (tag === 'STYLE' || tag === 'SCRIPT' || tag === 'HTML' || tag === 'HEAD' || tag === 'BODY') continue;
-              if (el.id === 'root' || (el.closest && el.closest('#root'))) continue;
-              el.remove();
-            }
-          } catch (e) {}
-        }
-
-        if (typeof MutationObserver !== 'undefined') {
-          var observer = new MutationObserver(function (mutations) {
-            for (var i = 0; i < mutations.length; i++) {
-              var added = mutations[i].addedNodes;
-              for (var j = 0; j < added.length; j++) {
-                var node = added[j];
-                if (!node || node.nodeType !== 1) continue;
-                var tag = node.tagName;
-                if (tag === 'STYLE' || tag === 'SCRIPT' || node.id === 'root') continue;
-                if (node.matches && node.matches(NETLIFY_SELECTOR) && !(node.closest && node.closest('#root'))) {
-                  node.remove();
-                } else if (node.querySelectorAll) {
-                  removeNetlifyWidgets(node);
-                }
-              }
-            }
-          });
-          observer.observe(document.documentElement, { childList: true, subtree: true });
-        }
-
-        if (document.readyState === 'loading') {
-          document.addEventListener('DOMContentLoaded', function () {
-            removeNetlifyWidgets(document);
-          });
-        } else {
-          removeNetlifyWidgets(document);
         }
       })();
     </script>

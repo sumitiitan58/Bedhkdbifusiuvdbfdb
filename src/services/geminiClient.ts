@@ -60,18 +60,68 @@ class ApiHttpError extends Error {
   }
 }
 
-async function postJson<T>(url: string, body: unknown): Promise<T> {
+const DEFAULT_FETCH_TIMEOUT_MS = 22_000;
+const RETRYABLE_HTTP_STATUSES = new Set([408, 429, 502, 503, 504]);
+
+async function postJson<T>(
+  url: string,
+  body: unknown,
+  options: { timeoutMs?: number; maxRetries?: number } = {}
+): Promise<T> {
   const resolvedUrl = resolveApiUrl(url);
-  const res = await fetch(resolvedUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string } & T;
-  if (!res.ok || data.ok === false) {
-    throw new ApiHttpError(data.error || `Request failed with status ${res.status}`, res.status);
+  const timeoutMs = options.timeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS;
+  const maxRetries = options.maxRetries ?? 1;
+
+  let lastError: unknown = null;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const controller = new AbortController();
+    const timer = globalThis.setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const res = await fetch(resolvedUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+
+      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string } & T;
+      if (!res.ok || data.ok === false) {
+        const httpErr = new ApiHttpError(
+          data.error || `Request failed with status ${res.status}`,
+          res.status
+        );
+        if (attempt < maxRetries && RETRYABLE_HTTP_STATUSES.has(res.status)) {
+          lastError = httpErr;
+          await new Promise((r) => globalThis.setTimeout(r, 350 * (attempt + 1)));
+          continue;
+        }
+        throw httpErr;
+      }
+      return data;
+    } catch (err) {
+      lastError = err;
+      if (err instanceof ApiHttpError && !RETRYABLE_HTTP_STATUSES.has(err.status)) {
+        throw err;
+      }
+      if (attempt < maxRetries) {
+        await new Promise((r) => globalThis.setTimeout(r, 350 * (attempt + 1)));
+        continue;
+      }
+      if (err instanceof Error && err.name === 'AbortError') {
+        throw new ApiHttpError('Request timed out while contacting Preps AI.', 504);
+      }
+      throw err;
+    } finally {
+      globalThis.clearTimeout(timer);
+    }
   }
-  return data;
+
+  throw lastError instanceof Error ? lastError : new ApiHttpError('Network request failed.', 0);
 }
 
 export async function requestGeminiMentor(payload: {

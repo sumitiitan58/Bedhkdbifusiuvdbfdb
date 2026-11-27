@@ -30,6 +30,7 @@ import { ReusableButton } from '../components/ReusableButton';
 import { SeoHead } from '../components/SeoHead';
 import { FullPageMediaReader } from '../components/materials/FullPageMediaReader';
 import { CbtExamRunner } from '../components/exam/CbtExamRunner';
+import { DppGeneratorPanel } from '../components/dpp/DppGeneratorPanel';
 import { AttemptReviewModal } from '../components/analytics/AttemptReviewModal';
 import { NativeBannerAd } from '../components/ads/NativeBannerAd';
 import { GuestDownloadBadge } from '../components/monetization/GuestDownloadBadge';
@@ -64,6 +65,7 @@ import type {
   StudentCohortId,
   StudyMaterialRecord,
   TestAttemptRecord,
+  TestQuestionRecord,
 } from '../types';
 
 function formatBytes(bytes?: number): string {
@@ -136,6 +138,7 @@ export default function MaterialsPage() {
   const [onlyBookmarked, setOnlyBookmarked] = useState(false);
 
   const [activeDpp, setActiveDpp] = useState<MockTestRecord | null>(null);
+  const [customDppQuestions, setCustomDppQuestions] = useState<TestQuestionRecord[] | null>(null);
   const [reviewAttempt, setReviewAttempt] = useState<TestAttemptRecord | null>(null);
 
   const [previewMaterial, setPreviewMaterial] = useState<StudyMaterialRecord | null>(null);
@@ -351,10 +354,11 @@ export default function MaterialsPage() {
     [attempts]
   );
 
-  const activeDppQuestions = useMemo(
-    () => (activeDpp ? questions.filter((q) => q.testId === activeDpp.id) : []),
-    [activeDpp, questions]
-  );
+  const activeDppQuestions = useMemo(() => {
+    if (!activeDpp) return [];
+    if (customDppQuestions && customDppQuestions.length > 0) return customDppQuestions;
+    return questions.filter((q) => q.testId === activeDpp.id);
+  }, [activeDpp, customDppQuestions, questions]);
 
   // Auto-select the first populated tab when opening a chapter
   const handleSelectChapter = (chapterId: string) => {
@@ -578,7 +582,10 @@ export default function MaterialsPage() {
           <CbtExamRunner
             test={activeDpp}
             questions={activeDppQuestions}
-            onExit={() => setActiveDpp(null)}
+            onExit={() => {
+              setActiveDpp(null);
+              setCustomDppQuestions(null);
+            }}
           />
         </ResponsiveContainer>
       </PageLayout>
@@ -1236,6 +1243,20 @@ export default function MaterialsPage() {
                  INLINE CHAPTER DPPs WORKSPACE (Merged directly into Materials)
                  ============================================================== */
               <div className="space-y-6">
+                <DppGeneratorPanel
+                  compact
+                  cohortId={
+                    selectedCohort === 'all' ? cohortId || 'class-12-jee' : selectedCohort
+                  }
+                  subjects={subjects}
+                  chapters={chapters}
+                  allQuestions={questions}
+                  onLaunchDpp={(generatedTest, generatedQuestions) => {
+                    setCustomDppQuestions(generatedQuestions);
+                    setActiveDpp(generatedTest);
+                  }}
+                />
+
                 {publishedDpps.length === 0 ? (
                   <ReusableCard className="py-14 text-center space-y-3">
                     <ClipboardList className="w-10 h-10 text-slate-400 mx-auto" />

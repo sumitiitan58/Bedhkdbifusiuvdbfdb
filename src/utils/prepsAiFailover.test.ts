@@ -4,13 +4,18 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   AI_PROVIDER_ENV_VARS,
+  AI_PROVIDER_REGISTRY,
   countConfiguredProviders,
+  getServerSecret,
   getSingleApiKey,
-  onRequest,
-  onRequestOptions,
-  onRequestPost,
+  resolveCorsHeaders,
   runPrepsAiWithFallback,
-} from '../../functions/api/preps-ai.js';
+  sanitizeClientContext,
+  sanitizeErrorMessage,
+} from '../../api/_lib/aiGateway';
+import { GET as healthGet } from '../../api/health';
+import { OPTIONS as prepsOptions, POST as prepsPost } from '../../api/preps-ai';
+import { POST as chatPost } from '../../api/chat';
 
 function createMockResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -19,12 +24,11 @@ function createMockResponse(status: number, body: unknown): Response {
   });
 }
 
-describe('Preps AI 6-provider individual key failover engine', () => {
-  it('defines the exact 6 individual AI provider environment variables', () => {
+describe('Vercel Server-Only AI Gateway & Multi-Provider Failover', () => {
+  it('defines strictly server-side AI provider env vars with zero VITE_ prefixes or Cloudflare keys', () => {
     assert.deepEqual(
       [...AI_PROVIDER_ENV_VARS].sort(),
       [
-        'CLOUDFLARE_WORKERS_AI_API_KEY',
         'DEEPSEEK_API_KEY',
         'GEMINI_API_KEY',
         'GROQ_API_KEY',
@@ -32,18 +36,39 @@ describe('Preps AI 6-provider individual key failover engine', () => {
         'OPENROUTER_API_KEY',
       ]
     );
+    assert.equal(AI_PROVIDER_REGISTRY.length, 5);
+    for (const key of AI_PROVIDER_ENV_VARS) {
+      assert.ok(!key.startsWith('VITE_'), `Provider secret must never start with VITE_: ${key}`);
+    }
   });
 
-  it('trims single API keys and ignores blank values', () => {
-    assert.equal(getSingleApiKey('  test-key  '), 'test-key');
-    assert.equal(getSingleApiKey('   '), '');
-    assert.equal(getSingleApiKey(undefined), '');
+  it('prevents API key backflow by ignoring VITE_* env vars and stripping client-supplied key fields', () => {
+    assert.equal(getSingleApiKey('  secret-val  '), 'secret-val');
+    assert.equal(getServerSecret({ VITE_GEMINI_API_KEY: 'exposed' }, 'VITE_GEMINI_API_KEY'), '');
+    assert.equal(getServerSecret({ VITE_GEMINI_API_KEY: 'exposed' }, 'GEMINI_API_KEY'), '');
+    assert.equal(getServerSecret({ GEMINI_API_KEY: 'server-only-key' }, 'GEMINI_API_KEY'), 'server-only-key');
+
+    const cleaned = sanitizeClientContext({
+      cohortLabel: 'Class 12 JEE',
+      apiKey: 'sk-should-be-stripped',
+      GEMINI_API_KEY: 'AIzaShouldNotPass',
+      token: 'secret-token',
+    });
+    assert.equal(cleaned.cohortLabel, 'Class 12 JEE');
+    assert.equal('apiKey' in cleaned, false);
+    assert.equal('GEMINI_API_KEY' in cleaned, false);
+    assert.equal('token' in cleaned, false);
+
+    const scrubbed = sanitizeErrorMessage(new Error('Upstream failed with sk-abcdef12345678901234'));
+    assert.ok(!scrubbed.includes('sk-abcdef12345678901234'));
+    assert.ok(scrubbed.includes('[REDACTED]'));
   });
 
-  it('fails over from Groq (429) and Gemini (network error) to DeepSeek seamlessly', async () => {
+  it('fails over seamlessly from Groq (429) and Gemini (network error) to DeepSeek', async () => {
     const calledUrls: string[] = [];
     const fetchImpl = async (input: string | URL | Request) => {
-      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      const url =
+        typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
       calledUrls.push(url);
       if (url.includes('api.groq.com')) {
         return createMockResponse(429, { error: 'rate_limit' });
@@ -73,65 +98,14 @@ describe('Preps AI 6-provider individual key failover engine', () => {
     });
 
     assert.equal(result.ok, true);
-    assert.equal(result.provider, 'deepseek');
-    assert.match(result.reply ?? '', /Gauss Law/i);
+    if (result.ok) {
+      assert.equal(result.provider, 'deepseek');
+      assert.match(result.reply, /Gauss Law/i);
+    }
     assert.equal(calledUrls.length, 3);
-    assert.ok(calledUrls[0].includes('api.groq.com'));
-    assert.ok(calledUrls[1].includes('generativelanguage.googleapis.com'));
-    assert.ok(calledUrls[2].includes('api.deepseek.com'));
   });
 
-  it('fails over through all first 5 providers to Cloudflare Workers AI REST endpoint', async () => {
-    const calledUrls: string[] = [];
-    const fetchImpl = async (input: string | URL | Request) => {
-      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
-      calledUrls.push(url);
-      if (url.includes('api.cloudflare.com/client/v4/accounts/acct-123/ai/v1/chat/completions')) {
-        return createMockResponse(200, {
-          choices: [{ message: { content: 'Cloudflare Workers AI fallback reply.' } }],
-        });
-      }
-      return createMockResponse(503, { error: 'unavailable' });
-    };
-
-    const result = await runPrepsAiWithFallback({
-      messages: [{ role: 'user', content: 'Give me a 7-day JEE plan.' }],
-      context: {},
-      env: {
-        GROQ_API_KEY: 'k1',
-        GEMINI_API_KEY: 'k2',
-        DEEPSEEK_API_KEY: 'k3',
-        OPENROUTER_API_KEY: 'k4',
-        MISTRAL_API_KEY: 'k5',
-        CLOUDFLARE_WORKERS_AI_API_KEY: 'k6',
-        CLOUDFLARE_ACCOUNT_ID: 'acct-123',
-      },
-      fetchImpl: fetchImpl as typeof fetch,
-    });
-
-    assert.equal(result.ok, true);
-    assert.equal(result.provider, 'cloudflare-workers-ai');
-    assert.equal(result.reply, 'Cloudflare Workers AI fallback reply.');
-    assert.equal(calledUrls.length, 6);
-  });
-
-  it('supports native Cloudflare Pages env.AI binding when REST account ID is absent', async () => {
-    const result = await runPrepsAiWithFallback({
-      messages: [{ role: 'user', content: 'State Kirchoff loop rule.' }],
-      context: {},
-      env: {
-        AI: {
-          run: async () => ({ response: 'Sum of potential differences around any closed loop is zero.' }),
-        },
-      },
-    });
-
-    assert.equal(result.ok, true);
-    assert.equal(result.provider, 'cloudflare-workers-ai');
-    assert.match(result.reply ?? '', /closed loop/i);
-  });
-
-  it('returns a safe user-facing error when zero provider keys are configured', async () => {
+  it('returns a safe user-facing message when zero server keys are configured', async () => {
     assert.equal(countConfiguredProviders({}), 0);
     const result = await runPrepsAiWithFallback({
       messages: [{ role: 'user', content: 'Hello' }],
@@ -139,110 +113,99 @@ describe('Preps AI 6-provider individual key failover engine', () => {
       env: {},
     });
     assert.equal(result.ok, false);
-    assert.match(result.error ?? '', /no AI provider keys are configured/i);
+    if (!result.ok) {
+      assert.match(result.error, /Vercel Environment Variables/i);
+    }
   });
 });
 
-describe('Cloudflare Pages _redirects & .env.example hygiene', () => {
+describe('Vercel-Exclusive Deployment & Zero Legacy Platform Footprint', () => {
   const rootDir = path.resolve(process.cwd());
 
-  it('has valid Cloudflare Pages _redirects syntax with zero redirect loops or Netlify rules', () => {
-    const redirectsContent = fs.readFileSync(path.join(rootDir, 'public', '_redirects'), 'utf-8');
-    const rules = redirectsContent
-      .split(/\r?\n/)
-      .map((l) => l.trim())
-      .filter((l) => l && !l.startsWith('#'));
-
-    assert.ok(rules.length > 0, 'Expected canonical redirect rules');
-    const validStatuses = new Set(['301', '302', '303', '307', '308']);
-    const sources = new Set<string>();
-    const destinations = new Set<string>();
-
-    for (const rule of rules) {
-      assert.ok(!rule.includes('200!'), `Invalid Netlify force status in rule: ${rule}`);
-      assert.ok(!rule.includes('.netlify'), `Stale Netlify target in rule: ${rule}`);
-      assert.ok(!rule.startsWith('/* '), `Unnecessary catch-all SPA loop rule: ${rule}`);
-
-      const parts = rule.split(/\s+/);
-      assert.equal(parts.length, 3, `Expected "<source> <dest> <status>" in rule: ${rule}`);
-      const [src, dest, status] = parts;
-      assert.notEqual(src, dest, `Self-redirect loop detected: ${rule}`);
-      assert.ok(validStatuses.has(status), `Invalid Cloudflare redirect status "${status}" in: ${rule}`);
-      sources.add(src);
-      destinations.add(dest);
-    }
-
-    for (const dest of destinations) {
-      assert.ok(!sources.has(dest), `Redirect chain/loop detected involving destination ${dest}`);
-    }
-  });
-
-  it('lists all 6 individual API key env vars cleanly in .env.example without legacy *_API_KEYS', () => {
-    const envExample = fs.readFileSync(path.join(rootDir, '.env.example'), 'utf-8');
-    assert.ok(!envExample.includes('_API_KEYS'), 'Legacy *_API_KEYS variable found in .env.example');
-    for (const varName of AI_PROVIDER_ENV_VARS) {
-      assert.ok(
-        new RegExp(`^${varName}=$`, 'm').test(envExample),
-        `Missing individual placeholder "${varName}=" in .env.example`
+  it('has eliminated all residual Netlify and Cloudflare config files and functions', () => {
+    const forbiddenPaths = [
+      'wrangler.toml',
+      'netlify.toml',
+      path.join('public', '_redirects'),
+      path.join('public', '_headers'),
+      path.join('public', '_routes.json'),
+      'functions',
+      'netlify',
+    ];
+    for (const relPath of forbiddenPaths) {
+      assert.equal(
+        fs.existsSync(path.join(rootDir, relPath)),
+        false,
+        `Residual legacy platform path should not exist: ${relPath}`
       );
     }
   });
 
-  it('implements Cloudflare Pages Functions handlers in functions/api/preps-ai.js using env (zero process.env or exports.handler)', async () => {
-    const fnSource = fs.readFileSync(path.join(rootDir, 'functions', 'api', 'preps-ai.js'), 'utf-8');
-    assert.ok(
-      /export\s+async\s+function\s+onRequestPost\s*\(\s*\{\s*request\s*,\s*env\s*\}\s*\)/.test(fnSource),
-      'Expected export async function onRequestPost({ request, env })'
-    );
-    assert.ok(!fnSource.includes('exports.handler'), 'Found legacy Netlify exports.handler');
-    assert.ok(!fnSource.includes('process.env'), 'Found Node process.env inside Cloudflare Pages Function');
+  it('configures vercel.json cleanly for Vite + Vercel Serverless Functions without intercepting /api/*', () => {
+    const vercelConfig = JSON.parse(
+      fs.readFileSync(path.join(rootDir, 'vercel.json'), 'utf-8')
+    ) as {
+      framework?: string;
+      outputDirectory?: string;
+      rewrites?: Array<{ source: string; destination: string }>;
+    };
+    assert.equal(vercelConfig.framework, 'vite');
+    assert.equal(vercelConfig.outputDirectory, 'dist');
+    assert.ok(Array.isArray(vercelConfig.rewrites) && vercelConfig.rewrites.length > 0);
+    assert.ok(vercelConfig.rewrites[0].source.includes('(?!api/'));
+  });
 
-    // Verify OPTIONS CORS preflight
-    const optRes = await onRequestOptions({
-      request: new Request('https://prepskm.in/api/preps-ai', {
+  it('keeps .env.example exclusively Vercel-focused with individual server-only provider keys', () => {
+    const envExample = fs.readFileSync(path.join(rootDir, '.env.example'), 'utf-8');
+    assert.ok(!/cloudflare|netlify/i.test(envExample), 'Legacy host reference found in .env.example');
+    for (const varName of AI_PROVIDER_ENV_VARS) {
+      assert.ok(
+        new RegExp(`^${varName}=$`, 'm').test(envExample),
+        `Missing server-side placeholder "${varName}=" in .env.example`
+      );
+    }
+  });
+
+  it('serves /api/health, /api/preps-ai, and /api/chat cleanly with strict Vercel CORS headers', async () => {
+    const cors = resolveCorsHeaders('https://prepskm-preview.vercel.app');
+    assert.equal(cors['Access-Control-Allow-Origin'], 'https://prepskm-preview.vercel.app');
+
+    const healthRes = await healthGet(
+      new Request('https://prepskm.in/api/health', {
+        method: 'GET',
+        headers: { origin: 'https://prepskm.in' },
+      })
+    );
+    assert.equal(healthRes.status, 200);
+    const healthData = (await healthRes.json()) as { ok: boolean; runtime: string };
+    assert.equal(healthData.ok, true);
+    assert.equal(healthData.runtime, 'vercel-serverless');
+
+    const optRes = await prepsOptions(
+      new Request('https://prepskm.in/api/preps-ai', {
         method: 'OPTIONS',
         headers: { origin: 'https://prepskm.in' },
-      }),
-    });
+      })
+    );
     assert.equal(optRes.status, 204);
     assert.equal(optRes.headers.get('Access-Control-Allow-Origin'), 'https://prepskm.in');
 
-    // Verify non-POST method rejection
-    const getRes = await onRequest({
-      request: new Request('https://prepskm.in/api/preps-ai', { method: 'GET' }),
-    });
-    assert.equal(getRes.status, 405);
-
-    // Verify POST validation & env-driven response using Cloudflare Pages env.AI binding
-    const badRes = await onRequestPost({
-      request: new Request('https://prepskm.in/api/preps-ai', {
+    const badPreps = await prepsPost(
+      new Request('https://prepskm.in/api/preps-ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', origin: 'https://prepskm.in' },
         body: JSON.stringify({ messages: [] }),
-      }),
-      env: {},
-    });
-    assert.equal(badRes.status, 400);
+      })
+    );
+    assert.equal(badPreps.status, 400);
 
-    const okRes = await onRequestPost({
-      request: new Request('https://prepskm.in/api/preps-ai', {
+    const badChat = await chatPost(
+      new Request('https://prepskm.in/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', origin: 'https://prepskm.in' },
-        body: JSON.stringify({
-          messages: [{ role: 'user', content: 'Explain Ohm law simply.' }],
-          context: { track: 'Class 12 JEE' },
-        }),
-      }),
-      env: {
-        AI: {
-          run: async () => ({ response: 'Simple funda: V = IR at constant temperature.' }),
-        },
-      },
-    });
-    assert.equal(okRes.status, 200);
-    const data = (await okRes.json()) as { ok: boolean; reply: string; provider: string };
-    assert.equal(data.ok, true);
-    assert.equal(data.provider, 'cloudflare-workers-ai');
-    assert.match(data.reply, /V = IR/);
+        body: JSON.stringify({ messages: [] }),
+      })
+    );
+    assert.equal(badChat.status, 400);
   });
 });

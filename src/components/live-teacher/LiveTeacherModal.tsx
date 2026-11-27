@@ -38,6 +38,7 @@ import {
   type TutorPose,
 } from './LipSyncTutorAvatar';
 import {
+  HandwrittenQuestionCard,
   HandwritingStepCard,
   StudentSketchOverlay,
   WhiteboardToolbar,
@@ -119,6 +120,7 @@ export function LiveTeacherModal() {
   const [inkColor, setInkColor] = useState('#00B4FF');
   const [clearInkSignal, setClearInkSignal] = useState(0);
   const [visemeSample, setVisemeSample] = useState<VisemeSample>(REST_VISEME);
+  const [speechProgress, setSpeechProgress] = useState(0);
 
   // Raise Hand / Real-Time Voice Query state
   const [handRaised, setHandRaised] = useState(false);
@@ -226,7 +228,12 @@ export function LiveTeacherModal() {
     [activeScript, speed]
   );
 
-  // 60fps Audio-Driven Lip-Sync Loop (driven by SpeechSynthesis onboundary anchors + prosody clock)
+  // Reset live speech-to-pencil progress when step or replay changes
+  useEffect(() => {
+    setSpeechProgress(0);
+  }, [lesson, currentStepIdx, replayNonce, language]);
+
+  // 60fps Audio-Driven Lip-Sync + Pencil-Handwriting Sync Loop (anchored by SpeechSynthesis onboundary + prosody clock)
   useEffect(() => {
     if (!lesson || !activeStep || (!isPlaying && !isSpeakingAudio) || handRaised) {
       speechClockRef.current.active = false;
@@ -236,6 +243,10 @@ export function LiveTeacherModal() {
 
     const totalTimelineMs =
       visemeTimeline.length > 0 ? visemeTimeline[visemeTimeline.length - 1].endMs : 0;
+    const effectiveTotalMs = Math.max(
+      totalTimelineMs,
+      Math.round((activeScript.length * 52) / Math.max(0.5, speed))
+    );
 
     speechClockRef.current = {
       startedAtPerf: performance.now(),
@@ -244,11 +255,21 @@ export function LiveTeacherModal() {
     };
 
     let rafId = 0;
+    let lastProgressUpdate = 0;
+
     const stepLoop = (now: number) => {
       if (!speechClockRef.current.active) return;
       const rawElapsedMs =
         speechClockRef.current.offsetMs + (now - speechClockRef.current.startedAtPerf);
-      // Keep prosody lively if step timer outlives estimated timeline in muted/headless environments
+
+      // Update normalized 0..1 audio progress (~30fps) so pencil handwriting tracks spoken words cleanly
+      if (now - lastProgressUpdate >= 32) {
+        lastProgressUpdate = now;
+        const normalized = Math.max(0, Math.min(1, rawElapsedMs / Math.max(1, effectiveTotalMs)));
+        setSpeechProgress((prev) => (normalized > prev ? normalized : prev));
+      }
+
+      // Keep lip-sync prosody lively if step timer slightly outlives estimated timeline
       const effectiveMs =
         totalTimelineMs > 0 && rawElapsedMs >= totalTimelineMs && isPlaying
           ? rawElapsedMs % totalTimelineMs
@@ -262,7 +283,7 @@ export function LiveTeacherModal() {
     return () => {
       window.cancelAnimationFrame(rafId);
     };
-  }, [lesson, activeStep, visemeTimeline, isPlaying, isSpeakingAudio, handRaised, replayNonce]);
+  }, [lesson, activeStep, activeScript.length, speed, visemeTimeline, isPlaying, isSpeakingAudio, handRaised, replayNonce]);
 
   // Synchronized Browser-Native Web Speech Narration + `onboundary` Lip-Sync Anchoring
   useEffect(() => {
@@ -325,9 +346,13 @@ export function LiveTeacherModal() {
           setIsSpeakingAudio(true);
         };
 
-        // Lock lip-sync frames directly to real browser TTS word boundaries!
+        // Lock BOTH lip-sync frames AND whiteboard pencil handwriting directly to real browser TTS word boundaries!
         utterance.onboundary = (event) => {
           if (cancelled) return;
+          if (activeScript.length > 0 && typeof event.charIndex === 'number') {
+            const charRatio = Math.max(0, Math.min(1, event.charIndex / activeScript.length));
+            setSpeechProgress((prev) => (charRatio > prev ? charRatio : prev));
+          }
           const anchorMs = findTimelineMsForCharIndex(visemeTimeline, event.charIndex);
           if (anchorMs !== null) {
             speechClockRef.current = {
@@ -339,6 +364,7 @@ export function LiveTeacherModal() {
         };
 
         utterance.onend = () => {
+          setSpeechProgress(1);
           advanceIfPossible();
         };
 
@@ -777,11 +803,11 @@ export function LiveTeacherModal() {
                     <span className="text-slate-500 uppercase">{language}</span>
                   </div>
 
-                  {/* Interactive Avatar Mode Segmented Toggle */}
+                  {/* Interactive 3-Mode Avatar Switcher (Lip-Sync Face | Robot Squad | 3D Tutor) */}
                   <div
                     role="group"
                     aria-label="Tutor avatar view mode"
-                    className="grid grid-cols-2 p-0.5 rounded-xl bg-[#070C18] border border-white/10 text-[11px] font-bold"
+                    className="grid grid-cols-3 p-0.5 rounded-xl bg-[#070C18] border border-white/10 text-[10px] font-bold gap-0.5"
                   >
                     <button
                       type="button"
@@ -796,7 +822,22 @@ export function LiveTeacherModal() {
                           : 'text-slate-400 hover:text-white'
                       }`}
                     >
-                      Lip-Sync Face
+                      Lip-Sync
+                    </button>
+                    <button
+                      type="button"
+                      aria-pressed={avatarMode === 'robot-squad'}
+                      onClick={() => {
+                        playClick();
+                        setAvatarMode('robot-squad');
+                      }}
+                      className={`py-1 rounded-lg whitespace-nowrap transition-colors ${
+                        avatarMode === 'robot-squad'
+                          ? 'bg-[#00B4FF] text-[#070A12]'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      Robot Squad
                     </button>
                     <button
                       type="button"
@@ -811,7 +852,7 @@ export function LiveTeacherModal() {
                           : 'text-slate-400 hover:text-white'
                       }`}
                     >
-                      3D Full Body
+                      3D Tutor
                     </button>
                   </div>
                 </div>
@@ -926,39 +967,17 @@ export function LiveTeacherModal() {
                     clearSignal={clearInkSignal}
                   />
 
-                  {/* Question Prompt Header on Board */}
-                  <div
-                    className={`relative z-10 rounded-2xl border p-3 sm:p-3.5 space-y-1.5 ${
-                      isLightBoard
-                        ? 'bg-white border-slate-200 text-slate-900'
-                        : 'bg-[#0D1528]/90 border-white/10 text-slate-100'
-                    }`}
-                  >
-                  <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono">
-                    <span
-                      className={`font-bold uppercase tracking-wider ${
-                        isLightBoard ? 'text-[#1D56C6]' : 'text-[#00B4FF]'
-                      }`}
-                    >
-                      Problem on Whiteboard
-                    </span>
-                    <div className="flex flex-wrap items-center gap-2">
-                      {lesson.studentAnswer && (
-                        <span className="font-semibold text-rose-500">
-                          Your Pick: {lesson.studentAnswer}
-                        </span>
-                      )}
-                      {lesson.officialAnswer && (
-                        <span className="font-bold text-emerald-500">
-                          Official: {lesson.officialAnswer}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <p className="text-xs sm:text-sm leading-relaxed font-medium">
-                    <RichMathText text={lesson.questionPrompt} />
-                  </p>
-                </div>
+                  {/* Audio-Synchronized Handwritten Full Question on Whiteboard */}
+                  <HandwrittenQuestionCard
+                    questionPrompt={lesson.questionPrompt}
+                    studentAnswer={lesson.studentAnswer}
+                    officialAnswer={lesson.officialAnswer}
+                    surface={boardSurface}
+                    speechProgress={speechProgress}
+                    isFirstStep={currentStepIdx === 0}
+                    isPlaying={isPlaying}
+                    replayNonce={replayNonce}
+                  />
 
                 {/* Whiteboard Two-Column Grid: Animated Handwritten Steps (Left) + SVG Diagram & Script (Right) */}
                 <div className="relative z-10 grid grid-cols-1 xl:grid-cols-12 gap-3.5 items-start">
@@ -976,6 +995,7 @@ export function LiveTeacherModal() {
                           replayNonce={replayNonce}
                           handRaised={handRaised}
                           surface={boardSurface}
+                          speechProgress={isCurrent ? speechProgress : 1}
                           onSelectStep={() => handleJumpStep(idx)}
                           cardRef={isCurrent ? activeStepRef : undefined}
                         />
@@ -1054,9 +1074,9 @@ export function LiveTeacherModal() {
                       activeStep={activeStep.stepNumber}
                     />
 
-                    {/* Live Audio Caption Card */}
+                    {/* Live Audio Caption Card with Real-Time Audio <-> Pencil Sync Bar */}
                     <div
-                      className={`rounded-xl border p-3 space-y-1.5 ${
+                      className={`rounded-xl border p-3 space-y-2 ${
                         isLightBoard
                           ? 'border-slate-200 bg-white text-slate-800'
                           : 'border-white/10 bg-[#0D1324]/90 text-slate-200'
@@ -1067,8 +1087,14 @@ export function LiveTeacherModal() {
                           Tutor Voice Script ({language === 'hinglish' ? 'Hinglish' : 'English'})
                         </span>
                         <span className={isLightBoard ? 'text-slate-500' : 'text-slate-400'}>
-                          {speed}x · {voiceMuted ? 'Muted' : 'TTS Lip-Sync'}
+                          {speed}x · Sync {Math.round(speechProgress * 100)}%
                         </span>
+                      </div>
+                      <div className="h-1.5 w-full rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-[#00B4FF] to-[#F27B13] transition-[width] duration-75"
+                          style={{ width: `${Math.round(speechProgress * 100)}%` }}
+                        />
                       </div>
                       <p className="text-xs leading-relaxed italic">
                         &ldquo;{activeScript}&rdquo;

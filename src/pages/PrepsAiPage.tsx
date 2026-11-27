@@ -390,6 +390,28 @@ export default function PrepsAiPage() {
             </div>
           </div>
 
+          {/* PrepsBot AI Tutor Squad Visual Banner (Uploaded Artwork) */}
+          <div className="rounded-2xl border border-[#00B4FF]/25 bg-white/75 dark:bg-[#0D1528]/75 backdrop-blur-xl p-3 sm:p-4 flex flex-col sm:flex-row items-center gap-4 shadow-sm">
+            <div className="w-full sm:w-[240px] h-[116px] rounded-xl overflow-hidden border border-slate-200/80 dark:border-white/10 bg-gradient-to-r from-sky-50 via-white to-indigo-50 shrink-0">
+              <img
+                src="/assets/aistudio/IMG_1608_9fc2c23c.png"
+                alt="PrepsBot AI Tutor & Chatbot Squad"
+                className="w-full h-full object-contain"
+              />
+            </div>
+            <div className="flex-1 min-w-0 space-y-1.5 text-center sm:text-left">
+              <p className="font-mono text-[11px] font-bold uppercase tracking-wider text-[#00B4FF]">
+                PrepsBot Squad · Real-Time Voice &amp; Pencil Whiteboard
+              </p>
+              <h2 className="font-display text-sm sm:text-base font-extrabold text-[#0B1B3B] dark:text-white">
+                Formula Tutor, Analytics Bot, NCERT Mentor &amp; Focus Buddy — Synced to Your Voice
+              </h2>
+              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                Ask any JEE, NEET, or Board question below or tap <strong>Explain Like a Teacher</strong> to watch the full question and step-by-step solution written with an animated pencil synced to live audio.
+              </p>
+            </div>
+          </div>
+
           {/* 4-Mode Expert Tutor Studio Tabs */}
           <div
             role="tablist"
