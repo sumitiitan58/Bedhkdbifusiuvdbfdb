@@ -1,8 +1,10 @@
 export type AiGameFormat =
+  | 'Formula Blitz'
+  | 'Reaction Chain'
+  | 'NCERT Line-Trap'
   | 'Rapid-Fire Blitz'
   | 'Match-the-Pairs'
-  | 'Spot-the-Error'
-  | 'Reaction Chain';
+  | 'Spot-the-Error';
 
 export type AiGameDifficulty = 'Easy' | 'Exam-Level' | 'Ranker';
 

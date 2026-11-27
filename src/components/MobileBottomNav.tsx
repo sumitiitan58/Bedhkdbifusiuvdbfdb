@@ -18,7 +18,7 @@ export function MobileBottomNav() {
   return (
     <nav
       aria-label="Mobile bottom navigation"
-      className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-[#09090B]/95 backdrop-blur-md border-t border-slate-200/90 dark:border-white/[0.08] shadow-[0_-4px_20px_-6px_rgba(0,0,0,0.25)]"
+      className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-[#070A12]/90 backdrop-blur-xl border-t border-slate-200/90 dark:border-white/10 shadow-[0_-4px_20px_-6px_rgba(0,0,0,0.35)]"
     >
       <div className="grid grid-cols-5 h-16 max-w-lg mx-auto px-1">
         {MOBILE_BOTTOM_TABS.map((tab) => {
@@ -32,14 +32,14 @@ export function MobileBottomNav() {
               aria-current={active ? 'page' : undefined}
               className={`relative flex flex-col items-center justify-center gap-0.5 text-[11px] font-semibold transition-colors ${
                 active
-                  ? 'text-indigo-600 dark:text-indigo-400'
+                  ? 'text-[#1D56C6] dark:text-[#00B4FF]'
                   : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               {active && (
                 <span
                   aria-hidden="true"
-                  className="absolute top-0 inset-x-3 h-0.5 rounded-full bg-indigo-500"
+                  className="absolute top-0 inset-x-3 h-0.5 rounded-full bg-[#00B4FF] shadow-[0_0_8px_rgba(0,180,255,0.65)]"
                 />
               )}
               <Icon className={`w-5 h-5 ${active ? 'stroke-[2.4]' : 'stroke-[1.9]'}`} />

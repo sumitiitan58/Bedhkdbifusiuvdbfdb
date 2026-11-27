@@ -74,10 +74,10 @@ export function AppSidebar({ mobileOpen, onCloseMobile }: AppSidebarProps) {
     const collapsed = !isMobileDrawer && sidebarCollapsed;
 
     return (
-      <div className="flex flex-col h-full bg-white dark:bg-[#09090B] border-r border-slate-200/90 dark:border-white/[0.08]">
+      <div className="flex flex-col h-full bg-white dark:bg-[#070A12] border-r border-slate-200/90 dark:border-white/10">
         {/* Brand Header */}
         <div
-          className={`h-16 flex items-center border-b border-slate-100 dark:border-white/[0.07] shrink-0 ${
+          className={`h-16 flex items-center border-b border-slate-100 dark:border-white/10 shrink-0 ${
             collapsed ? 'px-2 justify-center' : 'px-4 justify-between'
           }`}
         >
@@ -153,18 +153,18 @@ export function AppSidebar({ mobileOpen, onCloseMobile }: AppSidebarProps) {
                     collapsed ? 'justify-center px-2 py-2.5' : 'justify-between gap-3 px-3.5 py-2.5'
                   } rounded-xl text-sm font-semibold transition-all duration-150 ${
                     active
-                      ? 'bg-[#0B1B3B] text-white dark:bg-indigo-600 dark:text-white shadow-xs'
-                      : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.06] hover:text-[#0B1B3B] dark:hover:text-white'
+                      ? 'bg-[#0E234E] text-white dark:bg-[#1D56C6] dark:text-white shadow-[0_0_20px_rgba(0,180,255,0.2)] border border-[#00B4FF]/30'
+                      : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#0D1324] hover:text-[#0E234E] dark:hover:text-white'
                   }`}
                 >
                   <span className="flex items-center gap-3 min-w-0">
                     <Icon
                       className={`w-[18px] h-[18px] shrink-0 ${
                         active
-                          ? 'text-white'
+                          ? 'text-[#00B4FF]'
                           : isArena
-                            ? 'text-amber-500 dark:text-amber-400'
-                            : 'text-slate-500 dark:text-slate-400 group-hover:text-[#0B1B3B] dark:group-hover:text-white'
+                            ? 'text-[#F27B13]'
+                            : 'text-slate-500 dark:text-slate-400 group-hover:text-[#0E234E] dark:group-hover:text-[#00B4FF]'
                       }`}
                     />
                     {!collapsed && <span className="truncate">{item.label}</span>}
@@ -241,8 +241,8 @@ export function AppSidebar({ mobileOpen, onCloseMobile }: AppSidebarProps) {
 
         {/* Active Cohort Track Footer */}
         {!collapsed && (
-          <div className="p-4 border-t border-slate-100 dark:border-white/[0.07] shrink-0">
-            <div className="rounded-xl bg-slate-50 dark:bg-[#111114] border border-slate-200/80 dark:border-white/[0.08] p-3.5 space-y-2">
+          <div className="p-4 border-t border-slate-100 dark:border-white/10 shrink-0">
+            <div className="rounded-xl bg-slate-50 dark:bg-[#0D1324] border border-slate-200/80 dark:border-[#00B4FF]/[0.14] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] p-3.5 space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                   Active Track
@@ -254,12 +254,12 @@ export function AppSidebar({ mobileOpen, onCloseMobile }: AppSidebarProps) {
                     if (isMobileDrawer) onCloseMobile();
                     openOnboardingModal();
                   }}
-                  className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
+                  className="text-xs font-semibold text-[#1D56C6] dark:text-[#00B4FF] hover:underline"
                 >
                   Switch
                 </button>
               </div>
-              <p className="font-display text-sm font-bold text-[#0B1B3B] dark:text-white truncate">
+              <p className="font-display text-sm font-bold text-[#0E234E] dark:text-white truncate">
                 {activeCohortLabel}
               </p>
             </div>

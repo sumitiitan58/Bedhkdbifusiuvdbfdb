@@ -362,8 +362,12 @@ export default function HomePage() {
       />
 
       {/* Prepskm 2.0 Adaptive Bento OS Section */}
-      <section className="border-b border-slate-200/80 dark:border-white/[0.08] bg-gradient-to-b from-white via-[#F8FAFC] to-[#F1F5F9]/60 dark:from-[#09090B] dark:via-[#09090B] dark:to-[#0C0C10]">
-        <ResponsiveContainer className="py-6 sm:py-8 space-y-6">
+      <section className="relative border-b border-slate-200/80 dark:border-white/10 bg-gradient-to-b from-white via-[#F8FAFC] to-[#F1F5F9]/60 dark:from-[#070A12] dark:via-[#070A12] dark:to-[#0A1020] overflow-hidden">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none hidden dark:block absolute -top-24 left-1/3 w-[520px] h-[260px] rounded-full bg-[#00B4FF]/[0.07] blur-3xl"
+        />
+        <ResponsiveContainer className="relative py-6 sm:py-8 space-y-6">
           <Prepskm2HomeBento />
 
           {/* Compact Track & Quick Stats Strip */}
@@ -373,11 +377,11 @@ export default function HomePage() {
                 type="button"
                 onClick={() => scrollToSection('weekly-study-schedule')}
                 title={weeklyStats.completedTasks === 0 ? guestSyncHint : 'Jump to Weekly Study Schedule'}
-                className="group text-left p-3 rounded-2xl bg-white/90 dark:bg-[#111114] border border-slate-200/80 dark:border-white/[0.08] hover:border-indigo-500 dark:hover:border-indigo-400 hover:-translate-y-0.5 transition-all cursor-pointer"
+                className="group text-left p-3 rounded-2xl bg-white/90 dark:bg-[#0D1324] border border-slate-200/80 dark:border-[#00B4FF]/[0.14] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] hover:border-[#00B4FF]/60 hover:-translate-y-0.5 transition-all cursor-pointer"
               >
                 <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 flex items-center justify-between gap-1">
                   <span>Weekly</span>
-                  <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 text-indigo-500 transition-opacity" />
+                  <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 text-[#00B4FF] transition-opacity" />
                 </p>
                 <p className="font-mono text-base sm:text-lg font-bold tabular-nums text-slate-950 dark:text-white mt-0.5">
                   {weeklyStats.completedTasks}/{weeklyStats.totalTasks}
@@ -391,13 +395,13 @@ export default function HomePage() {
                 type="button"
                 onClick={() => scrollToSection('study-toolkit', 'focus')}
                 title={progress.focusSessionsMinutes === 0 ? guestSyncHint : 'Jump to Focus Timer'}
-                className="group text-left p-3 rounded-2xl bg-white/90 dark:bg-[#111114] border border-slate-200/80 dark:border-white/[0.08] hover:border-indigo-500 dark:hover:border-indigo-400 hover:-translate-y-0.5 transition-all cursor-pointer"
+                className="group text-left p-3 rounded-2xl bg-white/90 dark:bg-[#0D1324] border border-slate-200/80 dark:border-[#00B4FF]/[0.14] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] hover:border-[#00B4FF]/60 hover:-translate-y-0.5 transition-all cursor-pointer"
               >
                 <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 flex items-center justify-between gap-1">
                   <span>Hours</span>
-                  <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 text-indigo-500 transition-opacity" />
+                  <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 text-[#00B4FF] transition-opacity" />
                 </p>
-                <p className="font-mono text-base sm:text-lg font-bold tabular-nums text-indigo-600 dark:text-indigo-400 mt-0.5">
+                <p className="font-mono text-base sm:text-lg font-bold tabular-nums text-[#1D56C6] dark:text-[#00B4FF] mt-0.5">
                   {focusHours}h
                 </p>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
@@ -409,13 +413,13 @@ export default function HomePage() {
                 type="button"
                 onClick={() => scrollToSection('study-toolkit', 'sprint')}
                 title={progress.plannerCompletedDays.length === 0 ? guestSyncHint : 'Jump to 60-Day Syllabus Sprint'}
-                className="group text-left p-3 rounded-2xl bg-white/90 dark:bg-[#111114] border border-slate-200/80 dark:border-white/[0.08] hover:border-amber-500 hover:-translate-y-0.5 transition-all cursor-pointer"
+                className="group text-left p-3 rounded-2xl bg-white/90 dark:bg-[#0D1324] border border-slate-200/80 dark:border-[#00B4FF]/[0.14] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] hover:border-[#F27B13]/60 hover:-translate-y-0.5 transition-all cursor-pointer"
               >
                 <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 flex items-center justify-between gap-1">
                   <span>60-Day</span>
-                  <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 text-amber-500 transition-opacity" />
+                  <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 text-[#F27B13] transition-opacity" />
                 </p>
-                <p className="font-mono text-base sm:text-lg font-bold tabular-nums text-amber-600 dark:text-amber-400 mt-0.5">
+                <p className="font-mono text-base sm:text-lg font-bold tabular-nums text-[#F27B13] mt-0.5">
                   {progress.plannerCompletedDays.length}/60
                 </p>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
@@ -427,13 +431,13 @@ export default function HomePage() {
                 to="/cbt-mocks"
                 onClick={() => playNav()}
                 title={attempts.length === 0 ? guestSyncHint : 'Open CBT Mock Tests'}
-                className="group text-left p-3 rounded-2xl bg-white/90 dark:bg-[#111114] border border-slate-200/80 dark:border-white/[0.08] hover:border-emerald-500 hover:-translate-y-0.5 transition-all cursor-pointer block"
+                className="group text-left p-3 rounded-2xl bg-white/90 dark:bg-[#0D1324] border border-slate-200/80 dark:border-[#00B4FF]/[0.14] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] hover:border-[#10B981]/60 hover:-translate-y-0.5 transition-all cursor-pointer block"
               >
                 <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 flex items-center justify-between gap-1">
                   <span>Tests</span>
-                  <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 text-emerald-500 transition-opacity" />
+                  <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 text-[#10B981] transition-opacity" />
                 </p>
-                <p className="font-mono text-base sm:text-lg font-bold tabular-nums text-emerald-600 dark:text-emerald-400 mt-0.5">
+                <p className="font-mono text-base sm:text-lg font-bold tabular-nums text-[#10B981] mt-0.5">
                   {attempts.length}
                 </p>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
@@ -443,7 +447,7 @@ export default function HomePage() {
             </div>
 
             {activeCohort && (
-              <div className="lg:col-span-4 rounded-2xl border border-slate-200/80 dark:border-white/[0.08] bg-white dark:bg-[#111114] px-4 py-3.5 flex items-center justify-between gap-3">
+              <div className="lg:col-span-4 rounded-2xl border border-slate-200/80 dark:border-[#00B4FF]/[0.14] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] bg-white dark:bg-[#0D1324] px-4 py-3.5 flex items-center justify-between gap-3">
                 <div className="min-w-0 space-y-1">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                     Active Track · {isGuest ? 'Guest Mode' : 'Google Synced'}
@@ -464,7 +468,7 @@ export default function HomePage() {
                     playClick();
                     openOnboardingModal();
                   }}
-                  className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-500/25 transition-colors shrink-0 self-center"
+                  className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-[#00B4FF]/15 text-[#1D56C6] dark:text-[#00B4FF] hover:bg-[#00B4FF]/25 transition-colors shrink-0 self-center"
                 >
                   {firebaseUser ? 'Switch' : 'Sign In'}
                 </button>

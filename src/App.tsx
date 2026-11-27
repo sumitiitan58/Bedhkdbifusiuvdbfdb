@@ -10,7 +10,7 @@ import { Prepskm2Provider } from './context/Prepskm2Context';
 import { DownloadGateModal } from './components/monetization/DownloadGateModal';
 import { CommandPalette } from './components/CommandPalette';
 import { ZenStudyOverlay } from './components/ZenStudyOverlay';
-import { PrepsAiSlideOver } from './components/ai-copilot/PrepsAiSlideOver';
+import { PrepsBotWidget } from './components/ai-copilot/PrepsBotWidget';
 
 const HomePage = lazy(() => import('./pages/HomePage'));
 const ArenaPage = lazy(() => import('./pages/ArenaPage'));
@@ -73,7 +73,7 @@ export default function App() {
                   <DownloadGateModal />
                   <CommandPalette />
                   <ZenStudyOverlay />
-                  <PrepsAiSlideOver />
+                  <PrepsBotWidget />
                 </BrowserRouter>
               </Prepskm2Provider>
             </PlatformDataProvider>

@@ -220,4 +220,38 @@ export function playWakeChime(): void {
   playTone(880, 1046.5, 0.12, 0.032, 'sine', 0.065);
 }
 
+/** Ascending pitch-scaled arcade combo chime (Web Audio API, zero external assets) */
+export function playComboChime(comboCount = 1): void {
+  const clamped = Math.max(1, Math.min(8, comboCount));
+  const semitoneBoost = Math.pow(2, (clamped - 1) / 12);
+  const base = 523.25 * semitoneBoost;
+  playTone(base, base * 1.12, 0.08, 0.038, 'triangle', 0);
+  playTone(base * 1.25, base * 1.5, 0.11, 0.036, 'sine', 0.055);
+  if (clamped >= 3) {
+    playTone(base * 1.5, base * 2, 0.16, 0.032, 'sine', 0.11);
+  }
+}
 
+/** Energy pulse blast sound when landing a hit in Mistake Boss Fight */
+export function playBossHit(): void {
+  playTone(880, 260, 0.14, 0.05, 'sawtooth', 0);
+  playTone(1240, 620, 0.11, 0.035, 'triangle', 0.03);
+  playTone(180, 75, 0.16, 0.06, 'sine', 0.08);
+}
+
+/** Short tactile buzzer for wrong arcade answers */
+export function playArcadeWrong(): void {
+  playTone(230, 165, 0.14, 0.055, 'sawtooth', 0);
+  playTone(175, 130, 0.16, 0.05, 'triangle', 0.08);
+}
+
+/** Crisp directional swipe tick for 15-Minute Paper Scanner */
+export function playSwipeTick(bucket: 'skip' | 'round2' | 'solve'): void {
+  if (bucket === 'solve') {
+    playTone(580, 860, 0.07, 0.032, 'sine', 0);
+  } else if (bucket === 'round2') {
+    playTone(460, 560, 0.07, 0.03, 'triangle', 0);
+  } else {
+    playTone(390, 270, 0.07, 0.03, 'triangle', 0);
+  }
+}

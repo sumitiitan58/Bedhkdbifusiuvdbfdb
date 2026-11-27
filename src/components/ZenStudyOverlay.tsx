@@ -93,16 +93,16 @@ export function ZenStudyOverlay() {
       role="dialog"
       aria-modal="true"
       aria-label="Zen Study Mode"
-      className="fixed inset-0 z-[90] bg-[#09090B] text-zinc-100 flex flex-col overflow-y-auto"
+      className="fixed inset-0 z-[90] bg-[#070A12] text-slate-100 flex flex-col overflow-y-auto"
     >
       {/* Minimal Single-Row Header */}
-      <div className="px-6 py-4 border-b border-white/[0.08] flex items-center justify-between gap-4">
+      <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <span className="font-display text-sm font-bold tracking-tight text-white">
             Zen Study Mode
           </span>
-          <span className="text-zinc-600">·</span>
-          <span className="text-xs text-zinc-400">
+          <span className="text-slate-600">·</span>
+          <span className="text-xs text-slate-400">
             All feeds, sidebars &amp; notifications hidden
           </span>
         </div>
@@ -114,7 +114,7 @@ export function ZenStudyOverlay() {
             setRunning(false);
             setZenMode(false);
           }}
-          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-[#111114] border border-white/[0.1] text-xs font-semibold text-zinc-200 hover:border-indigo-500 transition-colors"
+          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-[#0D1324] border border-[#00B4FF]/30 text-xs font-semibold text-slate-200 hover:border-[#00B4FF] transition-colors"
         >
           <Minimize2 className="w-3.5 h-3.5" />
           Exit Zen Mode
@@ -124,9 +124,9 @@ export function ZenStudyOverlay() {
       {/* Main Two-Column Deep Work Canvas */}
       <div className="flex-1 w-full max-w-6xl mx-auto px-6 py-8 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left: Timer Stage */}
-        <div className="lg:col-span-6 rounded-2xl bg-[#111114] border border-white/[0.08] p-6 sm:p-8 space-y-6">
+        <div className="lg:col-span-6 rounded-2xl bg-[#0D1324] border border-[#00B4FF]/20 p-6 sm:p-8 space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-1.5 bg-[#09090B] p-1 rounded-lg border border-white/[0.08]">
+            <div className="flex items-center gap-1.5 bg-[#070A12] p-1 rounded-lg border border-white/10">
               {PRESET_MINUTES.map((m) => (
                 <button
                   key={m}
@@ -201,7 +201,7 @@ export function ZenStudyOverlay() {
                 playClick();
                 setRunning((r) => !r);
               }}
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-colors"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[#00B4FF] hover:bg-[#33C4FF] text-[#070A12] text-sm font-extrabold transition-colors shadow-[0_0_24px_rgba(0,180,255,0.35)]"
             >
               {running ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
               {running ? 'Pause Session' : 'Start Focus Block'}
@@ -242,13 +242,13 @@ export function ZenStudyOverlay() {
         </div>
 
         {/* Right: Distraction-Free Formula & Derivation Scratchpad */}
-        <div className="lg:col-span-6 rounded-2xl bg-[#111114] border border-white/[0.08] p-6 flex flex-col gap-4 min-h-[420px]">
+        <div className="lg:col-span-6 rounded-2xl bg-[#0D1324] border border-[#00B4FF]/20 p-6 flex flex-col gap-4 min-h-[420px]">
           <div className="flex items-center justify-between gap-2">
             <div>
               <h2 className="font-display text-base font-bold text-white">
                 Derivation &amp; Formula Scratchpad
               </h2>
-              <p className="text-xs text-zinc-400">
+              <p className="text-xs text-slate-400">
                 Auto-saved locally · Jot rough equations, NCERT exceptions, or active problem steps
               </p>
             </div>
@@ -256,7 +256,7 @@ export function ZenStudyOverlay() {
               type="button"
               onClick={() => setScratchpad('')}
               aria-label="Clear scratchpad"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-zinc-400 hover:text-rose-400 hover:bg-white/[0.04]"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-slate-400 hover:text-[#F43F5E] hover:bg-white/[0.04]"
             >
               <Trash2 className="w-3.5 h-3.5" />
               Clear
@@ -267,7 +267,7 @@ export function ZenStudyOverlay() {
             value={scratchpad}
             onChange={(e) => setScratchpad(e.target.value)}
             placeholder="Example:&#10;v_e = sqrt(2GM/R)&#10;Parallel axis: I = I_cm + Md^2&#10;O2 is paramagnetic (2 unpaired e- in pi*2p)..."
-            className="flex-1 min-h-[320px] w-full rounded-xl bg-[#09090B] border border-white/[0.08] p-4 font-mono text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-indigo-500 resize-none leading-relaxed"
+            className="flex-1 min-h-[320px] w-full rounded-xl bg-[#070A12] border border-white/10 p-4 font-mono text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-[#00B4FF] resize-none leading-relaxed"
           />
         </div>
       </div>
