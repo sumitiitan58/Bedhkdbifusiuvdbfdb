@@ -17,10 +17,9 @@ import {
   X,
 } from 'lucide-react';
 import { usePrepskm2 } from '../../context/Prepskm2Context';
-import {
-  buildTeacherDoubtFallback,
-  generateLiveTeacherLesson,
-  type LiveTeacherLanguage,
+import type {
+  LiveTeacherLanguage,
+  LiveTeacherLesson,
 } from '../../utils/liveTeacherEngine';
 import {
   buildLessonRequestFromVoiceQuery,
@@ -44,7 +43,10 @@ import {
   WhiteboardToolbar,
   type BoardSurfaceTheme,
 } from './HandwritingWhiteboard';
-import { requestPrepsAiChat } from '../../services/geminiClient';
+import {
+  requestLiveTeacherLesson,
+  requestPrepsAiChat,
+} from '../../services/geminiClient';
 import { playAiSparkle, playClick, playSuccess } from '../../utils/soundEffects';
 
 const SPEED_OPTIONS = [0.85, 1, 1.25, 1.5] as const;
@@ -99,10 +101,11 @@ function pickPreferredVoice(lang: LiveTeacherLanguage): SpeechSynthesisVoice | n
 export function LiveTeacherModal() {
   const { liveTeacherRequest, openLiveTeacher, closeLiveTeacher } = usePrepskm2();
 
-  const lesson = useMemo(
-    () => (liveTeacherRequest ? generateLiveTeacherLesson(liveTeacherRequest) : null),
-    [liveTeacherRequest]
-  );
+  const [lesson, setLesson] = useState<LiveTeacherLesson | null>(null);
+  const [lessonLoading, setLessonLoading] = useState(false);
+  const [lessonError, setLessonError] = useState<string | null>(null);
+  const [lessonProvider, setLessonProvider] = useState<string | null>(null);
+  const [lessonRetryNonce, setLessonRetryNonce] = useState(0);
 
   const [currentStepIdx, setCurrentStepIdx] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
@@ -126,6 +129,8 @@ export function LiveTeacherModal() {
   const [handRaised, setHandRaised] = useState(false);
   const [doubtInput, setDoubtInput] = useState('');
   const [doubtLoading, setDoubtLoading] = useState(false);
+  const [doubtError, setDoubtError] = useState<string | null>(null);
+  const [lastAttemptedDoubt, setLastAttemptedDoubt] = useState('');
   const [doubtExchange, setDoubtExchange] = useState<DoubtExchange | null>(null);
   const [micListening, setMicListening] = useState(false);
   const [voiceQueryStatus, setVoiceQueryStatus] = useState<string | null>(null);
@@ -166,7 +171,52 @@ export function LiveTeacherModal() {
     setMicListening(false);
   }, []);
 
-  // Reset classroom cleanly whenever a new lesson opens
+  // Fetch 100% live AI-generated lesson whenever liveTeacherRequest changes or user retries
+  useEffect(() => {
+    if (!liveTeacherRequest) {
+      setLesson(null);
+      setLessonLoading(false);
+      setLessonError(null);
+      setLessonProvider(null);
+      stopSpeech();
+      stopMic();
+      return;
+    }
+
+    let cancelled = false;
+    stopSpeech();
+    stopMic();
+    setLesson(null);
+    setLessonError(null);
+    setLessonProvider(null);
+    setLessonLoading(true);
+    setDoubtExchange(null);
+    setDoubtError(null);
+
+    void (async () => {
+      try {
+        const res = await requestLiveTeacherLesson(liveTeacherRequest);
+        if (cancelled) return;
+        setLesson(res.lesson);
+        setLessonProvider(res.provider ?? null);
+        setLessonLoading(false);
+      } catch (err) {
+        if (cancelled) return;
+        setLessonError(
+          err instanceof Error
+            ? err.message
+            : 'Unable to generate a live whiteboard lesson right now. Please tap Retry.'
+        );
+        setLessonLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [liveTeacherRequest, lessonRetryNonce, stopSpeech, stopMic]);
+
+  // Reset classroom cleanly whenever a newly generated live lesson arrives
   useEffect(() => {
     if (!lesson) {
       stopSpeech();
@@ -177,6 +227,7 @@ export function LiveTeacherModal() {
     setIsPlaying(true);
     setHandRaised(false);
     setDoubtInput('');
+    setDoubtError(null);
     setDoubtExchange(null);
     setVoiceQueryStatus(null);
     setWelcomeWaving(true);
@@ -191,9 +242,9 @@ export function LiveTeacherModal() {
     };
   }, [lesson, stopSpeech, stopMic]);
 
-  // Escape key closes Live Classroom cleanly
+  // Escape key closes Live Classroom cleanly (also while loading or showing error)
   useEffect(() => {
-    if (!lesson) return;
+    if (!liveTeacherRequest) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         stopSpeech();
@@ -203,7 +254,7 @@ export function LiveTeacherModal() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [lesson, closeLiveTeacher, stopSpeech, stopMic]);
+  }, [liveTeacherRequest, closeLiveTeacher, stopSpeech, stopMic]);
 
   // Auto-scroll active step or doubt answer into view on the Whiteboard
   useEffect(() => {
@@ -481,10 +532,13 @@ export function LiveTeacherModal() {
     if (!SpeechRecCtor) {
       const sampleQuery =
         mode === 'new-topic'
-          ? 'Explain Convex Lens image formation and magnification step-by-step'
-          : 'Step 2 mein sin θ kyun liya?';
-      setDoubtInput(sampleQuery);
-      setVoiceQueryStatus('Browser voice input unavailable here — sample query loaded, press Ask Board or pick a topic.');
+          ? ''
+          : lesson?.quickDoubtSuggestions?.[0] ||
+            `Is step mein ${lesson?.chapterName || 'is concept'} ka formula kaise apply hua?`;
+      if (sampleQuery) setDoubtInput(sampleQuery);
+      setVoiceQueryStatus(
+        'Browser voice input unavailable here — type your question below or pick a quick chip.'
+      );
       return;
     }
 
@@ -525,34 +579,35 @@ export function LiveTeacherModal() {
     stopMic();
     stopSpeech();
     setDoubtLoading(true);
+    setDoubtError(null);
+    setLastAttemptedDoubt(cleanDoubt);
     setDoubtInput('');
     setVoiceQueryStatus(null);
 
     let finalReply = '';
-    let finalLatex: string | undefined = activeStep.boardLatex;
+    const finalLatex: string | undefined = activeStep.boardLatex;
 
     try {
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        window.setTimeout(() => reject(new Error('Live teacher doubt request timed out')), 3200)
-      );
-      const res = await Promise.race([
-        requestPrepsAiChat({
-          message: `[Preps AI Live Teacher Classroom Cross-Question]\nTopic: ${lesson.topicTitle}\nCurrent Step ${activeStep.stepNumber} (${activeStep.title}): ${activeStep.boardNotes}\nFormula on Board: $${activeStep.boardLatex}$\nStudent Doubt (${language === 'hinglish' ? 'Reply in crisp warm Hinglish like a star Kota JEE/NEET faculty' : 'Reply in crisp clear English like a senior JEE/NEET faculty'} in 2-4 sentences, wrapping math in $...$): "${cleanDoubt}"`,
-          history: [],
-          studentContext: {
-            source: 'live-teacher-raise-hand',
-            subject: lesson.subjectName,
-            chapter: lesson.chapterName,
-            stepNumber: activeStep.stepNumber,
-          },
-        }),
-        timeoutPromise,
-      ]);
+      const res = await requestPrepsAiChat({
+        message: `[Preps AI Live Teacher Classroom Cross-Question]\nSubject: ${lesson.subjectName}\nChapter: ${lesson.chapterName}\nTopic: ${lesson.topicTitle}\nOriginal Question: ${lesson.questionPrompt}\nCurrent Step ${activeStep.stepNumber} (${activeStep.title}): ${activeStep.boardNotes}\nFormula on Board: $${activeStep.boardLatex}$\nStudent Doubt (${language === 'hinglish' ? 'Reply strictly for this exact subject & chapter in crisp warm Hinglish like a star Kota JEE/NEET faculty' : 'Reply strictly for this exact subject & chapter in crisp clear English like a senior JEE/NEET faculty'} in 2-4 sentences, wrapping math in $...$): "${cleanDoubt}"`,
+        history: [],
+        studentContext: {
+          source: 'live-teacher-raise-hand',
+          subject: lesson.subjectName,
+          chapter: lesson.chapterName,
+          topic: lesson.topicTitle,
+          stepNumber: activeStep.stepNumber,
+        },
+      });
       finalReply = res.reply;
-    } catch {
-      const fallback = buildTeacherDoubtFallback(cleanDoubt, lesson, activeStep, language);
-      finalReply = fallback.reply;
-      finalLatex = fallback.latex;
+    } catch (err) {
+      setDoubtError(
+        err instanceof Error
+          ? err.message
+          : 'Live AI Tutor could not resolve this doubt right now. Please tap Retry.'
+      );
+      setDoubtLoading(false);
+      return;
     }
 
     setDoubtExchange({
@@ -643,6 +698,96 @@ export function LiveTeacherModal() {
 
   return (
     <AnimatePresence>
+      {liveTeacherRequest && (!lesson || !activeStep) && (
+        <motion.div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Preps AI Live Teacher Classroom"
+          data-testid="live-teacher-modal-status"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[90] bg-[#04070F]/88 backdrop-blur-md flex items-center justify-center p-4"
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96, y: 12 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.96, y: 12 }}
+            className="w-full max-w-lg rounded-2xl bg-[#0B0F19] border border-[#00B4FF]/35 shadow-[0_24px_70px_rgba(0,0,0,0.85)] p-6 space-y-4 text-slate-100"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="font-mono text-[11px] font-bold uppercase tracking-wider text-[#00B4FF]">
+                  Preps AI Live Classroom · Dynamic Solver
+                </p>
+                <h2 className="font-display text-lg font-extrabold text-white mt-0.5 truncate">
+                  {liveTeacherRequest.subjectName || liveTeacherRequest.chapterName
+                    ? [liveTeacherRequest.subjectName, liveTeacherRequest.chapterName]
+                        .filter(Boolean)
+                        .join(' · ')
+                    : 'Preparing Your Exact Solution'}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  playClick();
+                  stopSpeech();
+                  stopMic();
+                  closeLiveTeacher();
+                }}
+                aria-label="Close Live Teacher Classroom"
+                className="inline-flex items-center justify-center h-8 w-8 rounded-xl bg-white/5 hover:bg-rose-500/20 border border-white/10 text-slate-300 hover:text-rose-300 transition-colors shrink-0"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="rounded-xl bg-[#070B14] border border-white/10 p-3.5 text-xs text-slate-300 leading-relaxed line-clamp-4">
+              {liveTeacherRequest.questionText}
+            </div>
+
+            {lessonLoading ? (
+              <div className="flex items-center gap-3 py-3 text-sm text-[#00B4FF]">
+                <Loader2 className="w-5 h-5 animate-spin shrink-0" />
+                <span>
+                  Solving your exact question step-by-step on the live whiteboard with our active AI model…
+                </span>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="p-3.5 rounded-xl bg-rose-500/15 border border-rose-400/40 text-xs sm:text-sm text-rose-200 leading-relaxed">
+                  {lessonError || 'Unable to generate the live whiteboard lesson right now.'}
+                </div>
+                <div className="flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      playClick();
+                      closeLiveTeacher();
+                    }}
+                    className="px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-bold text-slate-300 hover:text-white transition-colors"
+                  >
+                    Close
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      playClick();
+                      setLessonRetryNonce((n) => n + 1);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#00B4FF] hover:bg-[#33C4FF] text-[#070A12] text-xs font-extrabold transition-colors"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    Retry Live AI Lesson
+                  </button>
+                </div>
+              </div>
+            )}
+          </motion.div>
+        </motion.div>
+      )}
+
       {lesson && activeStep && (
         <motion.div
           role="dialog"
@@ -669,7 +814,9 @@ export function LiveTeacherModal() {
                     Preps AI Live Tutor · {lesson.topicTitle}
                   </h2>
                   <p className="text-[11px] text-slate-400 truncate">
-                    Step {currentStepIdx + 1} of {lesson.steps.length}: {activeStep.title} · Real-Time Lip-Sync &amp; Animated Handwriting
+                    {lesson.subjectName} · {lesson.chapterName} · Step {currentStepIdx + 1} of{' '}
+                    {lesson.steps.length}: {activeStep.title}
+                    {lessonProvider ? ` · Live AI (${lessonProvider})` : ''}
                   </p>
                 </div>
               </div>
@@ -1198,6 +1345,21 @@ export function LiveTeacherModal() {
                     <p className="text-[11px] font-mono text-amber-300">{voiceQueryStatus}</p>
                   )}
 
+                  {doubtError && (
+                    <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 rounded-xl bg-rose-500/15 border border-rose-400/40 text-xs text-rose-200">
+                      <span>{doubtError}</span>
+                      {lastAttemptedDoubt && (
+                        <button
+                          type="button"
+                          onClick={() => void handleSubmitDoubt(lastAttemptedDoubt)}
+                          className="px-2.5 py-1 rounded-lg bg-rose-500/30 hover:bg-rose-500/45 text-white font-bold text-[11px] transition-colors"
+                        >
+                          Retry
+                        </button>
+                      )}
+                    </div>
+                  )}
+
                   {/* 1-Click Contextual Doubt Chips */}
                   <div className="flex flex-wrap gap-1.5">
                     {lesson.quickDoubtSuggestions.map((chip) => (
@@ -1243,7 +1405,7 @@ export function LiveTeacherModal() {
                       type="text"
                       value={doubtInput}
                       onChange={(e) => setDoubtInput(e.target.value)}
-                      placeholder='e.g. "Step 2 mein sin θ kyun liya?"'
+                      placeholder={`Ask any doubt about ${lesson.chapterName} (Step ${activeStep.stepNumber})...`}
                       aria-label="Type your doubt for Preps AI Live Teacher"
                       className="flex-1 min-w-0 h-10 px-3.5 rounded-xl bg-[#0D1324] border border-white/15 text-xs sm:text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-[#00B4FF]"
                     />

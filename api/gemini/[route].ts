@@ -1,12 +1,14 @@
 import {
-  countConfiguredProviders,
   extractJsonObject,
   getServerSecret,
+  listConfiguredProviders,
   normalizeMessages,
   parseJsonBody,
   resolveCorsHeaders,
   runPrepsAiWithFallback,
+  runStructuredJsonWithFallback,
   sanitizeClientContext,
+  sanitizeErrorMessage,
 } from '../_lib/aiGateway';
 
 function extractRouteSlug(request: Request): string {
@@ -27,13 +29,14 @@ export async function GET(request: Request): Promise<Response> {
   const route = extractRouteSlug(request);
 
   if (route === 'health') {
-    const providersReady = countConfiguredProviders(process.env);
+    const configuredProviders = listConfiguredProviders(process.env);
     return new Response(
       JSON.stringify({
         ok: true,
         service: 'prepskm-vercel-gemini',
-        aiConfigured: providersReady > 0,
-        providersReady,
+        aiConfigured: configuredProviders.length > 0,
+        providersReady: configuredProviders.length,
+        configuredProviders,
       }),
       { status: 200, headers }
     );
@@ -76,10 +79,15 @@ export async function POST(request: Request): Promise<Response> {
       env: process.env,
     });
     if (!result.ok) {
-      return new Response(JSON.stringify({ ok: false, error: result.error }), {
-        status: 503,
-        headers,
-      });
+      return new Response(
+        JSON.stringify({
+          ok: false,
+          error: result.error,
+          attemptedProviders: result.attemptedProviders,
+          providerErrors: result.providerErrors,
+        }),
+        { status: 503, headers }
+      );
     }
     return new Response(
       JSON.stringify({
@@ -103,83 +111,87 @@ export async function POST(request: Request): Promise<Response> {
       `Weakest Chapters: ${JSON.stringify(body.weakChapters ?? [])}`,
       body.userQuestion
         ? `Student Question: "${String(body.userQuestion).slice(0, 600)}"`
-        : 'Provide a sharp high-ROI diagnosis of Exam IQ, must-do priorities, traps to skip, and a 7-day sprint.',
+        : 'Provide a sharp high-ROI diagnosis of Exam IQ, must-do priorities, traps to skip, and a 7-day sprint strictly grounded in these subjects and chapters.',
       'Return ONLY valid JSON: { "headline": "", "iqDiagnosis": "", "mustDoPriorities": [], "avoidOrSkip": [], "sevenDayPlan": [{ "day": "", "focus": "" }], "directAnswer": "" }',
     ].join('\n');
 
-    try {
-      const result = await runPrepsAiWithFallback({
-        messages: [{ role: 'user', content: prompt }],
-        systemPromptOverride:
-          'You are Preps AI, a friendly Indian JEE/NEET/Boards mentor at PREPSKM.IN. Speak warmly in natural Hinglish with zero raw markdown symbols. Output ONLY valid JSON.',
-        env: process.env,
-        maxTokens: 2000,
-        jsonMode: true,
-      });
-      if (!result.ok) {
-        return new Response(JSON.stringify({ ok: false, error: result.error }), {
-          status: 503,
-          headers,
-        });
-      }
+    const result = await runStructuredJsonWithFallback({
+      systemPrompt:
+        'You are Preps AI, a friendly Indian JEE/NEET/Boards mentor at PREPSKM.IN. Speak warmly in natural Hinglish with zero raw markdown symbols, staying strictly aligned to the student track, weak chapters, and exact question. Output ONLY valid JSON.',
+      userPrompt: prompt,
+      env: process.env,
+      maxTokens: 2000,
+    });
+    if (!result.ok) {
       return new Response(
-        JSON.stringify({ ok: true, mentor: extractJsonObject(result.reply), provider: result.provider }),
-        { status: 200, headers }
-      );
-    } catch {
-      return new Response(
-        JSON.stringify({ ok: false, error: 'Unable to build mentor report right now.' }),
-        { status: 502, headers }
+        JSON.stringify({
+          ok: false,
+          error: result.error,
+          attemptedProviders: result.attemptedProviders,
+          providerErrors: result.providerErrors,
+        }),
+        { status: 503, headers }
       );
     }
+    return new Response(
+      JSON.stringify({ ok: true, mentor: result.data, provider: result.provider }),
+      { status: 200, headers }
+    );
   }
 
   // 3. /api/gemini/explain-question
   if (route === 'explain-question') {
+    const subjectName = String(body.subjectName ?? '').trim().slice(0, 60);
+    const chapterName = String(body.chapterName ?? '').trim().slice(0, 100);
+    const questionText = String(body.questionText ?? '').trim().slice(0, 1500);
+    if (!questionText) {
+      return new Response(
+        JSON.stringify({ ok: false, error: 'Question text is required for explanation.' }),
+        { status: 400, headers }
+      );
+    }
+
     const optionTexts = Array.isArray(body.optionTexts) ? body.optionTexts : [];
     const prompt = [
-      `Subject: ${String(body.subjectName ?? 'Science').slice(0, 60)}${body.chapterName ? ` | Chapter: ${String(body.chapterName).slice(0, 100)}` : ''}`,
-      `Question: ${String(body.questionText ?? '').slice(0, 1500)}`,
+      `STRICT SUBJECT & CHAPTER LOCK: Subject = "${subjectName || 'Inferred from Question'}"${chapterName ? ` | Chapter = "${chapterName}"` : ''}`,
+      `Question: ${questionText}`,
       optionTexts.length > 0
         ? `Options: ${optionTexts.map((o, i) => `${['A', 'B', 'C', 'D'][i] ?? i + 1}) ${String(o)}`).join(' | ')}`
         : '',
       `Official Correct Answer: ${String(body.correctAnswer ?? '')}`,
       `Student Answer: ${String(body.studentAnswer || 'Skipped')}`,
       body.solutionText ? `Existing Solution Note: ${String(body.solutionText).slice(0, 800)}` : '',
-      'Return ONLY valid JSON: { "coreConcept": "", "stepByStep": ["step 1", "step 2"], "examShortcut": "" }',
+      'Explain strictly THIS exact question without drifting to unrelated topics. Return ONLY valid JSON: { "coreConcept": "", "stepByStep": ["step 1", "step 2"], "examShortcut": "" }',
     ]
       .filter(Boolean)
       .join('\n');
 
-    try {
-      const result = await runPrepsAiWithFallback({
-        messages: [{ role: 'user', content: prompt }],
-        systemPromptOverride:
-          'You are Preps AI, a friendly Indian JEE/NEET mentor at PREPSKM.IN. Explain in crisp Hinglish under 180 words with zero raw markdown symbols. Output ONLY valid JSON.',
-        env: process.env,
-        maxTokens: 1400,
-        jsonMode: true,
-      });
-      if (!result.ok) {
-        return new Response(JSON.stringify({ ok: false, error: result.error }), {
-          status: 503,
-          headers,
-        });
-      }
+    const result = await runStructuredJsonWithFallback({
+      systemPrompt:
+        'You are Preps AI, a friendly Indian JEE/NEET mentor at PREPSKM.IN. Explain strictly the given question, subject, and chapter in crisp Hinglish under 180 words with zero raw markdown symbols. Output ONLY valid JSON.',
+      userPrompt: prompt,
+      env: process.env,
+      maxTokens: 1400,
+    });
+    if (!result.ok) {
       return new Response(
         JSON.stringify({
-          ok: true,
-          explanation: extractJsonObject(result.reply),
-          provider: result.provider,
+          ok: false,
+          error: result.error,
+          attemptedProviders: result.attemptedProviders,
+          providerErrors: result.providerErrors,
         }),
-        { status: 200, headers }
-      );
-    } catch {
-      return new Response(
-        JSON.stringify({ ok: false, error: 'Unable to explain this question right now.' }),
-        { status: 502, headers }
+        { status: 503, headers }
       );
     }
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        explanation: result.data,
+        provider: result.provider,
+      }),
+      { status: 200, headers }
+    );
   }
 
   // 4. /api/gemini/test-report
@@ -193,34 +205,31 @@ export async function POST(request: Request): Promise<Response> {
       'Return ONLY valid JSON: { "verdict": "", "markLeakAnalysis": "", "strengths": [], "immediateFixes": [], "nextMockTarget": "" }',
     ].join('\n');
 
-    try {
-      const result = await runPrepsAiWithFallback({
-        messages: [{ role: 'user', content: prompt }],
-        systemPromptOverride:
-          'You are a senior JEE/NEET exam analyst at PREPSKM.IN. Produce a concise, numbers-first post-test AI Report strictly in JSON.',
-        env: process.env,
-        maxTokens: 1800,
-        jsonMode: true,
-      });
-      if (!result.ok) {
-        return new Response(JSON.stringify({ ok: false, error: result.error }), {
-          status: 503,
-          headers,
-        });
-      }
+    const result = await runStructuredJsonWithFallback({
+      systemPrompt:
+        'You are a senior JEE/NEET exam analyst at PREPSKM.IN. Produce a concise, numbers-first post-test AI Report strictly in JSON.',
+      userPrompt: prompt,
+      env: process.env,
+      maxTokens: 1800,
+    });
+    if (!result.ok) {
       return new Response(
-        JSON.stringify({ ok: true, report: extractJsonObject(result.reply), provider: result.provider }),
-        { status: 200, headers }
-      );
-    } catch {
-      return new Response(
-        JSON.stringify({ ok: false, error: 'Unable to generate test report right now.' }),
-        { status: 502, headers }
+        JSON.stringify({
+          ok: false,
+          error: result.error,
+          attemptedProviders: result.attemptedProviders,
+          providerErrors: result.providerErrors,
+        }),
+        { status: 503, headers }
       );
     }
+    return new Response(
+      JSON.stringify({ ok: true, report: result.data, provider: result.provider }),
+      { status: 200, headers }
+    );
   }
 
-  // 5. /api/gemini/extract-pdf (multimodal Gemini REST with server-side GEMINI_API_KEY only)
+  // 5. /api/gemini/extract-pdf
   if (route === 'extract-pdf') {
     const fileBase64 = typeof body.fileBase64 === 'string' ? body.fileBase64 : '';
     const mimeType = String(body.mimeType ?? 'application/pdf').slice(0, 80);
@@ -245,40 +254,35 @@ export async function POST(request: Request): Promise<Response> {
       'Return ONLY valid JSON: { "questions": [{ "questionNumber": 1, "subjectName": "Physics", "chapterName": "", "questionType": "single-mcq", "questionText": "", "optionTexts": ["", "", "", ""], "correctOptionIndices": [0], "numericalAnswer": "", "solutionText": "" }] }',
     ].join('\n');
 
-    // Text-only extraction can run on the full multi-provider failover engine
     if (!fileBase64) {
-      try {
-        const result = await runPrepsAiWithFallback({
-          messages: [{ role: 'user', content: `${instruction}\n\nSOURCE TEXT:\n${rawTextInput}` }],
-          systemPromptOverride:
-            'You are an expert Indian JEE/NEET exam digitizer. Extract accurate questions, verified answer keys, and concise solutions strictly in JSON.',
-          env: process.env,
-          maxTokens: 3200,
-          jsonMode: true,
-        });
-        if (!result.ok) {
-          return new Response(JSON.stringify({ ok: false, error: result.error }), {
-            status: 503,
-            headers,
-          });
-        }
-        const parsedJson = extractJsonObject(result.reply);
+      const result = await runStructuredJsonWithFallback({
+        systemPrompt:
+          'You are an expert Indian JEE/NEET exam digitizer. Extract accurate questions, verified answer keys, and concise solutions strictly in JSON.',
+        userPrompt: `${instruction}\n\nSOURCE TEXT:\n${rawTextInput}`,
+        env: process.env,
+        maxTokens: 3200,
+      });
+      if (!result.ok) {
         return new Response(
           JSON.stringify({
-            ok: true,
-            questions: Array.isArray(parsedJson.questions) ? parsedJson.questions : [],
+            ok: false,
+            error: result.error,
+            attemptedProviders: result.attemptedProviders,
+            providerErrors: result.providerErrors,
           }),
-          { status: 200, headers }
-        );
-      } catch {
-        return new Response(
-          JSON.stringify({ ok: false, error: 'Failed to parse extracted questions.' }),
-          { status: 502, headers }
+          { status: 503, headers }
         );
       }
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          questions: Array.isArray(result.data.questions) ? result.data.questions : [],
+          provider: result.provider,
+        }),
+        { status: 200, headers }
+      );
     }
 
-    // Multimodal PDF/Image extraction uses server-side GEMINI_API_KEY exclusively
     const geminiKey = getServerSecret(process.env, 'GEMINI_API_KEY');
     if (!geminiKey) {
       return new Response(
@@ -293,7 +297,7 @@ export async function POST(request: Request): Promise<Response> {
 
     try {
       const resp = await fetch(
-        'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
+        'https://generativelanguage.googleapis.com/v1beta/models/gemini-4-hydrogen:generateContent',
         {
           method: 'POST',
           headers: {
@@ -352,9 +356,12 @@ export async function POST(request: Request): Promise<Response> {
         }),
         { status: 200, headers }
       );
-    } catch {
+    } catch (err) {
       return new Response(
-        JSON.stringify({ ok: false, error: 'Unable to extract questions from this file right now.' }),
+        JSON.stringify({
+          ok: false,
+          error: sanitizeErrorMessage(err) || 'Unable to extract questions from this file right now.',
+        }),
         { status: 502, headers }
       );
     }

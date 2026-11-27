@@ -2,6 +2,7 @@ import {
   parseJsonBody,
   resolveCorsHeaders,
   runTutorStudioWithFallback,
+  sanitizeErrorMessage,
 } from '../_lib/aiGateway';
 
 const ALLOWED_ACTIONS = new Set(['analyze-sheet', 'learning-path', 'practice-questions']);
@@ -43,22 +44,32 @@ export async function POST(request: Request): Promise<Response> {
       env: process.env,
     });
     if (!result.ok) {
-      return new Response(JSON.stringify({ ok: false, error: result.error }), {
-        status: 503,
-        headers,
-      });
+      return new Response(
+        JSON.stringify({
+          ok: false,
+          error: result.error,
+          attemptedProviders: result.attemptedProviders,
+          providerErrors: result.providerErrors,
+        }),
+        {
+          status: 503,
+          headers,
+        }
+      );
     }
     return new Response(
       JSON.stringify({ ok: true, result: result.data, provider: result.provider }),
       { status: 200, headers }
     );
-  } catch {
+  } catch (err) {
+    const detail = sanitizeErrorMessage(err);
+    const isValidation = /required|unsupported/i.test(detail);
     return new Response(
       JSON.stringify({
         ok: false,
-        error: 'The AI Tutor could not format the response cleanly. Please try again in a moment.',
+        error: detail || 'The AI Tutor could not format the response cleanly. Please try again in a moment.',
       }),
-      { status: 502, headers }
+      { status: isValidation ? 400 : 502, headers }
     );
   }
 }

@@ -5,13 +5,13 @@ export const PUBLIC_NAV_ROUTES: NavRouteItem[] = [
   {
     path: '/',
     label: 'Home',
-    shortDescription: 'Adaptive Bento OS, Formula Check, Percentile Predictor & Chapter Mastery',
+    shortDescription: 'Clean Hero, Tabbed Interactive Study Deck, Daily Trifecta & Quick Launch',
     showInPublicNav: true,
   },
   {
-    path: '/arena',
-    label: 'Apex Arena',
-    shortDescription: 'Quantum Clash, Synthesis Strike, Logic Labyrinth & 1v1 vs AI Point-Trading Duels',
+    path: '/learn',
+    label: 'Learn & PYQs',
+    shortDescription: 'Concept-Mapped PYQs, 2027 High-Yield Predictor & NCERT-to-PYQ Split Mapper',
     showInPublicNav: true,
   },
   {
@@ -21,15 +21,15 @@ export const PUBLIC_NAV_ROUTES: NavRouteItem[] = [
     showInPublicNav: true,
   },
   {
-    path: '/materials',
-    label: 'AI & Notes',
-    shortDescription: 'Chapter notes, formula sheets, PYQs, inline DPPs & AI study resources',
+    path: '/community',
+    label: 'Community',
+    shortDescription: 'Live Exam Rooms, Find Study Peers & JoSAA / MCC Rank-to-College Cut-off Explorer',
     showInPublicNav: true,
   },
   {
     path: '/mentors',
-    label: 'Mentors',
-    shortDescription: 'Verified IIT/AIIMS 1:1 passes, live audio/video room, forum & peer finder',
+    label: 'Mentors & Arena',
+    shortDescription: 'Verified IIT/AIIMS 1:1 Mentorship Passes (₹129–₹149) & Apex Arena 1v1 Duels',
     showInPublicNav: true,
   },
 ];
@@ -42,48 +42,66 @@ export const SECONDARY_SIDEBAR_ROUTES: NavRouteItem[] = [
     showInPublicNav: false,
   },
   {
-    path: '/preps-ai',
-    label: 'Preps AI Chat',
-    shortDescription: 'Full-screen Gemini AI study mentor synced with live exam context',
-    showInPublicNav: false,
-  },
-  {
-    path: '/analytics',
-    label: 'Test Analysis',
-    shortDescription: 'Prep Score (0–100), percentile, pacing & Google Sheets sync',
+    path: '/materials',
+    label: 'NCERT & Notes',
+    shortDescription: 'Concise NCERT chapter notes, formula sheets, mind maps & PDF library',
     showInPublicNav: false,
   },
   {
     path: '/mistakes',
     label: 'Mistake Notebook',
-    shortDescription: 'AI error pattern diagnosis, SM-2 re-attempt sets & vault',
+    shortDescription: 'AI error pattern diagnosis, SM-2 re-attempt sets & mistake vault',
+    showInPublicNav: false,
+  },
+  {
+    path: '/analytics',
+    label: 'Test Analysis',
+    shortDescription: 'Prep Score (0–100), Tilt / SM-2 diagnostics & Google Sheets sync',
+    showInPublicNav: false,
+  },
+  {
+    path: '/preps-ai',
+    label: 'Preps AI Chat',
+    shortDescription: 'Full-screen AI mentor synced with live exam context & voice tutor',
+    showInPublicNav: false,
+  },
+  {
+    path: '/arena',
+    label: 'Apex Arena',
+    shortDescription: 'Quantum Clash, Synthesis Strike, Logic Labyrinth & 1v1 AI Point-Trading Duels',
     showInPublicNav: false,
   },
   {
     path: '/profile',
-    label: 'Profile & Track',
-    shortDescription: 'Student profile, avatar, active class track & preferences',
+    label: 'Profile & Streaks',
+    shortDescription: 'Student profile, active exam track, Season XP & daily streak calendar',
     showInPublicNav: false,
   },
+  {
+    path: '/pricing',
+    label: 'Pricing & Plans',
+    shortDescription: 'Free Forever, Prepskm Pro (₹499/yr) & 1:1 IIT/AIIMS Mentorship Packs',
+    showInPublicNav: false,
+  },
+];
+
+export const MOBILE_BOTTOM_TABS: { path: RoutePath; label: string; langKey: string }[] = [
+  { path: '/', label: 'Home', langKey: 'mobile.home' },
+  { path: '/learn', label: 'Learn', langKey: 'mobile.learn' },
+  { path: '/cbt-mocks', label: 'Mocks', langKey: 'mobile.mocks' },
+  { path: '/community', label: 'Community', langKey: 'mobile.community' },
+  { path: '/mentors', label: 'Mentors', langKey: 'mobile.mentors' },
+];
+
+export const ALL_APP_ROUTES: NavRouteItem[] = [
+  ...PUBLIC_NAV_ROUTES,
+  ...SECONDARY_SIDEBAR_ROUTES,
   {
     path: '/about',
     label: 'About Prepskm',
     shortDescription: 'About PREPSKM.IN, @unfiltereddsumit & FAQs',
     showInPublicNav: false,
   },
-];
-
-export const MOBILE_BOTTOM_TABS: { path: RoutePath; label: string }[] = [
-  { path: '/', label: 'Home' },
-  { path: '/arena', label: 'Arena' },
-  { path: '/cbt-mocks', label: 'CBT' },
-  { path: '/materials', label: 'Notes' },
-  { path: '/mentors', label: 'Mentors' },
-];
-
-export const ALL_APP_ROUTES: NavRouteItem[] = [
-  ...PUBLIC_NAV_ROUTES,
-  ...SECONDARY_SIDEBAR_ROUTES,
   {
     path: '/admin',
     label: 'Admin',

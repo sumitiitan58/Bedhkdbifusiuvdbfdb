@@ -1,1193 +1,982 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import {
+  AlertTriangle,
   ArrowRight,
-  BarChart3,
+  Award,
   BookOpen,
-  CalendarCheck,
   Check,
   CheckCircle2,
   ClipboardCheck,
   Clock,
-  Download,
-  FileSpreadsheet,
+  Flame,
+  Gauge,
+  Layers,
   Pause,
   Play,
   Plus,
   RotateCcw,
-  ShieldCheck,
   Sparkles,
-  Trash2,
-  Upload,
-  UserCircle2,
+  Target,
+  TrendingUp,
+  Users,
+  Zap,
 } from 'lucide-react';
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  ResponsiveContainer as RechartsContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
+import prepsbotMascotImg from '../assets/images/prepsbot_3d_transparent.png';
 import { PageLayout } from '../layouts/PageLayout';
 import { ResponsiveContainer } from '../components/ResponsiveContainer';
-import { ReusableButton } from '../components/ReusableButton';
-import { ReusableCard } from '../components/ReusableCard';
-import { ClassSubClassPicker } from '../components/ClassSubClassPicker';
-import { GeminiMentorPanel } from '../components/ai/GeminiMentorPanel';
-import { StreakTargetWidget } from '../components/dashboard/StreakTargetWidget';
-import { StudyActivityHeatmap } from '../components/dashboard/StudyActivityHeatmap';
-import { Prepskm2HomeBento } from '../components/dashboard/Prepskm2HomeBento';
-import { ChapterMasteryAndBacklogHub } from '../components/planner/ChapterMasteryAndBacklogHub';
-import { AiPrepScoreCard } from '../components/analytics/AiPrepScoreCard';
 import { SeoHead } from '../components/SeoHead';
-import { useAuth } from '../context/AuthContext';
+import { DailyTrifectaBar } from '../components/dashboard/DailyTrifectaBar';
+import { SundayBlitzCard } from '../components/dashboard/SundayBlitzCard';
+import { DAILY_FORMULA_CHECKS, MASTERY_CHAPTERS_48, type MasteryStageKey } from '../data/prepskm2Data';
+import { predictExamPercentile } from '../utils/percentilePredictor';
+import { useLanguage } from '../context/LanguageContext';
+import { useExam } from '../context/ExamContext';
+import { usePrepskm2 } from '../context/Prepskm2Context';
 import { usePlatformData } from '../context/PlatformDataContext';
-import { PLATFORM_MODULES } from '../services/platformRegistry';
-import { MANZIL_78_LECTURES, PLANNER_60_DAYS } from '../utils/plannerData';
-import { computeManzilAndWeightageStats } from '../utils/plannerStats';
-import { computeCumulativeAnalytics } from '../utils/scoringEngine';
-import {
-  computeWeeklyScheduleStats,
-  WEEK_DAY_LABELS,
-  WEEK_DAYS,
-} from '../utils/weeklySchedule';
+import { useAuth } from '../context/AuthContext';
 import { playClick, playNav, playSuccess } from '../utils/soundEffects';
-import type {
-  PlannerDayTask,
-  StudentCohortId,
-  UserProgressData,
-  WeeklyDay,
-} from '../types';
 
-const DIFFICULTY_COLORS: Record<string, string> = {
-  Easy: '#10B981',
-  Moderate: '#2563EB',
-  Tough: '#F97316',
-};
+type StudyDeckTab = 'practice' | 'focus' | 'mastery' | 'predictor';
 
-const MODULE_ICONS = {
-  materials: BookOpen,
-  profile: UserCircle2,
-  'cbt-mocks': ClipboardCheck,
-  dpp: FileSpreadsheet,
-  analytics: BarChart3,
-  admin: ShieldCheck,
-};
-
-const PHASES: ('All' | PlannerDayTask['phase'])[] = [
-  'All',
-  'Phase 1: Foundation & High-Yield',
-  'Phase 2: Core Mastery',
-  'Phase 3: Full Revision & CBT',
+const MASTERY_STAGES: Array<{ key: MasteryStageKey; label: string }> = [
+  { key: 'theory', label: 'Theory' },
+  { key: 'dpp', label: 'DPP' },
+  { key: 'pyqs', label: 'PYQs' },
+  { key: 'rev1', label: 'Rev 1' },
+  { key: 'rev2', label: 'Rev 2' },
 ];
 
-const REVEAL_PROPS = {
-  initial: { opacity: 0, y: 14 },
-  whileInView: { opacity: 1, y: 0 },
-  viewport: { once: true, amount: 0.12 },
-  transition: { duration: 0.28, ease: 'easeOut' as const },
-};
-
-const JS_DAY_TO_WEEKDAY: WeeklyDay[] = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-type ToolkitTab = 'focus' | 'sprint' | 'matrix';
-
-function getStreamAbbrev(subjects: string[], streamLabel: string): string {
-  const joined = subjects.join(' ').toLowerCase();
-  if (joined.includes('physics') && joined.includes('chemistry') && joined.includes('math')) {
-    return 'PCM';
-  }
-  if (joined.includes('physics') && joined.includes('chemistry') && joined.includes('biology')) {
-    return 'PCB';
-  }
-  return streamLabel;
-}
-
 export default function HomePage() {
+  const { t } = useLanguage();
+  const { examTrack, trackConfig, lastPracticed } = useExam();
+  const { isGuest } = useAuth();
+  const { logFocusMinutes } = usePlatformData();
   const {
-    firebaseUser,
-    profile,
-    isAdmin,
-    cohortId,
-    isGuest,
-    hasCompletedOnboarding,
-    selectCohort,
-    continueAsGuest,
-    signInWithGoogle,
-    openOnboardingModal,
-  } = useAuth();
-  const {
-    allCohorts,
-    chapters,
-    questions,
-    progress,
-    attempts,
-    activeStudyDates,
-    resolvedMistakeIds,
-    togglePlannerDay,
-    toggleWeeklyTask,
-    addWeeklyTask,
-    deleteWeeklyTask,
-    resetWeeklySchedule,
-    logFocusMinutes,
-    importBackupProgress,
-  } = usePlatformData();
+    masteryMap,
+    toggleMasteryStage,
+    backlogTasks,
+    toggleBacklogTask,
+    addBacklogTask,
+    recordFocusBlockVerified,
+    recordPyqSprintProgress,
+    setCopilotOpen,
+  } = usePrepskm2();
 
-  const [pickedCohort, setPickedCohort] = useState<StudentCohortId>(cohortId);
+  // 4-Tab Interactive Study Deck state
+  const [deckTab, setDeckTab] = useState<StudyDeckTab>('practice');
 
-  // Weekly Schedule: default to Today's Focus weekday
-  const todayDay: WeeklyDay = JS_DAY_TO_WEEKDAY[new Date().getDay()] ?? 'Mon';
-  const [selectedDay, setSelectedDay] = useState<WeeklyDay | 'All'>(todayDay);
-  const [addingTask, setAddingTask] = useState(false);
-  const [newTaskDay, setNewTaskDay] = useState<WeeklyDay>(todayDay);
-  const [newTaskSlot, setNewTaskSlot] = useState('19:00 – 20:30');
-  const [newTaskSubject, setNewTaskSubject] = useState('Physics');
-  const [newTaskTopic, setNewTaskTopic] = useState('');
-  const [newTaskDuration, setNewTaskDuration] = useState(90);
+  // Tab 1: 10-Second Formula Duel
+  const [formulaIdx, setFormulaIdx] = useState(0);
+  const [formulaPicked, setFormulaPicked] = useState<number | null>(null);
+  const [formulaCountdown, setFormulaCountdown] = useState(10);
+  const [formulaStreak, setFormulaStreak] = useState(0);
 
-  // Unified Tabbed Study Toolkit (Focus Timer | 60-Day Sprint | 300-Mark Matrix)
-  const [activeToolkitTab, setActiveToolkitTab] = useState<ToolkitTab>('focus');
-  const [phaseFilter, setPhaseFilter] = useState<'All' | PlannerDayTask['phase']>('All');
-  const [showAllDays, setShowAllDays] = useState(false);
+  const activeFormula = DAILY_FORMULA_CHECKS[formulaIdx % DAILY_FORMULA_CHECKS.length];
 
-  // Focus Timer (25 / 50 min) + Backup/Restore
-  const [focusPresetMin, setFocusPresetMin] = useState<25 | 50>(25);
-  const [focusSecondsLeft, setFocusSecondsLeft] = useState(25 * 60);
+  useEffect(() => {
+    if (deckTab !== 'practice' || formulaPicked !== null) return;
+    const id = window.setInterval(() => {
+      setFormulaCountdown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [deckTab, formulaPicked, formulaIdx]);
+
+  const handleFormulaPick = (idx: number) => {
+    if (formulaPicked !== null) return;
+    setFormulaPicked(idx);
+    if (idx === activeFormula.correctIndex) {
+      playSuccess();
+      setFormulaStreak((s) => s + 1);
+      recordPyqSprintProgress(1);
+    } else {
+      playClick();
+      setFormulaStreak(0);
+    }
+  };
+
+  const handleNextFormula = () => {
+    playClick();
+    setFormulaIdx((i) => (i + 1) % DAILY_FORMULA_CHECKS.length);
+    setFormulaPicked(null);
+    setFormulaCountdown(10);
+  };
+
+  // Tab 2: Focus & Planner (25m / 50m Focus Block + Tab-Switch Break Warning + Top 3 Tasks)
+  const [focusPreset, setFocusPreset] = useState<25 | 50>(25);
+  const [focusSeconds, setFocusSeconds] = useState(25 * 60);
   const [focusRunning, setFocusRunning] = useState(false);
-  const [backupNotice, setBackupNotice] = useState<string | null>(null);
-  const backupInputRef = useRef<HTMLInputElement | null>(null);
+  const [tabBreaks, setTabBreaks] = useState(0);
+  const [focusStatusNote, setFocusStatusNote] = useState<string | null>(null);
+  const [quickTaskTitle, setQuickTaskTitle] = useState('');
 
   useEffect(() => {
     if (!focusRunning) return;
     const id = window.setInterval(() => {
-      setFocusSecondsLeft((prev) => {
+      setFocusSeconds((prev) => {
         if (prev <= 1) {
           window.clearInterval(id);
           setFocusRunning(false);
-          logFocusMinutes(focusPresetMin);
+          logFocusMinutes(focusPreset);
+          recordFocusBlockVerified(focusPreset, tabBreaks);
           playSuccess();
-          setBackupNotice(`Completed ${focusPresetMin}m focus sprint! Logged to your total.`);
-          return focusPresetMin * 60;
+          setFocusStatusNote(`Verified ${focusPreset}m Focus Block logged (+${focusPreset * 2} XP)!`);
+          return focusPreset * 60;
         }
         return prev - 1;
       });
     }, 1000);
     return () => window.clearInterval(id);
-  }, [focusRunning, focusPresetMin, logFocusMinutes]);
+  }, [focusRunning, focusPreset, tabBreaks, logFocusMinutes, recordFocusBlockVerified]);
 
-  const activeCohort = useMemo(
-    () => allCohorts.find((c) => c.id === cohortId) ?? allCohorts[0],
-    [allCohorts, cohortId]
-  );
-
-  const visibleModules = useMemo(
-    () => PLATFORM_MODULES.filter((mod) => mod.id !== 'admin' || isAdmin),
-    [isAdmin]
-  );
-
-  const weeklyItems = progress.weeklySchedule ?? [];
-  const weeklyStats = useMemo(() => computeWeeklyScheduleStats(weeklyItems), [weeklyItems]);
-  const visibleWeeklyItems = useMemo(
-    () =>
-      selectedDay === 'All'
-        ? weeklyItems
-        : weeklyItems.filter((item) => item.day === selectedDay),
-    [selectedDay, weeklyItems]
-  );
-
-  const focusHours = useMemo(() => {
-    const h = progress.focusSessionsMinutes / 60;
-    return h === 0 ? '0' : Number.isInteger(h) ? String(h) : h.toFixed(1);
-  }, [progress.focusSessionsMinutes]);
-
-  const analyticsSummary = useMemo(() => computeCumulativeAnalytics(attempts), [attempts]);
-
-  const paceTotals = useMemo(
-    () =>
-      attempts.reduce(
-        (acc, att) => ({
-          tooFast: acc.tooFast + att.paceSummary.tooFastCount,
-          optimal: acc.optimal + att.paceSummary.optimalCount,
-          tooSlow: acc.tooSlow + att.paceSummary.tooSlowCount,
-          unattempted: acc.unattempted + att.paceSummary.unattemptedCount,
-        }),
-        { tooFast: 0, optimal: 0, tooSlow: 0, unattempted: 0 }
-      ),
-    [attempts]
-  );
-
-  const subjectPerfForAi = useMemo(() => {
-    const map = new Map<string, { correct: number; incorrect: number; score: number; maxScore: number }>();
-    for (const att of attempts) {
-      for (const s of att.subjectScores) {
-        const cur = map.get(s.subjectName) ?? { correct: 0, incorrect: 0, score: 0, maxScore: 0 };
-        cur.correct += s.correct;
-        cur.incorrect += s.incorrect;
-        cur.score += s.score;
-        cur.maxScore += s.maxScore;
-        map.set(s.subjectName, cur);
+  useEffect(() => {
+    if (!focusRunning) return;
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        setTabBreaks((b) => b + 1);
+        setFocusStatusNote('Tab switch detected during Focus Block! Stay on this tab to protect your XP bonus.');
       }
-    }
-    return Array.from(map.entries()).map(([subject, v]) => ({
-      subject,
-      accuracy: v.correct + v.incorrect > 0 ? Math.round((v.correct / (v.correct + v.incorrect)) * 100) : 0,
-      scorePct: v.maxScore > 0 ? Math.max(0, Math.round((v.score / v.maxScore) * 100)) : 0,
-    }));
-  }, [attempts]);
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+  }, [focusRunning]);
 
-  const weakChaptersForAi = useMemo(() => {
-    const map = new Map<string, { chapterName: string; subjectName: string; correct: number; incorrect: number }>();
-    for (const att of attempts) {
-      for (const c of att.chapterScores) {
-        const key = `${c.subjectName}::${c.chapterName}`;
-        const cur = map.get(key) ?? { chapterName: c.chapterName, subjectName: c.subjectName, correct: 0, incorrect: 0 };
-        cur.correct += c.correct;
-        cur.incorrect += c.incorrect;
-        map.set(key, cur);
-      }
-    }
-    return Array.from(map.values())
-      .map((c) => ({
-        chapterName: c.chapterName,
-        subjectName: c.subjectName,
-        accuracy: c.correct + c.incorrect > 0 ? Math.round((c.correct / (c.correct + c.incorrect)) * 100) : 0,
-      }))
-      .sort((a, b) => a.accuracy - b.accuracy)
-      .slice(0, 5);
-  }, [attempts]);
+  const top3Tasks = useMemo(() => {
+    const present = backlogTasks.filter((task) => task.bucket === 'present');
+    return (present.length > 0 ? present : backlogTasks).slice(0, 4);
+  }, [backlogTasks]);
 
-  const weightageSummary = useMemo(
-    () => computeManzilAndWeightageStats(MANZIL_78_LECTURES, progress.manzilProgress).weightage,
-    [progress.manzilProgress]
-  );
-
-  const completedDaySet = useMemo(
-    () => new Set(progress.plannerCompletedDays),
-    [progress.plannerCompletedDays]
-  );
-
-  const filteredPlannerDays = useMemo(() => {
-    const base =
-      phaseFilter === 'All'
-        ? PLANNER_60_DAYS
-        : PLANNER_60_DAYS.filter((d) => d.phase === phaseFilter);
-    return showAllDays ? base : base.slice(0, 8);
-  }, [phaseFilter, showAllDays]);
-
-  const plannerPercent = Math.round((progress.plannerCompletedDays.length / 60) * 100);
-
-  const scrollToSection = (sectionId: string, toolkitTab?: ToolkitTab) => {
-    playClick();
-    if (toolkitTab) setActiveToolkitTab(toolkitTab);
-    window.requestAnimationFrame(() => {
-      document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
-  };
-
-  const handleAddWeeklyTask = () => {
-    const topic = newTaskTopic.trim();
-    if (!topic) return;
+  const handleAddQuickTask = () => {
+    const clean = quickTaskTitle.trim();
+    if (!clean) return;
     playSuccess();
-    addWeeklyTask({
-      day: newTaskDay,
-      timeSlot: newTaskSlot.trim() || '19:00 – 20:00',
-      subject: newTaskSubject.trim() || 'Physics',
-      topic,
-      durationMinutes: Math.max(15, Number(newTaskDuration) || 60),
-      completed: false,
-      priority: 'High',
+    addBacklogTask({
+      title: clean,
+      subject: examTrack === 'neet' ? 'Biology' : 'Physics',
+      dueDateIso: new Date().toISOString().slice(0, 10),
+      bucket: 'present',
     });
-    setSelectedDay(newTaskDay);
-    setNewTaskTopic('');
-    setAddingTask(false);
+    setQuickTaskTitle('');
   };
 
-  const handleExportBackup = () => {
-    playClick();
-    const payload = {
-      platform: 'PREPSKM.IN',
-      exportedAt: new Date().toISOString(),
-      cohortId,
-      progress,
-    };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `prepskm-backup-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    setBackupNotice('Backup JSON exported.');
-  };
+  // Tab 3: 5-Stage Chapter Mastery Tracker
+  const [masterySubject, setMasterySubject] = useState<'Physics' | 'Chemistry' | 'Mathematics' | 'Biology'>(() =>
+    examTrack === 'neet' ? 'Biology' : 'Physics'
+  );
 
-  const handleImportBackup = (file: File | undefined) => {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const parsed = JSON.parse(String(reader.result)) as {
-          progress?: Partial<UserProgressData>;
-        };
-        const data = parsed.progress ?? (parsed as Partial<UserProgressData>);
-        importBackupProgress(data);
-        playSuccess();
-        setBackupNotice('Backup restored cleanly.');
-      } catch {
-        setBackupNotice('Invalid JSON backup file.');
+  const visibleMasteryChapters = useMemo(
+    () => MASTERY_CHAPTERS_48.filter((c) => c.subject === masterySubject).slice(0, 6),
+    [masterySubject]
+  );
+
+  const masteryCompletionPct = useMemo(() => {
+    const total = visibleMasteryChapters.length * 5;
+    if (total === 0) return 0;
+    let done = 0;
+    for (const ch of visibleMasteryChapters) {
+      const stages = masteryMap[ch.id];
+      if (!stages) continue;
+      for (const s of MASTERY_STAGES) {
+        if (stages[s.key]) done += 1;
       }
-    };
-    reader.readAsText(file);
-  };
+    }
+    return Math.round((done / total) * 100);
+  }, [visibleMasteryChapters, masteryMap]);
 
-  const focusMins = Math.floor(focusSecondsLeft / 60);
-  const focusSecs = focusSecondsLeft % 60;
-  const streamPillText = activeCohort
-    ? `${getStreamAbbrev(activeCohort.subjects, activeCohort.stream)} · ${activeCohort.stream}`
-    : 'PCM · JEE';
-  const guestSyncHint = isGuest
-    ? 'Sign in to sync your progress across devices'
-    : undefined;
+  // Tab 4: Live Percentile Predictor (auto-adapts to JEE / NEET / Boards)
+  const predictorMax = examTrack === 'neet' ? 720 : examTrack === 'boards' ? 500 : 300;
+  const [sliderMarks, setSliderMarks] = useState<number>(() =>
+    examTrack === 'neet' ? 625 : examTrack === 'boards' ? 440 : 172
+  );
+
+  useEffect(() => {
+    setSliderMarks(examTrack === 'neet' ? 625 : examTrack === 'boards' ? 440 : 172);
+  }, [examTrack]);
+
+  const prediction = useMemo(() => {
+    if (examTrack === 'boards') {
+      const pct = Math.min(99.8, Number(((sliderMarks / 500) * 100).toFixed(1)));
+      return {
+        percentile: pct,
+        estimatedAir: Math.max(120, Math.round((100 - pct) * 4200)),
+        targetTier: pct >= 95 ? 'CBSE 95%+ Merit Distinction' : pct >= 88 ? 'Strong Honours Distinction' : 'Core Board Mastery Zone',
+        collegeOutlook: pct >= 95 ? 'CUET / Top DU Honours & Strong JEE/NEET Foundation' : 'Focus on NCERT Solved Examples + PYQ Writing Practice',
+        topPercentLabel: `${pct}% Aggregate`,
+      };
+    }
+    return predictExamPercentile(examTrack === 'neet' ? 'neet-ug' : 'jee-main', sliderMarks);
+  }, [examTrack, sliderMarks]);
+
+  const minsStr = String(Math.floor(focusSeconds / 60)).padStart(2, '0');
+  const secsStr = String(focusSeconds % 60).padStart(2, '0');
 
   return (
     <PageLayout>
       <SeoHead
-        title="Prepskm — Free JEE, NEET & Board Notes, DPPs & CBT Mocks"
-        description="Free JEE, NEET & Class 9–12 chapter notes with inline DPPs, NTA CBT mock tests, Prep Score (0–100), AI Mistake Notebook & Google Workspace sync."
+        title="Prepskm 2.0 — Concept-Mapped PYQs, Real NTA CBT Mocks & 1:1 IIT/AIIMS Mentors"
+        description="Master JEE Main/Adv, NEET UG, and Class 9–12 with zero-login Guest Mode, Concept-Mapped PYQs, 2027 High-Yield Predictor, NCERT-to-PYQ Mapper, and 1:1 IIT/AIIMS Mentors."
         canonicalPath="/"
-        keywords="Prepskm, prepskm.in, prepskm mock test, unfiltereddsumit, Prep Score 0-100, JEE Main 2027, NEET UG, Class 12 JEE, concise chapter notes, inline Chapter DPPs, NTA CBT mock tests"
       />
 
-      {/* Prepskm 2.0 Adaptive Bento OS Section */}
-      <section className="relative border-b border-slate-200/80 dark:border-white/10 bg-gradient-to-b from-white via-[#F8FAFC] to-[#F1F5F9]/60 dark:from-[#070A12] dark:via-[#070A12] dark:to-[#0A1020] overflow-hidden">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none hidden dark:block absolute -top-24 left-1/3 w-[520px] h-[260px] rounded-full bg-[#00B4FF]/[0.07] blur-3xl"
-        />
-        <ResponsiveContainer className="relative py-6 sm:py-8 space-y-6">
-          <Prepskm2HomeBento />
+      {/* =================================================================
+          SECTION 1: CLEAN HERO BANNER (12-COL SPLIT + PREPSBOT COMMAND CARD)
+         ================================================================= */}
+      <section className="relative border-b border-[#E2E8F0] dark:border-white/[0.08] bg-gradient-to-br from-[#F4F8FF] via-[#EEF4FF] to-[#E6F2FF] dark:bg-none dark:preps-hero-gradient overflow-x-clip">
+        <ResponsiveContainer className="py-8 sm:py-10">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+            {/* Left (7 cols): Headline, Metrics Strip, 2 Crisp CTAs */}
+            <div className="lg:col-span-7 space-y-5">
+              <div className="inline-flex items-center gap-2 text-xs font-mono font-bold uppercase tracking-[0.14em] text-[#0284C7] dark:text-[#22D3EE]">
+                <span className="h-2 w-2 rounded-full bg-[#22C55E]" />
+                {t('hero.eyebrow')}
+              </div>
 
-          {/* Compact Track & Quick Stats Strip */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch pt-2">
-            <div className="lg:col-span-8 grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-              <button
-                type="button"
-                onClick={() => scrollToSection('weekly-study-schedule')}
-                title={weeklyStats.completedTasks === 0 ? guestSyncHint : 'Jump to Weekly Study Schedule'}
-                className="group text-left p-3 rounded-2xl bg-white/90 dark:bg-[#0D1324] border border-slate-200/80 dark:border-[#00B4FF]/[0.14] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] hover:border-[#00B4FF]/60 hover:-translate-y-0.5 transition-all cursor-pointer"
-              >
-                <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 flex items-center justify-between gap-1">
-                  <span>Weekly</span>
-                  <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 text-[#00B4FF] transition-opacity" />
-                </p>
-                <p className="font-mono text-base sm:text-lg font-bold tabular-nums text-slate-950 dark:text-white mt-0.5">
-                  {weeklyStats.completedTasks}/{weeklyStats.totalTasks}
-                </p>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                  Tasks Done
-                </p>
-              </button>
+              <h1 className="font-display text-[28px] sm:text-[40px] font-bold tracking-tight leading-[1.15] text-[#0B1F3A] dark:text-[#F8FAFC] text-balance">
+                {t('hero.title')}
+              </h1>
 
-              <button
-                type="button"
-                onClick={() => scrollToSection('study-toolkit', 'focus')}
-                title={progress.focusSessionsMinutes === 0 ? guestSyncHint : 'Jump to Focus Timer'}
-                className="group text-left p-3 rounded-2xl bg-white/90 dark:bg-[#0D1324] border border-slate-200/80 dark:border-[#00B4FF]/[0.14] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] hover:border-[#00B4FF]/60 hover:-translate-y-0.5 transition-all cursor-pointer"
-              >
-                <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 flex items-center justify-between gap-1">
-                  <span>Hours</span>
-                  <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 text-[#00B4FF] transition-opacity" />
-                </p>
-                <p className="font-mono text-base sm:text-lg font-bold tabular-nums text-[#1D56C6] dark:text-[#00B4FF] mt-0.5">
-                  {focusHours}h
-                </p>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                  Focus Logged
-                </p>
-              </button>
+              <p className="text-sm sm:text-base text-[#475569] dark:text-[#94A3B8] max-w-2xl leading-relaxed">
+                {t('hero.subtitle')}
+              </p>
 
-              <button
-                type="button"
-                onClick={() => scrollToSection('study-toolkit', 'sprint')}
-                title={progress.plannerCompletedDays.length === 0 ? guestSyncHint : 'Jump to 60-Day Syllabus Sprint'}
-                className="group text-left p-3 rounded-2xl bg-white/90 dark:bg-[#0D1324] border border-slate-200/80 dark:border-[#00B4FF]/[0.14] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] hover:border-[#F27B13]/60 hover:-translate-y-0.5 transition-all cursor-pointer"
-              >
-                <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 flex items-center justify-between gap-1">
-                  <span>60-Day</span>
-                  <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 text-[#F27B13] transition-opacity" />
-                </p>
-                <p className="font-mono text-base sm:text-lg font-bold tabular-nums text-[#F27B13] mt-0.5">
-                  {progress.plannerCompletedDays.length}/60
-                </p>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                  Sprint Days
-                </p>
-              </button>
+              {/* 3 Live Key Metrics (Zero Pill Clutter — Crisp Dividers) */}
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs sm:text-sm font-semibold text-[#0B1F3A] dark:text-[#F8FAFC] pt-1">
+                <span className="inline-flex items-center gap-1.5">
+                  <ClipboardCheck className="w-4 h-4 text-[#0284C7] dark:text-[#06B6D4]" />
+                  {t('hero.metricCbt')}
+                </span>
+                <span className="text-[#94A3B8]" aria-hidden="true">·</span>
+                <span className="inline-flex items-center gap-1.5">
+                  <BookOpen className="w-4 h-4 text-[#15803D] dark:text-[#22C55E]" />
+                  {t('hero.metricNcert')}
+                </span>
+                <span className="text-[#94A3B8]" aria-hidden="true">·</span>
+                <span className="inline-flex items-center gap-1.5">
+                  <Award className="w-4 h-4 text-[#EA580C] dark:text-[#F97316]" />
+                  {t('hero.metricMentor')}
+                </span>
+              </div>
 
-              <Link
-                to="/cbt-mocks"
-                onClick={() => playNav()}
-                title={attempts.length === 0 ? guestSyncHint : 'Open CBT Mock Tests'}
-                className="group text-left p-3 rounded-2xl bg-white/90 dark:bg-[#0D1324] border border-slate-200/80 dark:border-[#00B4FF]/[0.14] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] hover:border-[#10B981]/60 hover:-translate-y-0.5 transition-all cursor-pointer block"
-              >
-                <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 flex items-center justify-between gap-1">
-                  <span>Tests</span>
-                  <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 text-[#10B981] transition-opacity" />
-                </p>
-                <p className="font-mono text-base sm:text-lg font-bold tabular-nums text-[#10B981] mt-0.5">
-                  {attempts.length}
-                </p>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                  Mocks Taken
-                </p>
-              </Link>
+              {/* 2 Crisp CTAs */}
+              <div className="flex flex-wrap items-center gap-3 pt-1">
+                <Link
+                  to="/cbt-mocks"
+                  onClick={() => playNav()}
+                  className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-bold bg-[#0284C7] dark:bg-[#06B6D4] hover:opacity-95 text-white dark:text-[#070B14] transition-opacity"
+                >
+                  <Zap className="w-4 h-4" />
+                  {t('hero.ctaMock')}
+                </Link>
+                <Link
+                  to="/mentors"
+                  onClick={() => playNav()}
+                  className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-bold bg-[#FFFFFF] dark:bg-[#0F172A] hover:bg-[#EEF4FF] dark:hover:bg-[#162033] text-[#0B1F3A] dark:text-[#F8FAFC] border border-[#E2E8F0] dark:border-white/[0.12] transition-colors"
+                >
+                  <Users className="w-4 h-4 text-[#EA580C] dark:text-[#F97316]" />
+                  {t('hero.ctaMentor')}
+                </Link>
+              </div>
             </div>
 
-            {activeCohort && (
-              <div className="lg:col-span-4 rounded-2xl border border-slate-200/80 dark:border-[#00B4FF]/[0.14] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] bg-white dark:bg-[#0D1324] px-4 py-3.5 flex items-center justify-between gap-3">
-                <div className="min-w-0 space-y-1">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    Active Track · {isGuest ? 'Guest Mode' : 'Google Synced'}
-                  </p>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-display text-sm sm:text-base font-bold text-slate-950 dark:text-white truncate">
-                      {activeCohort.label}
-                    </p>
-                    <span className="text-slate-300 dark:text-slate-700">·</span>
-                    <span className="text-xs font-semibold text-slate-600 dark:text-slate-300 shrink-0">
-                      {streamPillText}
-                    </span>
+            {/* Right (5 cols): PrepsBot Command Card + Daily Trifecta Compact + Quick Resume */}
+            <div className="lg:col-span-5">
+              <div className="rounded-2xl bg-[#FFFFFF] dark:bg-[#0F172A] border border-[#E2E8F0] dark:border-white/[0.08] p-5 space-y-5 shadow-sm">
+                {/* PrepsBot Header */}
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        playClick();
+                        setCopilotOpen(true);
+                      }}
+                      className="h-14 w-14 rounded-2xl bg-[#EEF4FF] dark:bg-[#162033] border border-[#E2E8F0] dark:border-white/[0.08] flex items-center justify-center shrink-0 hover:scale-105 transition-transform"
+                      title="Ask PrepsBot AI Tutor"
+                    >
+                      <img
+                        src={prepsbotMascotImg}
+                        alt="PrepsBot 3D AI Mascot"
+                        className="h-12 w-12 object-contain"
+                      />
+                    </button>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h2 className="font-display text-sm font-bold text-[#0B1F3A] dark:text-[#F8FAFC] truncate">
+                          PrepsBot Command Deck
+                        </h2>
+                        <span className="px-2 py-0.5 rounded-md bg-[#0284C7]/12 dark:bg-[#06B6D4]/15 text-[#0284C7] dark:text-[#22D3EE] font-mono text-[10px] font-bold shrink-0">
+                          {trackConfig.shortLabel}
+                        </span>
+                      </div>
+                      <p className="text-xs text-[#475569] dark:text-[#94A3B8] mt-0.5 truncate">
+                        {isGuest ? 'Guest Mode Active · Instant local save' : 'Synced Workspace Active'}
+                      </p>
+                    </div>
                   </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      playClick();
+                      setCopilotOpen(true);
+                    }}
+                    className="px-3 py-1.5 rounded-xl text-xs font-bold bg-[#EEF4FF] dark:bg-[#162033] text-[#0284C7] dark:text-[#22D3EE] border border-[#E2E8F0] dark:border-white/[0.08] hover:border-[#06B6D4] shrink-0"
+                  >
+                    Ask AI
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    playClick();
-                    openOnboardingModal();
-                  }}
-                  className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-[#00B4FF]/15 text-[#1D56C6] dark:text-[#00B4FF] hover:bg-[#00B4FF]/25 transition-colors shrink-0 self-center"
-                >
-                  {firebaseUser ? 'Switch' : 'Sign In'}
-                </button>
+
+                {/* Daily Trifecta 3 Mini Progress Rings */}
+                <DailyTrifectaBar compact />
+
+                {/* Quick Resume Strip */}
+                <div className="rounded-xl bg-[#F4F8FF] dark:bg-[#162033] border border-[#E2E8F0] dark:border-white/[0.08] p-3.5 flex items-center justify-between gap-3">
+                  <div className="min-w-0 space-y-1 flex-1">
+                    <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#475569] dark:text-[#94A3B8]">
+                      Quick Resume · {lastPracticed.subject}
+                    </p>
+                    <p className="text-xs font-bold text-[#0B1F3A] dark:text-[#F8FAFC] truncate">
+                      {lastPracticed.chapter}
+                    </p>
+                    <div className="h-1.5 w-full rounded-full bg-[#E2E8F0] dark:bg-white/10 overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-[#0284C7] dark:bg-[#06B6D4]"
+                        style={{ width: `${lastPracticed.progressPercent}%` }}
+                      />
+                    </div>
+                  </div>
+                  <Link
+                    to={lastPracticed.route}
+                    onClick={() => playNav()}
+                    className="px-3 py-2 rounded-xl text-xs font-bold bg-[#0B1F3A] dark:bg-[#06B6D4] text-white dark:text-[#070B14] inline-flex items-center gap-1 shrink-0"
+                  >
+                    Resume
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
               </div>
-            )}
+            </div>
           </div>
         </ResponsiveContainer>
       </section>
 
-      <ResponsiveContainer className="py-8 sm:py-10 space-y-8 sm:space-y-10">
-        {/* 5-Stage Chapter Mastery Planner, Focus Timer & Backlog Clearance Hub */}
-        <motion.section {...REVEAL_PROPS} aria-label="Chapter mastery planner and backlog hub">
-          <ChapterMasteryAndBacklogHub />
-        </motion.section>
-        {/* Dynamic Prep Score (0–100) Gauge + 4-Factor Breakdown + Google Workspace Sync */}
-        <motion.section {...REVEAL_PROPS} aria-label="Prep Score readiness gauge">
-          <AiPrepScoreCard
-            attempts={attempts}
-            questions={questions}
-            chapters={chapters}
-            activeStudyDates={activeStudyDates}
-            resolvedMistakeIds={resolvedMistakeIds}
-            cohortLabel={activeCohort?.label ?? 'Class 12 JEE'}
-            studentName={profile?.displayName ?? firebaseUser?.displayName ?? 'Student'}
-          />
-        </motion.section>
-
-        {/* Daily Consistency Streak & Target Exam Countdown */}
-        <motion.section {...REVEAL_PROPS} aria-label="Daily streak and exam countdown">
-          <StreakTargetWidget />
-        </motion.section>
-
-        {/* GitHub-Style 30-Day Study Activity Heatmap */}
-        <motion.section {...REVEAL_PROPS} aria-label="30-day study consistency heatmap">
-          <StudyActivityHeatmap />
-        </motion.section>
-
-        {/* Class -> Sub-Class Selector */}
-        <motion.section {...REVEAL_PROPS} aria-labelledby="class-selector-heading" className="space-y-3">
-          <div className="flex items-center justify-between gap-2">
+      <ResponsiveContainer className="py-8 sm:py-10 space-y-10">
+        {/* =================================================================
+            SECTION 2: 4-TAB INTERACTIVE STUDY DECK (layoutId="activeTabPill")
+           ================================================================= */}
+        <section className="space-y-5" aria-label="Interactive Study Deck">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-[#2563EB] dark:text-sky-400">
-                Class &amp; Stream
+              <p className="font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#0284C7] dark:text-[#06B6D4]">
+                ACTIVE STUDY OS
               </p>
-              <h2
-                id="class-selector-heading"
-                className="font-display text-lg sm:text-xl font-bold text-[#0B1B3B] dark:text-white"
-              >
-                Pick Your Class → Board, JEE or NEET
+              <h2 className="font-display text-xl sm:text-2xl font-bold text-[#0B1F3A] dark:text-[#F8FAFC] mt-0.5">
+                {t('deck.title')}
               </h2>
+              <p className="text-xs sm:text-sm text-[#475569] dark:text-[#94A3B8] mt-1">
+                {t('deck.subtitle')}
+              </p>
             </div>
-            {!firebaseUser && (
-              <button
-                type="button"
-                onClick={() => {
-                  playClick();
-                  openOnboardingModal();
-                }}
-                className="text-xs font-semibold text-[#F97316] hover:underline shrink-0"
-              >
-                Google Login
-              </button>
-            )}
+
+            {/* 4-Tab Pill Bar */}
+            <div
+              role="tablist"
+              aria-label="Study deck modules"
+              className="inline-flex flex-wrap items-center gap-1 p-1 rounded-2xl bg-[#EEF4FF] dark:bg-[#0F172A] border border-[#E2E8F0] dark:border-white/[0.08]"
+            >
+              {(
+                [
+                  { id: 'practice', label: t('deck.tabPractice'), icon: Zap },
+                  { id: 'focus', label: t('deck.tabFocus'), icon: Clock },
+                  { id: 'mastery', label: t('deck.tabMastery'), icon: Layers },
+                  { id: 'predictor', label: t('deck.tabPredictor'), icon: Gauge },
+                ] as const
+              ).map((tab) => {
+                const Icon = tab.icon;
+                const active = deckTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    onClick={() => {
+                      playClick();
+                      setDeckTab(tab.id);
+                    }}
+                    className={`relative px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold inline-flex items-center gap-1.5 transition-colors ${
+                      active
+                        ? 'text-[#0B1F3A] dark:text-[#F8FAFC]'
+                        : 'text-[#475569] dark:text-[#94A3B8] hover:text-[#0B1F3A] dark:hover:text-[#F8FAFC]'
+                    }`}
+                  >
+                    {active && (
+                      <motion.span
+                        layoutId="activeTabPill"
+                        transition={{ duration: 0.2, ease: 'easeOut' }}
+                        className="absolute inset-0 rounded-xl bg-[#FFFFFF] dark:bg-[#162033] border border-[#E2E8F0] dark:border-white/10 shadow-sm"
+                      />
+                    )}
+                    <Icon className="relative z-10 w-3.5 h-3.5 text-[#0284C7] dark:text-[#06B6D4]" />
+                    <span className="relative z-10 whitespace-nowrap">{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          <ReusableCard padding="sm" className="space-y-3 rounded-2xl border-slate-200/80 dark:border-slate-800/80">
-            <ClassSubClassPicker
-              selectedCohortId={hasCompletedOnboarding ? cohortId : pickedCohort}
-              onSelect={(cid) => {
-                setPickedCohort(cid);
-                void selectCohort(cid);
-              }}
-              compact
-            />
+          {/* Study Deck Content Surface */}
+          <div className="rounded-2xl bg-[#FFFFFF] dark:bg-[#0F172A] border border-[#E2E8F0] dark:border-white/[0.08] p-5 sm:p-6">
+            {/* TAB 1: QUICK PRACTICE (10s Formula Duel + Chapter Sprint) */}
+            {deckTab === 'practice' && (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                <div className="lg:col-span-7 space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 text-xs font-mono">
+                      <span className="px-2.5 py-0.5 rounded-lg bg-[#0284C7]/12 dark:bg-[#06B6D4]/15 text-[#0284C7] dark:text-[#22D3EE] font-bold">
+                        10s FORMULA DUEL
+                      </span>
+                      <span className="text-[#475569] dark:text-[#94A3B8] font-semibold">
+                        {activeFormula.subject} · {activeFormula.chapter}
+                      </span>
+                    </div>
 
-            {!hasCompletedOnboarding && (
-              <div className="pt-2.5 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2">
-                <p className="text-xs text-slate-600 dark:text-slate-400">
-                  Save progress locally or sync via Google across devices.
-                </p>
-                <div className="flex gap-2">
-                  <ReusableButton
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => {
-                      playSuccess();
-                      continueAsGuest(pickedCohort);
-                    }}
-                  >
-                    Guest Mode
-                  </ReusableButton>
-                  <ReusableButton
-                    variant="primary"
-                    size="sm"
-                    onClick={() => void signInWithGoogle(pickedCohort)}
-                  >
-                    Google Sign-In
-                  </ReusableButton>
+                    <div className="flex items-center gap-3 font-mono text-xs tabular-nums">
+                      <span className="text-[#EA580C] dark:text-[#F97316] font-bold inline-flex items-center gap-1">
+                        <Flame className="w-3.5 h-3.5 fill-current" />
+                        Streak {formulaStreak}
+                      </span>
+                      <span
+                        className={`px-2 py-0.5 rounded-md font-bold ${
+                          formulaCountdown <= 3
+                            ? 'bg-[#EF4444]/15 text-[#EF4444]'
+                            : 'bg-[#EEF4FF] dark:bg-[#162033] text-[#0B1F3A] dark:text-[#F8FAFC]'
+                        }`}
+                      >
+                        {formulaCountdown}s
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl bg-[#F4F8FF] dark:bg-[#162033] border border-[#E2E8F0] dark:border-white/[0.08] p-4 space-y-2">
+                    <p className="text-sm font-semibold text-[#0B1F3A] dark:text-[#F8FAFC]">
+                      {activeFormula.prompt}
+                    </p>
+                    <p className="font-mono text-base sm:text-lg font-bold text-[#0284C7] dark:text-[#22D3EE]">
+                      {activeFormula.formulaStem}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {activeFormula.options.map((opt, idx) => {
+                      const answered = formulaPicked !== null;
+                      const isRight = idx === activeFormula.correctIndex;
+                      const isPicked = formulaPicked === idx;
+                      let cls =
+                        'bg-[#F4F8FF] dark:bg-[#162033] border-[#E2E8F0] dark:border-white/[0.08] text-[#0B1F3A] dark:text-[#F8FAFC] hover:border-[#0284C7] dark:hover:border-[#06B6D4]';
+                      if (answered) {
+                        if (isRight) cls = 'bg-[#22C55E]/15 border-[#22C55E] text-[#15803D] dark:text-[#22C55E]';
+                        else if (isPicked) cls = 'bg-[#EF4444]/15 border-[#EF4444] text-[#DC2626] dark:text-[#EF4444]';
+                      }
+                      return (
+                        <button
+                          key={opt}
+                          type="button"
+                          disabled={answered}
+                          onClick={() => handleFormulaPick(idx)}
+                          className={`px-3.5 py-2.5 rounded-xl border text-left font-mono text-xs sm:text-sm font-bold transition-colors ${cls}`}
+                        >
+                          ({String.fromCharCode(65 + idx)}) {opt}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {formulaPicked !== null && (
+                    <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                      <p className="text-xs text-[#475569] dark:text-[#94A3B8] flex-1">
+                        <strong className="text-[#0B1F3A] dark:text-[#F8FAFC]">Note: </strong>
+                        {activeFormula.explanation}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={handleNextFormula}
+                        className="px-4 py-2 rounded-xl text-xs font-bold bg-[#0284C7] dark:bg-[#06B6D4] text-white dark:text-[#070B14] shrink-0"
+                      >
+                        Next Formula →
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Right: Quick Chapter PYQ Sprint Cards */}
+                <div className="lg:col-span-5 space-y-3">
+                  <p className="font-mono text-xs font-bold uppercase tracking-wider text-[#475569] dark:text-[#94A3B8]">
+                    Quick Chapter PYQ Sprints ({trackConfig.shortLabel})
+                  </p>
+                  <div className="space-y-2.5">
+                    {(examTrack === 'neet'
+                      ? [
+                          { subj: 'Biology', ch: 'Human Physiology', meta: '10 High-Yield PYQs · Bohr Shift' },
+                          { subj: 'Biology', ch: 'Genetics', meta: '11 High-Yield PYQs · Lac Operon' },
+                          { subj: 'Physics', ch: 'Ray Optics', meta: 'Lens Maker & Immersion PYQs' },
+                        ]
+                      : [
+                          { subj: 'Physics', ch: 'Electrostatics', meta: "Gauss's Law & Symmetric Shells" },
+                          { subj: 'Chemistry', ch: 'Chemical Bonding', meta: 'VSEPR Geometry & Lone Pairs' },
+                          { subj: 'Mathematics', ch: 'Definite Integration', meta: "King's Property Symmetry NATs" },
+                        ]
+                    ).map((sprint) => (
+                      <Link
+                        key={sprint.ch}
+                        to={`/learn?tab=pyqs&chapter=${encodeURIComponent(sprint.ch)}`}
+                        onClick={() => playNav()}
+                        className="flex items-center justify-between gap-3 p-3.5 rounded-xl bg-[#F4F8FF] dark:bg-[#162033] border border-[#E2E8F0] dark:border-white/[0.08] hover:border-[#0284C7] dark:hover:border-[#06B6D4] transition-colors group"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-xs font-mono font-bold text-[#0284C7] dark:text-[#22D3EE]">
+                            {sprint.subj}
+                          </p>
+                          <p className="text-sm font-bold text-[#0B1F3A] dark:text-[#F8FAFC] truncate">
+                            {sprint.ch}
+                          </p>
+                          <p className="text-xs text-[#475569] dark:text-[#94A3B8] truncate">
+                            {sprint.meta}
+                          </p>
+                        </div>
+                        <ArrowRight className="w-4 h-4 text-[#94A3B8] group-hover:text-[#06B6D4] group-hover:translate-x-0.5 transition-all shrink-0" />
+                      </Link>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
-          </ReusableCard>
-        </motion.section>
 
-        {/* Quick Access Workspaces (Admin hidden unless admin is logged in) */}
-        <motion.section {...REVEAL_PROPS} className="space-y-3">
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-[#2563EB] dark:text-sky-400">
-              Platform Modules
-            </p>
-            <h2 className="font-display text-lg sm:text-xl font-bold text-[#0B1B3B] dark:text-white">
-              Quick Access Workspaces
-            </h2>
-          </div>
+            {/* TAB 2: FOCUS & PLANNER */}
+            {deckTab === 'focus' && (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                {/* Left: 25m / 50m Focus Timer */}
+                <div className="lg:col-span-5 rounded-2xl bg-[#F4F8FF] dark:bg-[#162033] border border-[#E2E8F0] dark:border-white/[0.08] p-5 space-y-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-mono text-xs font-bold uppercase tracking-wider text-[#0284C7] dark:text-[#22D3EE]">
+                      VERIFIED FOCUS BLOCK
+                    </span>
+                    <div className="inline-flex gap-1">
+                      {([25, 50] as const).map((m) => (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => {
+                            playClick();
+                            setFocusRunning(false);
+                            setFocusPreset(m);
+                            setFocusSeconds(m * 60);
+                            setTabBreaks(0);
+                          }}
+                          className={`px-2.5 py-1 rounded-lg font-mono text-xs font-bold ${
+                            focusPreset === m
+                              ? 'bg-[#0284C7] dark:bg-[#06B6D4] text-white dark:text-[#070B14]'
+                              : 'bg-[#FFFFFF] dark:bg-[#0F172A] text-[#475569] dark:text-[#94A3B8]'
+                          }`}
+                        >
+                          {m}m
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {visibleModules.map((mod) => {
-              const Icon = MODULE_ICONS[mod.id as keyof typeof MODULE_ICONS] ?? BookOpen;
-              return (
-                <Link
-                  key={mod.id}
-                  to={mod.route}
-                  onClick={() => playNav()}
-                  className="group block"
-                >
-                  <ReusableCard
-                    interactive
-                    padding="sm"
-                    className="h-full rounded-2xl border-slate-200/80 dark:border-slate-800/80 flex flex-col justify-between gap-2.5 hover:-translate-y-0.5 transition-all"
-                  >
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className="h-9 w-9 rounded-xl bg-slate-100 dark:bg-slate-800 text-[#0B1B3B] dark:text-sky-400 inline-flex items-center justify-center group-hover:bg-[#2563EB] group-hover:text-white transition-colors">
-                          <Icon className="w-4 h-4" />
+                  <p className="font-mono text-5xl font-bold tabular-nums text-center text-[#0B1F3A] dark:text-[#F8FAFC] py-2">
+                    {minsStr}:{secsStr}
+                  </p>
+
+                  <div className="flex items-center justify-center gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        playClick();
+                        setFocusStatusNote(null);
+                        setFocusRunning((r) => !r);
+                      }}
+                      className="px-5 py-2.5 rounded-xl text-xs font-bold bg-[#0284C7] dark:bg-[#06B6D4] text-white dark:text-[#070B14] inline-flex items-center gap-1.5"
+                    >
+                      {focusRunning ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                      {focusRunning ? 'Pause Block' : 'Start Focus Block'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        playClick();
+                        setFocusRunning(false);
+                        setFocusSeconds(focusPreset * 60);
+                        setTabBreaks(0);
+                        setFocusStatusNote(null);
+                      }}
+                      aria-label="Reset timer"
+                      className="p-2.5 rounded-xl bg-[#FFFFFF] dark:bg-[#0F172A] border border-[#E2E8F0] dark:border-white/10 text-[#475569] dark:text-[#94A3B8]"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {tabBreaks > 0 && (
+                    <div className="rounded-xl bg-[#F97316]/12 border border-[#F97316]/35 px-3 py-2 text-xs font-semibold text-[#EA580C] dark:text-[#F97316] flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 shrink-0" />
+                      <span>Tab-switch breaks: {tabBreaks} (stay focused to claim full XP)</span>
+                    </div>
+                  )}
+
+                  {focusStatusNote && (
+                    <p className="text-xs font-semibold text-[#15803D] dark:text-[#22C55E] text-center">
+                      {focusStatusNote}
+                    </p>
+                  )}
+                </div>
+
+                {/* Right: Today's Top Tasks */}
+                <div className="lg:col-span-7 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="font-display text-base font-bold text-[#0B1F3A] dark:text-[#F8FAFC]">
+                      Today&apos;s Priority Targets
+                    </h3>
+                    <span className="font-mono text-xs text-[#475569] dark:text-[#94A3B8] tabular-nums">
+                      {top3Tasks.filter((item) => item.completed).length}/{top3Tasks.length} completed
+                    </span>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={quickTaskTitle}
+                      onChange={(e) => setQuickTaskTitle(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleAddQuickTask();
+                      }}
+                      placeholder="Add today's revision target (e.g. 20 Ray Optics PYQs)..."
+                      className="flex-1 px-3.5 py-2 rounded-xl text-xs sm:text-sm bg-[#F4F8FF] dark:bg-[#162033] border border-[#E2E8F0] dark:border-white/[0.08] text-[#0B1F3A] dark:text-[#F8FAFC]"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddQuickTask}
+                      className="px-3.5 py-2 rounded-xl text-xs font-bold bg-[#0B1F3A] dark:bg-[#06B6D4] text-white dark:text-[#070B14] inline-flex items-center gap-1"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Add
+                    </button>
+                  </div>
+
+                  <div className="space-y-2">
+                    {top3Tasks.map((task) => (
+                      <button
+                        key={task.id}
+                        type="button"
+                        onClick={() => {
+                          if (!task.completed) playSuccess();
+                          else playClick();
+                          toggleBacklogTask(task.id);
+                        }}
+                        className={`w-full text-left p-3.5 rounded-xl border flex items-center gap-3 transition-colors ${
+                          task.completed
+                            ? 'bg-[#22C55E]/10 border-[#22C55E]/35'
+                            : 'bg-[#F4F8FF] dark:bg-[#162033] border-[#E2E8F0] dark:border-white/[0.08] hover:border-[#0284C7] dark:hover:border-[#06B6D4]'
+                        }`}
+                      >
+                        <span
+                          className={`h-5 w-5 rounded-md border flex items-center justify-center shrink-0 ${
+                            task.completed
+                              ? 'bg-[#22C55E] border-[#22C55E] text-white'
+                              : 'border-[#94A3B8] bg-[#FFFFFF] dark:bg-[#0F172A]'
+                          }`}
+                        >
+                          {task.completed && <Check className="w-3.5 h-3.5" />}
                         </span>
-                        <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-[#F97316] group-hover:translate-x-0.5 transition-all" />
-                      </div>
-                      <h3 className="font-display text-sm font-bold text-[#0B1B3B] dark:text-white leading-snug">
-                        {mod.title}
+                        <div className="min-w-0 flex-1">
+                          <p
+                            className={`text-sm font-semibold truncate ${
+                              task.completed
+                                ? 'line-through text-[#475569] dark:text-[#94A3B8]'
+                                : 'text-[#0B1F3A] dark:text-[#F8FAFC]'
+                            }`}
+                          >
+                            {task.title}
+                          </p>
+                          <p className="font-mono text-[11px] text-[#0284C7] dark:text-[#22D3EE]">
+                            {task.subject}
+                          </p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 3: 5-STAGE CHAPTER MASTERY TRACKER */}
+            {deckTab === 'mastery' && (
+              <div className="space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex flex-wrap gap-1.5">
+                    {(['Physics', 'Chemistry', 'Mathematics', 'Biology'] as const).map((subj) => (
+                      <button
+                        key={subj}
+                        type="button"
+                        onClick={() => {
+                          playClick();
+                          setMasterySubject(subj);
+                        }}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${
+                          masterySubject === subj
+                            ? 'bg-[#0284C7] dark:bg-[#06B6D4] text-white dark:text-[#070B14]'
+                            : 'bg-[#F4F8FF] dark:bg-[#162033] text-[#475569] dark:text-[#94A3B8] border border-[#E2E8F0] dark:border-white/[0.08]'
+                        }`}
+                      >
+                        {subj}
+                      </button>
+                    ))}
+                  </div>
+
+                  <span className="font-mono text-xs font-bold text-[#15803D] dark:text-[#22C55E] tabular-nums">
+                    {masterySubject} Readiness: {masteryCompletionPct}%
+                  </span>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs sm:text-sm">
+                    <thead>
+                      <tr className="border-b border-[#E2E8F0] dark:border-white/[0.08] text-[#475569] dark:text-[#94A3B8]">
+                        <th className="py-2.5 pr-4 font-bold">High-Yield Chapter</th>
+                        {MASTERY_STAGES.map((stage) => (
+                          <th key={stage.key} className="py-2.5 px-2 text-center font-mono text-xs font-bold">
+                            {stage.label}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#E2E8F0] dark:divide-white/[0.08]">
+                      {visibleMasteryChapters.map((ch) => {
+                        const rowState = masteryMap[ch.id];
+                        return (
+                          <tr key={ch.id}>
+                            <td className="py-3 pr-4">
+                              <p className="font-semibold text-[#0B1F3A] dark:text-[#F8FAFC]">
+                                {ch.name}
+                              </p>
+                              <p className="font-mono text-[11px] text-[#475569] dark:text-[#94A3B8]">
+                                {ch.classLevel} · ~{ch.weightageMarks} Marks
+                              </p>
+                            </td>
+                            {MASTERY_STAGES.map((stage) => {
+                              const checked = !!rowState?.[stage.key];
+                              return (
+                                <td key={stage.key} className="py-3 px-2 text-center">
+                                  <button
+                                    type="button"
+                                    aria-label={`${ch.name} ${stage.label}`}
+                                    onClick={() => {
+                                      if (!checked) playSuccess();
+                                      else playClick();
+                                      toggleMasteryStage(ch.id, stage.key);
+                                    }}
+                                    className={`h-7 w-7 rounded-lg border inline-flex items-center justify-center transition-colors ${
+                                      checked
+                                        ? 'bg-[#22C55E] border-[#22C55E] text-white'
+                                        : 'bg-[#F4F8FF] dark:bg-[#162033] border-[#E2E8F0] dark:border-white/10 hover:border-[#06B6D4]'
+                                    }`}
+                                  >
+                                    {checked && <Check className="w-4 h-4" />}
+                                  </button>
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 4: LIVE PERCENTILE PREDICTOR */}
+            {deckTab === 'predictor' && (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+                <div className="lg:col-span-7 space-y-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <p className="font-mono text-xs font-bold text-[#0284C7] dark:text-[#22D3EE]">
+                        {trackConfig.primaryExamName} CALIBRATED CURVE
+                      </p>
+                      <h3 className="font-display text-lg font-bold text-[#0B1F3A] dark:text-[#F8FAFC]">
+                        Drag Your Expected Mock Score
                       </h3>
-                      <p className="hidden sm:block text-xs text-slate-600 dark:text-slate-400 line-clamp-2">
-                        {mod.summary}
+                    </div>
+                    <span className="font-mono text-2xl font-bold tabular-nums text-[#0B1F3A] dark:text-[#F8FAFC]">
+                      {sliderMarks}
+                      <span className="text-sm text-[#475569] dark:text-[#94A3B8]">
+                        /{predictorMax}
+                      </span>
+                    </span>
+                  </div>
+
+                  <input
+                    type="range"
+                    min={0}
+                    max={predictorMax}
+                    step={examTrack === 'neet' ? 5 : 1}
+                    value={sliderMarks}
+                    onChange={(e) => setSliderMarks(Number(e.target.value))}
+                    aria-label="Expected mock score slider"
+                    className="w-full accent-[#06B6D4] cursor-pointer"
+                  />
+
+                  <div className="flex justify-between font-mono text-[11px] text-[#475569] dark:text-[#94A3B8] tabular-nums">
+                    <span>0</span>
+                    <span>{Math.round(predictorMax * 0.5)}</span>
+                    <span>{Math.round(predictorMax * 0.75)}</span>
+                    <span>{predictorMax}</span>
+                  </div>
+
+                  <p className="text-xs text-[#475569] dark:text-[#94A3B8] leading-relaxed">
+                    <strong className="text-[#0B1F3A] dark:text-[#F8FAFC]">College Outlook: </strong>
+                    {prediction.collegeOutlook}
+                  </p>
+                </div>
+
+                <div className="lg:col-span-5 rounded-2xl bg-[#F4F8FF] dark:bg-[#162033] border border-[#E2E8F0] dark:border-white/[0.08] p-5 space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <p className="text-[11px] font-semibold text-[#475569] dark:text-[#94A3B8]">
+                        {examTrack === 'boards' ? 'Predicted %' : 'Predicted %ile'}
+                      </p>
+                      <p className="font-mono text-2xl sm:text-3xl font-bold tabular-nums text-[#0284C7] dark:text-[#22D3EE]">
+                        {prediction.percentile}
+                        {examTrack === 'boards' ? '%' : ''}
                       </p>
                     </div>
-                  </ReusableCard>
+                    <div>
+                      <p className="text-[11px] font-semibold text-[#475569] dark:text-[#94A3B8]">
+                        Estimated AIR
+                      </p>
+                      <p className="font-mono text-2xl sm:text-3xl font-bold tabular-nums text-[#EA580C] dark:text-[#F97316]">
+                        {prediction.estimatedAir.toLocaleString('en-IN')}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-[#E2E8F0] dark:border-white/[0.08] flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-[#15803D] dark:text-[#22C55E] inline-flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 shrink-0" />
+                      {prediction.targetTier}
+                    </span>
+                    <Link
+                      to="/community"
+                      onClick={() => playNav()}
+                      className="text-xs font-bold text-[#0284C7] dark:text-[#22D3EE] hover:underline shrink-0"
+                    >
+                      Check Cut-offs →
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* =================================================================
+            SECTION 3: 5-SPACE QUICK LAUNCH BENTO GRID (6 CRISP CARDS)
+           ================================================================= */}
+        <section className="space-y-4" aria-label="5-Space Quick Launch">
+          <div>
+            <p className="font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#0284C7] dark:text-[#06B6D4]">
+              QUICK LAUNCH
+            </p>
+            <h2 className="font-display text-xl sm:text-2xl font-bold text-[#0B1F3A] dark:text-[#F8FAFC] mt-0.5">
+              {t('bento.title')}
+            </h2>
+            <p className="text-xs sm:text-sm text-[#475569] dark:text-[#94A3B8] mt-1">
+              {t('bento.subtitle')}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[
+              {
+                title: 'Concept-Mapped PYQ Hub',
+                desc: 'Group 2019–2026 JEE & NEET PYQs by exact NTA concept with bilingual EN/हिं KaTeX solutions.',
+                to: '/learn?tab=pyqs',
+                icon: Layers,
+                accent: 'text-[#0284C7] dark:text-[#06B6D4]',
+              },
+              {
+                title: 'NCERT-to-PYQ Mapper',
+                desc: '50/50 split view tracing highlighted Class 11 & 12 NCERT lines directly to past exam questions.',
+                to: '/learn?tab=ncert',
+                icon: BookOpen,
+                accent: 'text-[#15803D] dark:text-[#22C55E]',
+              },
+              {
+                title: '2027 High-Yield Predictor',
+                desc: 'Recharts weightage chart & Tier 1–3 priority roadmap showing the highest-ROI chapters first.',
+                to: '/learn?tab=predictor',
+                icon: TrendingUp,
+                accent: 'text-[#EA580C] dark:text-[#F97316]',
+              },
+              {
+                title: 'NTA Custom CBT Mock Builder',
+                desc: 'Build 10, 25, or 45-question authentic +4/-1 NTA tests with instant Tilt & Mistake diagnostics.',
+                to: '/cbt-mocks',
+                icon: ClipboardCheck,
+                accent: 'text-[#0284C7] dark:text-[#22D3EE]',
+              },
+              {
+                title: 'Live Peer Community & Cut-offs',
+                desc: 'Join 6 active exam rooms, ask KaTeX doubts verified by mentors, and check JoSAA/MCC ranks.',
+                to: '/community',
+                icon: Users,
+                accent: 'text-[#15803D] dark:text-[#22C55E]',
+              },
+              {
+                title: '1:1 IIT/AIIMS Human Mentorship',
+                desc: 'Book 15-minute strategy sessions (₹129–₹149) with verified IIT Bombay, Delhi & AIIMS rankers.',
+                to: '/mentors',
+                icon: Target,
+                accent: 'text-[#EA580C] dark:text-[#F97316]',
+              },
+            ].map((card) => {
+              const Icon = card.icon;
+              return (
+                <Link
+                  key={card.title}
+                  to={card.to}
+                  onClick={() => playNav()}
+                  className="group rounded-2xl bg-[#FFFFFF] dark:bg-[#0F172A] border border-[#E2E8F0] dark:border-white/[0.08] hover:border-[#0284C7] dark:hover:border-[#06B6D4] p-5 flex flex-col justify-between gap-4 transition-all hover:-translate-y-0.5"
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="h-10 w-10 rounded-xl bg-[#EEF4FF] dark:bg-[#162033] border border-[#E2E8F0] dark:border-white/[0.08] inline-flex items-center justify-center">
+                        <Icon className={`w-5 h-5 ${card.accent}`} />
+                      </span>
+                      <ArrowRight className="w-4 h-4 text-[#94A3B8] group-hover:text-[#06B6D4] group-hover:translate-x-0.5 transition-all" />
+                    </div>
+                    <h3 className="font-display text-base font-bold text-[#0B1F3A] dark:text-[#F8FAFC]">
+                      {card.title}
+                    </h3>
+                    <p className="text-xs sm:text-sm text-[#475569] dark:text-[#94A3B8] leading-relaxed">
+                      {card.desc}
+                    </p>
+                  </div>
                 </Link>
               );
             })}
           </div>
-        </motion.section>
+        </section>
 
-        {/* Weekly Study Schedule — Auto-Highlights Today's Focus */}
-        <motion.section
-          {...REVEAL_PROPS}
-          id="weekly-study-schedule"
-          aria-labelledby="weekly-schedule-heading"
-          className="scroll-mt-20 space-y-3"
-        >
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-[#F97316] flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5" />
-                {selectedDay === todayDay
-                  ? `Today's Focus · ${WEEK_DAY_LABELS[todayDay]}`
-                  : selectedDay === 'All'
-                  ? 'Full Weekly Timetable'
-                  : `${WEEK_DAY_LABELS[selectedDay]} Schedule`}
-              </p>
-              <h2
-                id="weekly-schedule-heading"
-                className="font-display text-lg sm:text-xl font-bold text-[#0B1B3B] dark:text-white"
-              >
-                Weekly Study Schedule
-              </h2>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  playClick();
-                  setAddingTask((v) => !v);
-                  setNewTaskDay(selectedDay === 'All' ? todayDay : selectedDay);
-                }}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-[#0B1B3B] dark:bg-[#2563EB] text-white hover:opacity-95 transition-opacity"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                Add Task
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  playClick();
-                  resetWeeklySchedule();
-                }}
-                title="Reset default weekly tasks"
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold border border-slate-200/80 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-[#2563EB] transition-colors"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                Reset
-              </button>
-            </div>
-          </div>
-
-          <ReusableCard
-            padding="sm"
-            className="space-y-4 rounded-2xl border-slate-200/80 dark:border-slate-800/80"
-          >
-            {/* Clean Day Filter Tabs (Zero trailing space inside parentheses) */}
-            <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Filter schedule by day">
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={selectedDay === 'All'}
-                  onClick={() => {
-                    playClick();
-                    setSelectedDay('All');
-                  }}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors ${
-                    selectedDay === 'All'
-                      ? 'bg-[#0B1B3B] text-white border-[#0B1B3B] dark:bg-[#2563EB] dark:border-[#2563EB]'
-                      : 'bg-slate-50 dark:bg-slate-900 border-slate-200/80 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-[#2563EB]'
-                  }`}
-                >
-                  {`All (${weeklyStats.completedTasks}/${weeklyStats.totalTasks})`}
-                </button>
-                {WEEK_DAYS.map((day) => {
-                  const counts = weeklyStats.byDayCounts[day];
-                  const isToday = day === todayDay;
-                  const active = selectedDay === day;
-                  return (
-                    <button
-                      key={day}
-                      type="button"
-                      role="tab"
-                      aria-selected={active}
-                      onClick={() => {
-                        playClick();
-                        setSelectedDay(day);
-                      }}
-                      className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition-colors inline-flex items-center gap-1 ${
-                        active
-                          ? 'bg-[#0B1B3B] text-white border-[#0B1B3B] dark:bg-[#2563EB] dark:border-[#2563EB]'
-                          : isToday
-                          ? 'bg-orange-50/70 dark:bg-orange-950/30 border-[#F97316]/50 text-[#0B1B3B] dark:text-orange-200'
-                          : 'bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-[#2563EB]'
-                      }`}
-                    >
-                      <span>{day}</span>
-                      <span className="font-mono text-[10px] opacity-80">
-                        {`(${counts.completed}/${counts.total})`}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              <span className="font-mono text-xs font-semibold text-slate-500 dark:text-slate-400 tabular-nums">
-                {weeklyStats.completedHours}h / {weeklyStats.plannedHours}h ({weeklyStats.completionPercent}%)
-              </span>
-            </div>
-
-            {/* Inline Quick-Add Form */}
-            {addingTask && (
-              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/70 border border-slate-200/80 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-12 gap-2.5">
-                <select
-                  value={newTaskDay}
-                  onChange={(e) => setNewTaskDay(e.target.value as WeeklyDay)}
-                  aria-label="Day of week"
-                  className="sm:col-span-2 px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold"
-                >
-                  {WEEK_DAYS.map((d) => (
-                    <option key={d} value={d}>
-                      {d}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  type="text"
-                  value={newTaskSubject}
-                  onChange={(e) => setNewTaskSubject(e.target.value)}
-                  placeholder="Subject"
-                  className="sm:col-span-2 px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs"
-                />
-                <input
-                  type="text"
-                  value={newTaskSlot}
-                  onChange={(e) => setNewTaskSlot(e.target.value)}
-                  placeholder="07:00 – 08:30"
-                  className="sm:col-span-2 px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs"
-                />
-                <input
-                  type="text"
-                  value={newTaskTopic}
-                  onChange={(e) => setNewTaskTopic(e.target.value)}
-                  placeholder="Chapter or revision goal..."
-                  className="sm:col-span-4 px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs"
-                />
-                <div className="sm:col-span-2 flex gap-1.5">
-                  <input
-                    type="number"
-                    min={15}
-                    max={300}
-                    step={15}
-                    value={newTaskDuration}
-                    onChange={(e) => setNewTaskDuration(Number(e.target.value))}
-                    aria-label="Duration minutes"
-                    className="w-16 px-2 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-mono"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddWeeklyTask}
-                    className="flex-1 px-2.5 py-2 rounded-lg bg-[#2563EB] text-white text-xs font-semibold hover:bg-[#1D4ED8]"
-                  >
-                    Save
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Schedule Items */}
-            {visibleWeeklyItems.length === 0 ? (
-              <div className="py-6 text-center text-xs text-slate-500 dark:text-slate-400">
-                No study blocks scheduled for this day yet. Click <strong>Add Task</strong> or switch to{' '}
-                <button
-                  type="button"
-                  onClick={() => setSelectedDay('All')}
-                  className="text-[#2563EB] font-semibold hover:underline"
-                >
-                  All Days
-                </button>
-                .
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-                {visibleWeeklyItems.map((item) => (
-                  <div
-                    key={item.id}
-                    className={`p-3 rounded-xl border transition-all flex items-start justify-between gap-3 ${
-                      item.completed
-                        ? 'bg-emerald-50/70 dark:bg-emerald-950/25 border-emerald-200 dark:border-emerald-900'
-                        : 'bg-slate-50/60 dark:bg-slate-900/50 border-slate-200/80 dark:border-slate-800/80 hover:border-[#2563EB]/60'
-                    }`}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!item.completed) playSuccess();
-                        else playClick();
-                        toggleWeeklyTask(item.id);
-                      }}
-                      className="flex items-start gap-2.5 text-left min-w-0 flex-1"
-                    >
-                      <span
-                        className={`mt-0.5 h-5 w-5 rounded-md border inline-flex items-center justify-center shrink-0 transition-colors ${
-                          item.completed
-                            ? 'bg-[#10B981] border-[#10B981] text-white'
-                            : 'bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700'
-                        }`}
-                      >
-                        {item.completed && <Check className="w-3.5 h-3.5" />}
-                      </span>
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-semibold">
-                          <span className="text-[#2563EB] dark:text-sky-400">{item.subject}</span>
-                          <span className="text-slate-300 dark:text-slate-700">·</span>
-                          <span className="font-mono text-slate-500 dark:text-slate-400">
-                            {item.day} · {item.timeSlot}
-                          </span>
-                          <span className="text-slate-300 dark:text-slate-700">·</span>
-                          <span className="font-mono text-[#F97316]">{item.durationMinutes}m</span>
-                        </div>
-                        <p
-                          className={`text-xs sm:text-sm font-semibold mt-0.5 leading-snug ${
-                            item.completed
-                              ? 'line-through text-slate-500 dark:text-slate-400'
-                              : 'text-[#0B1B3B] dark:text-white'
-                          }`}
-                        >
-                          {item.topic}
-                        </p>
-                      </div>
-                    </button>
-
-                    <button
-                      type="button"
-                      aria-label={`Remove task ${item.topic}`}
-                      onClick={() => {
-                        playClick();
-                        deleteWeeklyTask(item.id);
-                      }}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors shrink-0"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </ReusableCard>
-        </motion.section>
-
-        {/* Gemini AI IQ & Priority Mentor */}
-        <motion.section {...REVEAL_PROPS} aria-label="Gemini AI Study Mentor">
-          <GeminiMentorPanel
-            studentName={profile?.displayName ?? firebaseUser?.displayName ?? 'Student'}
-            cohortLabel={activeCohort?.label ?? 'Class 12 JEE'}
-            attemptsCount={attempts.length}
-            averageAccuracy={analyticsSummary.overallAccuracy}
-            averageIqScore={analyticsSummary.averageIqScore}
-            latestIqScore={analyticsSummary.latestIqScore}
-            paceSummary={paceTotals}
-            subjectPerformance={subjectPerfForAi}
-            weakChapters={weakChaptersForAi}
-            weeklyCompletionPercent={weeklyStats.completionPercent}
-            compact
-          />
-        </motion.section>
-
-        {/* Unified Tabbed Study Toolkit: Focus Timer | 60-Day Sprint | 300-Mark Matrix */}
-        <motion.section
-          {...REVEAL_PROPS}
-          id="study-toolkit"
-          aria-labelledby="study-toolkit-heading"
-          className="scroll-mt-20 space-y-3"
-        >
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-[#2563EB] dark:text-sky-400">
-                Productivity &amp; Blueprint
-              </p>
-              <h2
-                id="study-toolkit-heading"
-                className="font-display text-lg sm:text-xl font-bold text-[#0B1B3B] dark:text-white"
-              >
-                Study Toolkit
-              </h2>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-1.5">
-              <ReusableButton variant="secondary" size="sm" onClick={handleExportBackup}>
-                <Download className="w-3.5 h-3.5" />
-                Export JSON
-              </ReusableButton>
-              <input
-                ref={backupInputRef}
-                type="file"
-                accept="application/json"
-                className="hidden"
-                onChange={(e) => handleImportBackup(e.target.files?.[0])}
-              />
-              <ReusableButton
-                variant="secondary"
-                size="sm"
-                onClick={() => backupInputRef.current?.click()}
-              >
-                <Upload className="w-3.5 h-3.5" />
-                Restore
-              </ReusableButton>
-            </div>
-          </div>
-
-          <ReusableCard
-            padding="sm"
-            className="space-y-4 rounded-2xl border-slate-200/80 dark:border-slate-800/80"
-          >
-            {/* 3 Clean Pill Tabs */}
-            <div
-              className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800"
-              role="tablist"
-              aria-label="Study toolkit tabs"
-            >
-              <div className="flex flex-wrap gap-1.5">
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={activeToolkitTab === 'focus'}
-                  onClick={() => {
-                    playClick();
-                    setActiveToolkitTab('focus');
-                  }}
-                  className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold border transition-colors ${
-                    activeToolkitTab === 'focus'
-                      ? 'bg-[#0B1B3B] text-white border-[#0B1B3B] dark:bg-[#2563EB] dark:border-[#2563EB]'
-                      : 'bg-slate-50 dark:bg-slate-900 border-slate-200/80 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-[#2563EB]'
-                  }`}
-                >
-                  <Clock className="w-3.5 h-3.5" />
-                  Focus Timer
-                </button>
-
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={activeToolkitTab === 'sprint'}
-                  onClick={() => {
-                    playClick();
-                    setActiveToolkitTab('sprint');
-                  }}
-                  className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold border transition-colors ${
-                    activeToolkitTab === 'sprint'
-                      ? 'bg-[#0B1B3B] text-white border-[#0B1B3B] dark:bg-[#2563EB] dark:border-[#2563EB]'
-                      : 'bg-slate-50 dark:bg-slate-900 border-slate-200/80 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-[#2563EB]'
-                  }`}
-                >
-                  <CalendarCheck className="w-3.5 h-3.5" />
-                  {`60-Day Sprint (${progress.plannerCompletedDays.length}/60)`}
-                </button>
-
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={activeToolkitTab === 'matrix'}
-                  onClick={() => {
-                    playClick();
-                    setActiveToolkitTab('matrix');
-                  }}
-                  className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold border transition-colors ${
-                    activeToolkitTab === 'matrix'
-                      ? 'bg-[#0B1B3B] text-white border-[#0B1B3B] dark:bg-[#2563EB] dark:border-[#2563EB]'
-                      : 'bg-slate-50 dark:bg-slate-900 border-slate-200/80 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-[#2563EB]'
-                  }`}
-                >
-                  <BarChart3 className="w-3.5 h-3.5" />
-                  300-Mark Matrix
-                </button>
-              </div>
-
-              <span className="font-mono text-xs text-slate-500 dark:text-slate-400 tabular-nums">
-                {activeToolkitTab === 'focus'
-                  ? `${progress.focusSessionsMinutes}m logged`
-                  : activeToolkitTab === 'sprint'
-                  ? `${plannerPercent}% complete`
-                  : `${weightageSummary.totalMarks} Total Marks`}
-              </span>
-            </div>
-
-            {backupNotice && (
-              <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4 shrink-0" />
-                {backupNotice}
-              </p>
-            )}
-
-            {/* TAB 1: FOCUS TIMER */}
-            {activeToolkitTab === 'focus' && (
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
-                <div className="md:col-span-7 rounded-2xl bg-slate-50 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800 p-5 text-center space-y-3">
-                  <div className="inline-flex rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden text-xs font-semibold bg-white dark:bg-slate-900">
-                    {([25, 50] as const).map((min) => (
-                      <button
-                        key={min}
-                        type="button"
-                        onClick={() => {
-                          playClick();
-                          setFocusRunning(false);
-                          setFocusPresetMin(min);
-                          setFocusSecondsLeft(min * 60);
-                        }}
-                        className={`px-4 py-1.5 transition-colors ${
-                          focusPresetMin === min
-                            ? 'bg-[#0B1B3B] text-white dark:bg-[#2563EB]'
-                            : 'text-slate-600 dark:text-slate-300'
-                        }`}
-                      >
-                        {min} min Sprint
-                      </button>
-                    ))}
-                  </div>
-
-                  <p className="font-mono text-4xl sm:text-5xl font-bold tabular-nums text-[#0B1B3B] dark:text-white tracking-tight">
-                    {String(focusMins).padStart(2, '0')}:{String(focusSecs).padStart(2, '0')}
-                  </p>
-
-                  <div className="flex items-center justify-center gap-2.5">
-                    <ReusableButton
-                      variant="primary"
-                      size="md"
-                      onClick={() => {
-                        playClick();
-                        setFocusRunning((r) => !r);
-                      }}
-                    >
-                      {focusRunning ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                      {focusRunning ? 'Pause' : 'Start Focus'}
-                    </ReusableButton>
-                    <ReusableButton
-                      variant="secondary"
-                      size="md"
-                      onClick={() => {
-                        playClick();
-                        setFocusRunning(false);
-                        setFocusSecondsLeft(focusPresetMin * 60);
-                      }}
-                    >
-                      <RotateCcw className="w-4 h-4" />
-                      Reset
-                    </ReusableButton>
-                  </div>
-                </div>
-
-                <div className="md:col-span-5 space-y-2.5 text-xs sm:text-sm text-slate-600 dark:text-slate-300">
-                  <h3 className="font-display text-base font-bold text-[#0B1B3B] dark:text-white">
-                    Distraction-Free Deep Study
-                  </h3>
-                  <p className="leading-relaxed">
-                    Run 25-minute Pomodoro sprints for concise notes revision or 50-minute deep blocks for JEE/NEET numerical solving. Completed sprints automatically add to your logged hours.
-                  </p>
-                  <p className="font-mono text-xs font-semibold text-[#2563EB] dark:text-sky-400">
-                    Total Logged: {focusHours}h ({progress.focusSessionsMinutes} minutes)
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* TAB 2: 60-DAY SYLLABUS SPRINT */}
-            {activeToolkitTab === 'sprint' && (
-              <div className="space-y-3.5">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex flex-wrap gap-1.5">
-                    {PHASES.map((p) => (
-                      <button
-                        key={p}
-                        type="button"
-                        onClick={() => {
-                          playClick();
-                          setPhaseFilter(p);
-                        }}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors ${
-                          phaseFilter === p
-                            ? 'bg-[#0B1B3B] text-white border-[#0B1B3B] dark:bg-[#2563EB] dark:border-[#2563EB]'
-                            : 'border-slate-200/80 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-[#2563EB]'
-                        }`}
-                      >
-                        {p === 'All' ? 'All Phases' : p.split(':')[0]}
-                      </button>
-                    ))}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowAllDays((v) => !v)}
-                    className="text-xs font-semibold text-[#2563EB] dark:text-sky-400 hover:underline"
-                  >
-                    {showAllDays ? 'Show 8 Days' : 'Show All 60 Days'}
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
-                  {filteredPlannerDays.map((task) => {
-                    const done = completedDaySet.has(task.day);
-                    return (
-                      <div
-                        key={task.day}
-                        className={`p-3 rounded-xl border text-xs flex items-center justify-between gap-2 transition-colors ${
-                          done
-                            ? 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800'
-                            : 'bg-slate-50/70 dark:bg-slate-900/50 border-slate-200/80 dark:border-slate-800'
-                        }`}
-                      >
-                        <div className="min-w-0">
-                          <p className="font-mono font-bold text-[#F97316]">Day {task.day}</p>
-                          <p className="text-[11px] text-slate-700 dark:text-slate-300 truncate mt-0.5">
-                            {task.physicsTopic} · {task.chemistryTopic}
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (!done) playSuccess();
-                            else playClick();
-                            togglePlannerDay(task.day);
-                          }}
-                          className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold shrink-0 transition-colors ${
-                            done
-                              ? 'bg-[#10B981] text-white'
-                              : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-[#2563EB]'
-                          }`}
-                        >
-                          {done ? 'Done' : 'Check'}
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* TAB 3: 300-MARK DIFFICULTY MATRIX */}
-            {activeToolkitTab === 'matrix' && (
-              <div className="space-y-3">
-                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
-                  JEE Main 300-mark weightage split by chapter difficulty — prioritize Easy and Moderate high-yield chapters first before Tough rank-booster topics.
-                </p>
-                <div className="h-52 w-full">
-                  <RechartsContainer width="100%" height="100%">
-                    <BarChart
-                      data={weightageSummary.byDifficulty}
-                      margin={{ top: 8, right: 12, left: -14, bottom: 0 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" stroke="#94A3B8" opacity={0.25} />
-                      <XAxis dataKey="difficulty" tick={{ fontSize: 12 }} />
-                      <YAxis tick={{ fontSize: 12 }} />
-                      <Tooltip formatter={(val) => [`${val} Marks`, 'Weightage']} />
-                      <Bar dataKey="marks" radius={[8, 8, 0, 0]}>
-                        {weightageSummary.byDifficulty.map((entry) => (
-                          <Cell
-                            key={entry.difficulty}
-                            fill={DIFFICULTY_COLORS[entry.difficulty] ?? '#2563EB'}
-                          />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </RechartsContainer>
-                </div>
-              </div>
-            )}
-          </ReusableCard>
-        </motion.section>
+        {/* =================================================================
+            SECTION 4: SUNDAY ALL-INDIA BLITZ RETENTION CARD
+           ================================================================= */}
+        <section aria-label="Sunday All-India Blitz">
+          <SundayBlitzCard />
+        </section>
       </ResponsiveContainer>
     </PageLayout>
   );

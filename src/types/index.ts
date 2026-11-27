@@ -2,10 +2,13 @@ export type ThemeMode = 'light' | 'dark';
 
 export type RoutePath =
   | '/'
+  | '/learn'
   | '/arena'
   | '/materials'
   | '/lectures'
   | '/cbt-mocks'
+  | '/community'
+  | '/pricing'
   | '/dpp'
   | '/analytics'
   | '/mistakes'

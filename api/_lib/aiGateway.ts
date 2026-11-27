@@ -1,24 +1,26 @@
 /**
- * Prepskm Vercel Server-Only AI Gateway (/api/_lib/aiGateway.ts)
+ * Prepskm Server-Only Dynamic AI Gateway (/api/_lib/aiGateway.ts)
  *
- * Security & Scalability Architecture:
- * - Strictly reads private API keys from server-side `process.env` ONLY (never `VITE_*`).
- * - Rejects/strips any client-supplied key fields to prevent improper secret backflow.
- * - Sanitizes all upstream error responses so provider keys can never leak to clients.
- * - Extensible provider registry: add any new AI model by appending one descriptor to
- *   `AI_PROVIDER_REGISTRY` without touching route handlers or frontend code.
- *
- * Automatic Failover Order:
- *   1. Groq       (GROQ_API_KEY)       -> llama-3.3-70b-versatile
- *   2. Gemini     (GEMINI_API_KEY)     -> gemini-2.5-flash
- *   3. DeepSeek   (DEEPSEEK_API_KEY)   -> deepseek-chat
- *   4. OpenRouter (OPENROUTER_API_KEY) -> openrouter/free
- *   5. Mistral    (MISTRAL_API_KEY)    -> mistral-small-latest
+ * Architecture Principles:
+ * - Zero hardcoded or static fallback responses: every query is processed live
+ *   by an active upstream AI model via an automatic failover chain.
+ * - Strictly reads all 8 private API secrets directly from server-side `process.env`
+ *   (never `VITE_*`, never client-supplied headers/payloads):
+ *     1. GROQ_API_KEY
+ *     2. GEMINI_API_KEY
+ *     3. DEEPSEEK_API_KEY
+ *     4. OPENROUTER_API_KEY
+ *     5. MISTRAL_API_KEY & MISTRAL_API_KEYS (multi-key rotation pool)
+ *     6. CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_WORKERS_AI_TOKEN
+ * - Fast per-provider timeouts so multi-provider failover completes comfortably
+ *   inside both Vercel Serverless Functions and mobile Safari / AI Studio preview.
+ * - Captures exact sanitized upstream provider error details for transparent debugging.
  */
 
-export const REQUEST_TIMEOUT_MS = 18_000;
+export const REQUEST_TIMEOUT_MS = 9_500;
+export const STRUCTURED_TIMEOUT_MS = 12_000;
 export const MAX_MESSAGES = 14;
-export const MAX_MESSAGE_CHARS = 3_000;
+export const MAX_MESSAGE_CHARS = 3_500;
 export const MAX_JSON_BODY_BYTES = 18 * 1024 * 1024;
 
 export interface AiChatMessage {
@@ -26,18 +28,26 @@ export interface AiChatMessage {
   content: string;
 }
 
+export interface ProviderFailureDetail {
+  provider: string;
+  status?: number;
+  reason: string;
+}
+
 export interface AiProviderDescriptor {
   id: string;
   envVar: string;
-  protocol: 'openai-compatible' | 'gemini-rest';
+  extraEnvVars?: readonly string[];
+  accountIdEnvVar?: string;
+  protocol: 'openai-compatible' | 'gemini-rest' | 'cloudflare-workers-ai';
   endpoint: string;
   model: string;
+  fallbackModels?: readonly string[];
   extraHeaders?: Record<string, string>;
 }
 
 /**
- * Extensible server-side AI provider registry.
- * Append new models here as the platform scales — zero frontend changes required.
+ * Extensible server-side AI provider failover chain supporting all 8 configured secrets.
  */
 export const AI_PROVIDER_REGISTRY: readonly AiProviderDescriptor[] = [
   {
@@ -45,15 +55,25 @@ export const AI_PROVIDER_REGISTRY: readonly AiProviderDescriptor[] = [
     envVar: 'GROQ_API_KEY',
     protocol: 'openai-compatible',
     endpoint: 'https://api.groq.com/openai/v1/chat/completions',
-    model: 'llama-3.3-70b-versatile',
+    model: 'llama-3.1-8b-instant',
+    fallbackModels: ['meta-llama/llama-4-scout-17b-16e-instruct', 'openai/gpt-oss-120b'],
   },
   {
     id: 'gemini',
     envVar: 'GEMINI_API_KEY',
     protocol: 'gemini-rest',
     endpoint:
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
-    model: 'gemini-2.5-flash',
+      'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent',
+    model: 'gemini-4-hydrogen',
+    fallbackModels: ['gemini-3.8-flash', 'gemini-3.1-flash-lite'],
+  },
+  {
+    id: 'mistral',
+    envVar: 'MISTRAL_API_KEY',
+    extraEnvVars: ['MISTRAL_API_KEYS'],
+    protocol: 'openai-compatible',
+    endpoint: 'https://api.mistral.ai/v1/chat/completions',
+    model: 'mistral-small-latest',
   },
   {
     id: 'deepseek',
@@ -68,23 +88,33 @@ export const AI_PROVIDER_REGISTRY: readonly AiProviderDescriptor[] = [
     protocol: 'openai-compatible',
     endpoint: 'https://openrouter.ai/api/v1/chat/completions',
     model: 'openrouter/free',
+    fallbackModels: ['google/gemma-3-27b-it:free', 'meta-llama/llama-3.3-70b-instruct:free'],
     extraHeaders: {
       'HTTP-Referer': 'https://prepskm.in',
       'X-Title': 'PREPSKM.IN Preps AI',
     },
   },
   {
-    id: 'mistral',
-    envVar: 'MISTRAL_API_KEY',
-    protocol: 'openai-compatible',
-    endpoint: 'https://api.mistral.ai/v1/chat/completions',
-    model: 'mistral-small-latest',
+    id: 'cloudflare',
+    envVar: 'CLOUDFLARE_WORKERS_AI_TOKEN',
+    accountIdEnvVar: 'CLOUDFLARE_ACCOUNT_ID',
+    protocol: 'cloudflare-workers-ai',
+    endpoint: 'https://api.cloudflare.com/client/v4/accounts/{accountId}/ai/run/{model}',
+    model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+    fallbackModels: ['@cf/meta/llama-3.1-8b-instruct-fast'],
   },
 ] as const;
 
-export const AI_PROVIDER_ENV_VARS: readonly string[] = AI_PROVIDER_REGISTRY.map(
-  (provider) => provider.envVar
-);
+export const AI_PROVIDER_ENV_VARS: readonly string[] = [
+  'GROQ_API_KEY',
+  'GEMINI_API_KEY',
+  'MISTRAL_API_KEY',
+  'MISTRAL_API_KEYS',
+  'DEEPSEEK_API_KEY',
+  'OPENROUTER_API_KEY',
+  'CLOUDFLARE_ACCOUNT_ID',
+  'CLOUDFLARE_WORKERS_AI_TOKEN',
+] as const;
 
 const FORBIDDEN_CLIENT_SECRET_KEYS = new Set([
   'apikey',
@@ -98,16 +128,38 @@ const FORBIDDEN_CLIENT_SECRET_KEYS = new Set([
   'deepseek_api_key',
   'openrouter_api_key',
   'mistral_api_key',
+  'mistral_api_keys',
+  'cloudflare_account_id',
+  'cloudflare_workers_ai_token',
 ]);
 
 export function getSingleApiKey(rawValue: unknown): string {
   if (typeof rawValue !== 'string') return '';
-  return rawValue.trim();
+  return rawValue.trim().replace(/^['"]|['"]$/g, '').trim();
+}
+
+export function parseApiKeyPool(rawValue: unknown): string[] {
+  if (typeof rawValue !== 'string') return [];
+  const trimmed = rawValue.trim();
+  if (!trimmed) return [];
+  if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed.map((v) => getSingleApiKey(String(v ?? ''))).filter(Boolean);
+      }
+    } catch {
+      // fall through to delimiter split
+    }
+  }
+  return trimmed
+    .split(/[\n,;]+/)
+    .map((part) => getSingleApiKey(part))
+    .filter(Boolean);
 }
 
 /**
- * Reads a private server-only key strictly from non-VITE environment variables.
- * Never reads client-exposed `VITE_*` variables to guarantee zero secret leakage.
+ * Reads a private server-only secret strictly from non-VITE environment variables.
  */
 export function getServerSecret(
   env: Record<string, string | undefined>,
@@ -117,28 +169,72 @@ export function getServerSecret(
   return getSingleApiKey(env[envVarName]);
 }
 
+/**
+ * Resolves all active key candidates for a provider descriptor (deduplicated).
+ */
+export function getProviderKeys(
+  env: Record<string, string | undefined>,
+  descriptor: AiProviderDescriptor
+): string[] {
+  const runtimeEnv = env && typeof env === 'object' ? env : {};
+  const seen = new Set<string>();
+  const out: string[] = [];
+
+  const pushPool = (envName: string) => {
+    if (!envName || envName.startsWith('VITE_')) return;
+    for (const key of parseApiKeyPool(runtimeEnv[envName])) {
+      if (!seen.has(key)) {
+        seen.add(key);
+        out.push(key);
+      }
+    }
+  };
+
+  pushPool(descriptor.envVar);
+  if (descriptor.extraEnvVars) {
+    for (const extraVar of descriptor.extraEnvVars) {
+      pushPool(extraVar);
+    }
+  }
+  return out;
+}
+
+export function listConfiguredProviders(
+  env: Record<string, string | undefined> = process.env
+): string[] {
+  const runtimeEnv = env && typeof env === 'object' ? env : {};
+  const ready: string[] = [];
+  for (const provider of AI_PROVIDER_REGISTRY) {
+    const keys = getProviderKeys(runtimeEnv, provider);
+    if (keys.length === 0) continue;
+    if (provider.accountIdEnvVar && !getServerSecret(runtimeEnv, provider.accountIdEnvVar)) {
+      continue;
+    }
+    ready.push(provider.id);
+  }
+  return ready;
+}
+
 export function countConfiguredProviders(
   env: Record<string, string | undefined> = process.env
 ): number {
-  const runtimeEnv = env && typeof env === 'object' ? env : {};
-  let count = 0;
-  for (const provider of AI_PROVIDER_REGISTRY) {
-    if (getServerSecret(runtimeEnv, provider.envVar)) {
-      count += 1;
-    }
-  }
-  return count;
+  return listConfiguredProviders(env).length;
 }
 
 export function isAllowedCorsOrigin(origin: string): boolean {
   if (!origin) return false;
+  const clean = origin.trim();
   return (
-    origin === 'https://prepskm.in' ||
-    origin === 'https://www.prepskm.in' ||
-    /^https:\/\/[a-z0-9-]+\.prepskm\.in$/i.test(origin) ||
-    /^https:\/\/[a-z0-9-]+\.vercel\.app$/i.test(origin) ||
-    /^https:\/\/[a-z0-9-]+-[a-z0-9-]+\.vercel\.app$/i.test(origin) ||
-    /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin)
+    clean === 'https://prepskm.in' ||
+    clean === 'https://www.prepskm.in' ||
+    clean === 'http://prepskm.in' ||
+    clean === 'http://www.prepskm.in' ||
+    /^https:\/\/[a-z0-9.-]+\.prepskm\.in$/i.test(clean) ||
+    /^https:\/\/[a-z0-9.-]+\.vercel\.app$/i.test(clean) ||
+    /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?$/i.test(clean) ||
+    /^https:\/\/[a-z0-9.-]+\.(run\.app|googleusercontent\.com|scf\.usercontent\.goog|web\.app|firebaseapp\.com|aistudio\.google\.com)$/i.test(
+      clean
+    )
   );
 }
 
@@ -147,23 +243,25 @@ export function resolveCorsHeaders(
   allowedMethods = 'POST, GET, OPTIONS'
 ): Record<string, string> {
   const origin = typeof requestOrigin === 'string' ? requestOrigin.trim() : '';
-  const allowedOrigin = isAllowedCorsOrigin(origin) ? origin : 'https://prepskm.in';
-
-  return {
-    'Access-Control-Allow-Origin': allowedOrigin,
+  const headers: Record<string, string> = {
     'Access-Control-Allow-Methods': allowedMethods,
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, Accept, X-Requested-With',
+    'Access-Control-Max-Age': '86400',
     Vary: 'Origin',
     'Content-Type': 'application/json; charset=utf-8',
     'Cache-Control': 'no-store, max-age=0',
     'X-Content-Type-Options': 'nosniff',
   };
+
+  if (origin && isAllowedCorsOrigin(origin)) {
+    headers['Access-Control-Allow-Origin'] = origin;
+  } else if (!origin) {
+    headers['Access-Control-Allow-Origin'] = 'https://prepskm.in';
+  }
+
+  return headers;
 }
 
-/**
- * Strips any accidentally passed client secret/key fields from context objects
- * so client payloads can never inject or echo API credentials.
- */
 export function sanitizeClientContext(raw: unknown): Record<string, unknown> {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
   const out: Record<string, unknown> = {};
@@ -176,10 +274,14 @@ export function sanitizeClientContext(raw: unknown): Record<string, unknown> {
 
 export function sanitizeErrorMessage(rawError: unknown): string {
   const raw = rawError instanceof Error ? rawError.message : String(rawError ?? '');
-  // Scrub any potential bearer tokens or provider API keys before returning
   return raw
-    .replace(/(AIza[0-9A-Za-z\-_]{20,}|gsk_[0-9A-Za-z\-_]{16,}|sk-[0-9A-Za-z\-_]{16,})/g, '[REDACTED]')
-    .slice(0, 220);
+    .replace(
+      /(AIza[0-9A-Za-z\-_]{16,}|gsk_[0-9A-Za-z\-_]{12,}|sk-[0-9A-Za-z\-_]{12,}|Bearer\s+[0-9A-Za-z\-_.]{12,}|key=[0-9A-Za-z\-_]{12,})/gi,
+      '[REDACTED]'
+    )
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 260);
 }
 
 export function normalizeMessages(body: Record<string, unknown> | null | undefined): AiChatMessage[] {
@@ -235,6 +337,50 @@ export async function parseJsonBody(
   }
 }
 
+function buildStrictTopicLockLine(context: Record<string, unknown>): string {
+  const subject = String(context.subject ?? context.subjectName ?? '').trim();
+  const chapter = String(context.chapter ?? context.chapterName ?? '').trim();
+  const topic = String(context.topic ?? context.topicTitle ?? '').trim();
+
+  const scopeParts = [
+    subject ? `Subject: "${subject}"` : '',
+    chapter ? `Chapter: "${chapter}"` : '',
+    topic ? `Topic: "${topic}"` : '',
+  ].filter(Boolean);
+
+  if (scopeParts.length > 0) {
+    return (
+      `MANDATORY SUBJECT & CHAPTER LOCK (${scopeParts.join(' | ')}): ` +
+      'Your entire explanation, formulas, examples, and exam tips MUST strictly match this exact subject, chapter, and user question. ' +
+      'NEVER drift into unrelated default chapters or canned templates.'
+    );
+  }
+
+  return (
+    'MANDATORY SUBJECT & CHAPTER ACCURACY: Identify the exact subject, chapter, and concept from the user query and answer strictly for that exact question. ' +
+    'NEVER substitute generic or unrelated default chapter examples.'
+  );
+}
+
+export const PREPSKM_CORE_SYSTEM_PROMPT = `Platform Overview:
+Prepskm (PREPSKM.IN) is a student-first, community-driven EdTech platform built for JEE Main, JEE Advanced, NEET UG, and Class 9-12 Board aspirants. It democratizes quality exam preparation by staying 100% free for students, driven by the founder's mission rather than profit motives.
+
+Founder Background & Philosophy:
+- Founder: Sumit Kumar (known as @UnfilteredSumit across YouTube, Instagram, and Telegram).
+- Identity: 16-year-old EdTech blogger, daily blogger, and JEE mentor from Shivaji Nagar, Samastipur, Bihar, coming from a middle-class family with roots in business and farming.
+- Motivation: Built Prepskm out of personal struggle after experiencing the trap of passively watching endless "one-shot" videos and getting stuck in note-taking without active question practice.
+- Mentorship Style: Relatable peer and friend rather than a distant authority — gives honest reality checks and practical, actionable guidance.
+
+Core Features & Content Strategy:
+- Extensive Question Bank: Over 1,000,000+ questions and PYQs with a daily target of 10,000+ high-quality questions for deep practice variety.
+- Active Learning Focus: Prioritizes Daily Practice Problems (DPPs), formula sheets, CBT mocks, and active question solving over passive video binge-watching.
+- AI Buddy Persona: Act as a supportive, empathetic, grounding study companion and friend. Handle doubts conversationally, keep aspirants focused, and if a student asks off-topic, distracting, or inappropriate/explicit queries, gently yet firmly redirect them back to their JEE/NEET/Board preparation with warmth and zero preaching.
+- Community-Driven Updates: Platform features (including interactive study games in Arena) evolve directly from student DMs and community requests.
+
+Tone & Operational Guidelines:
+- Maintain an empathetic, encouraging, grounded, and accessible tone in natural Hinglish (conversational Hindi-English mix) unless pure English is requested.
+- Prioritize student clarity, active practice, and free accessibility above everything else.`;
+
 function buildSystemPrompt(context: Record<string, unknown>): string {
   const safeContext =
     context && Object.keys(context).length > 0
@@ -244,28 +390,31 @@ function buildSystemPrompt(context: Record<string, unknown>): string {
   const isMistakeFix = Boolean(context.mistakeQuestion || context.mistakeSummary);
 
   const lines = [
-    'You are Preps AI, a friendly Indian JEE Main, JEE Advanced, NEET UG, and Class 9-12 Board bhaiya/mentor on PREPSKM.IN.',
-    'Core persona and communication style (STRICTLY FOLLOW across every response):',
-    '- Explain every concept in natural, warm, easy-to-understand Hinglish (conversational Hindi-English mix, like a supportive Indian senior bhaiya/mentor — e.g. "Simple funda yeh hai", "Chalo step-by-step samajhte hain", "Exam mein yahi trap aata hai") so any student can grasp even tough concepts effortlessly.',
-    '- Avoid robotic textbook jargon. Break tough physics, chemistry, maths, and biology doubts into clear, relatable real-world intuition, formulas, and practical NTA/NCERT shortcuts.',
-    '- NEVER use raw Markdown formatting characters (#, **, *, _, `, >, or markdown tables). Write clean plain-text paragraphs or simple numbered steps (1., 2., 3.) so every reply reads cleanly on screen and sounds super natural when spoken aloud.',
-    '- Ground every progress review, chapter summary, learning path, and practice tip in the LIVE STUDENT CONTEXT below — including their Prep Score, Google Sheets performance analysis, Google Keep study notes, mock history, and weak chapters.',
-    '- If totalAttempts is 0 and no Google Sheet is loaded yet, warmly encourage the student to attempt a quick CBT mock or pick one high-weightage chapter to build momentum.',
+    'You are Preps AI (AI Buddy), the official student-first JEE, NEET UG & Class 9-12 study companion on PREPSKM.IN.',
+    PREPSKM_CORE_SYSTEM_PROMPT,
+    buildStrictTopicLockLine(context),
+    'Response formatting & accuracy rules (STRICTLY FOLLOW across every response):',
+    '- Break tough physics, chemistry, maths, and biology doubts into clear intuition, verified NCERT/NTA formulas, and exact step-by-step solving for the user question.',
+    '- Encourage active question solving (DPPs, PYQs, formula recall) instead of passive one-shot video loops when students ask for study advice.',
+    '- If the user asks about Prepskm or its founder, answer accurately using the Founder Background & Philosophy above (Sumit Kumar / @UnfilteredSumit from Shivaji Nagar, Samastipur, Bihar).',
+    '- If the user sends off-topic, explicit, or inappropriate messages, do NOT entertain them — respond with a friendly, firm peer-style reality check and redirect immediately back to their study goal or next practice question.',
+    '- NEVER use raw Markdown formatting characters (#, **, *, _, `, >, or markdown tables). Write clean plain-text paragraphs or simple numbered steps (1., 2., 3.).',
+    '- Ground progress reviews in the LIVE STUDENT CONTEXT below when present, without inventing numbers.',
   ];
 
   if (isMistakeFix) {
     lines.push(
-      '- MISTAKE FIX MODE: Friendly Hinglish mein batao ki galti kahan aur kyun hui (conceptual gap, formula slip, ya sign/unit trap), fir simple numbered steps mein official answer tak solve karke dikhao, aur end mein ek crisp 1-line Exam Rule do taaki student dubara ye galti kabhi na kare.'
+      '- MISTAKE FIX MODE: Explain clearly in Hinglish why the mistake happened on this exact question, solve it cleanly step-by-step to the official answer, and end with a crisp 1-line Exam Rule.'
     );
   }
 
   if (voiceMode) {
     lines.push(
-      '- VOICE MODE ACTIVE: Keep the Hinglish reply crisp and conversational (under 85 words) in smooth spoken sentences with zero symbols or bullets so it sounds completely natural aloud.'
+      '- VOICE MODE ACTIVE: Keep the reply crisp and conversational (under 85 words) in smooth spoken sentences with zero symbols or bullets.'
     );
   } else {
     lines.push(
-      '- Keep replies crisp, structured with plain numbered steps, and easy to understand (typically 100-210 words unless a full derivation is requested).'
+      '- Keep replies crisp, structured with plain numbered steps, and directly focused on the user exact query.'
     );
   }
 
@@ -276,38 +425,59 @@ function buildSystemPrompt(context: Record<string, unknown>): string {
   return lines.join('\n');
 }
 
-function buildSuggestedFollowUps(
+function buildTopicAnchoredFollowUps(
   messages: AiChatMessage[],
   context: Record<string, unknown>
 ): string[] {
+  const chapter = String(context.chapter ?? context.chapterName ?? '').trim();
+  const subject = String(context.subject ?? context.subjectName ?? '').trim();
   const lastUser =
-    [...messages].reverse().find((m) => m.role === 'user')?.content?.toLowerCase() ?? '';
-  if (context.mistakeQuestion || context.mistakeSummary) {
-    return [
-      'Isi concept par ek similar practice question do',
-      'Iska 10-second exam shortcut kya hoga?',
-      'Is chapter ke must-remember formulas batao',
-    ];
-  }
-  if (lastUser.includes('maths') || lastUser.includes('math') || lastUser.includes('negative')) {
-    return [
-      '7-day weak chapter revision plan bana do',
-      'JEE Maths 60 minutes mein kaise attempt karein?',
-      'High-weightage easy-marks chapters kaunse hain?',
-    ];
-  }
-  if (lastUser.includes('progress') || lastUser.includes('test') || lastUser.includes('score')) {
-    return [
-      'Agle mock mein negative marking kaise kam karun?',
-      '7-day weak chapter revision plan bana do',
-      'Mere weakest subject ki simple strategy batao',
-    ];
-  }
+    [...messages].reverse().find((m) => m.role === 'user')?.content?.trim() ?? '';
+
+  const topicLabel =
+    chapter ||
+    (subject ? `${subject} topic` : '') ||
+    (lastUser.length > 0 ? lastUser.replace(/\s+/g, ' ').slice(0, 42) : 'this concept');
+
   return [
-    'Mera latest test ka progress kaisa hai?',
-    '7-day weak chapter revision plan bana do',
-    '3 common exam traps batao jo students karte hain',
+    `${topicLabel} par ek exam-level practice question do`,
+    `${topicLabel} ka 10-second exam shortcut aur trap batao`,
+    `${topicLabel} ke sabse important formulas summarize karo`,
   ];
+}
+
+class ProviderCallError extends Error {
+  status?: number;
+  constructor(message: string, status?: number) {
+    super(message);
+    this.status = status;
+  }
+}
+
+async function readUpstreamErrorDetail(response: Response): Promise<string> {
+  try {
+    const raw = await response.text();
+    if (!raw.trim()) return `HTTP ${response.status}`;
+    try {
+      const parsed = JSON.parse(raw) as {
+        error?: string | { message?: string; code?: string; status?: string };
+        message?: string;
+        errors?: Array<{ message?: string; code?: number }>;
+      };
+      const detail =
+        (typeof parsed.error === 'string'
+          ? parsed.error
+          : parsed.error?.message || parsed.error?.status || parsed.error?.code) ||
+        parsed.message ||
+        parsed.errors?.[0]?.message ||
+        raw;
+      return sanitizeErrorMessage(`HTTP ${response.status}: ${String(detail).slice(0, 140)}`);
+    } catch {
+      return sanitizeErrorMessage(`HTTP ${response.status}: ${raw.slice(0, 140)}`);
+    }
+  } catch {
+    return `HTTP ${response.status}`;
+  }
 }
 
 async function fetchWithTimeout(
@@ -320,6 +490,11 @@ async function fetchWithTimeout(
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     return await fetchImpl(url, { ...options, signal: controller.signal });
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new ProviderCallError(`Timed out after ${timeoutMs}ms`, 504);
+    }
+    throw err;
   } finally {
     clearTimeout(timer);
   }
@@ -334,39 +509,61 @@ async function callOpenAiCompatible(params: {
   messages: AiChatMessage[];
   extraHeaders?: Record<string, string>;
   maxTokens?: number;
+  jsonMode?: boolean;
+  timeoutMs?: number;
 }): Promise<string> {
-  const response = await fetchWithTimeout(params.fetchImpl, params.url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${params.apiKey}`,
-      ...(params.extraHeaders ?? {}),
+  const response = await fetchWithTimeout(
+    params.fetchImpl,
+    params.url,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${params.apiKey}`,
+        ...(params.extraHeaders ?? {}),
+      },
+      body: JSON.stringify({
+        model: params.model,
+        temperature: params.jsonMode ? 0.25 : 0.45,
+        max_tokens: params.maxTokens ?? 1400,
+        messages: [
+          { role: 'system', content: params.systemPrompt },
+          ...params.messages.map((m) => ({ role: m.role, content: m.content })),
+        ],
+      }),
     },
-    body: JSON.stringify({
-      model: params.model,
-      temperature: 0.45,
-      max_tokens: params.maxTokens ?? 1200,
-      messages: [
-        { role: 'system', content: params.systemPrompt },
-        ...params.messages.map((m) => ({ role: m.role, content: m.content })),
-      ],
-    }),
-  });
+    params.timeoutMs ?? REQUEST_TIMEOUT_MS
+  );
 
   if (!response.ok) {
-    throw new Error(`Provider HTTP ${response.status}`);
+    const detail = await readUpstreamErrorDetail(response);
+    throw new ProviderCallError(detail, response.status);
   }
 
   const data = (await response.json()) as {
-    choices?: Array<{ message?: { content?: string } }>;
+    choices?: Array<{
+      message?: {
+        content?: string | Array<{ type?: string; text?: string }>;
+        reasoning?: string;
+      };
+    }>;
     result?: { response?: string };
     response?: string;
   };
-  const text =
-    data?.choices?.[0]?.message?.content ?? data?.result?.response ?? data?.response ?? '';
-  const reply = typeof text === 'string' ? text.trim() : '';
+  const rawContent = data?.choices?.[0]?.message?.content;
+  let text = '';
+  if (typeof rawContent === 'string') {
+    text = rawContent;
+  } else if (Array.isArray(rawContent)) {
+    text = rawContent
+      .map((part) => (typeof part?.text === 'string' ? part.text : ''))
+      .join('');
+  } else {
+    text = data?.result?.response ?? data?.response ?? '';
+  }
+  const reply = text.trim();
   if (!reply) {
-    throw new Error('Empty completion');
+    throw new ProviderCallError('Empty completion from upstream model', 502);
   }
   return reply;
 }
@@ -378,32 +575,39 @@ async function callGeminiRest(params: {
   systemPrompt: string;
   messages: AiChatMessage[];
   jsonMode?: boolean;
+  timeoutMs?: number;
 }): Promise<string> {
   const contents = params.messages.map((m) => ({
     role: m.role === 'assistant' ? 'model' : 'user',
     parts: [{ text: m.content }],
   }));
 
-  const response = await fetchWithTimeout(params.fetchImpl, params.url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-goog-api-key': params.apiKey,
+  const response = await fetchWithTimeout(
+    params.fetchImpl,
+    params.url,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': params.apiKey,
+      },
+      body: JSON.stringify({
+        system_instruction: {
+          parts: [{ text: params.systemPrompt }],
+        },
+        contents,
+        generationConfig: {
+          temperature: params.jsonMode ? 0.25 : 0.4,
+          ...(params.jsonMode ? { responseMimeType: 'application/json' } : {}),
+        },
+      }),
     },
-    body: JSON.stringify({
-      system_instruction: {
-        parts: [{ text: params.systemPrompt }],
-      },
-      contents,
-      generationConfig: {
-        temperature: 0.4,
-        ...(params.jsonMode ? { responseMimeType: 'application/json' } : {}),
-      },
-    }),
-  });
+    params.timeoutMs ?? REQUEST_TIMEOUT_MS
+  );
 
   if (!response.ok) {
-    throw new Error(`Provider HTTP ${response.status}`);
+    const detail = await readUpstreamErrorDetail(response);
+    throw new ProviderCallError(detail, response.status);
   }
 
   const data = (await response.json()) as {
@@ -417,9 +621,173 @@ async function callGeminiRest(params: {
         .trim()
     : '';
   if (!reply) {
-    throw new Error('Empty Gemini response');
+    throw new ProviderCallError('Empty Gemini response candidate', 502);
   }
   return reply;
+}
+
+async function callCloudflareWorkersAi(params: {
+  fetchImpl: typeof fetch;
+  accountId: string;
+  apiToken: string;
+  endpointTemplate: string;
+  model: string;
+  systemPrompt: string;
+  messages: AiChatMessage[];
+  maxTokens?: number;
+  jsonMode?: boolean;
+  timeoutMs?: number;
+}): Promise<string> {
+  const url = params.endpointTemplate
+    .replace('{accountId}', encodeURIComponent(params.accountId))
+    .replace('{model}', params.model);
+  const response = await fetchWithTimeout(
+    params.fetchImpl,
+    url,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${params.apiToken}`,
+      },
+      body: JSON.stringify({
+        max_tokens: params.maxTokens ?? 1400,
+        temperature: params.jsonMode ? 0.25 : 0.45,
+        messages: [
+          { role: 'system', content: params.systemPrompt },
+          ...params.messages.map((m) => ({ role: m.role, content: m.content })),
+        ],
+      }),
+    },
+    params.timeoutMs ?? REQUEST_TIMEOUT_MS
+  );
+
+  if (!response.ok) {
+    const detail = await readUpstreamErrorDetail(response);
+    throw new ProviderCallError(detail, response.status);
+  }
+
+  const data = (await response.json()) as {
+    result?: {
+      response?: string | Record<string, unknown>;
+      choices?: Array<{ message?: { content?: string } }>;
+    };
+    response?: string;
+    choices?: Array<{ message?: { content?: string } }>;
+  };
+
+  const rawResult =
+    data?.result?.response ??
+    data?.result?.choices?.[0]?.message?.content ??
+    data?.choices?.[0]?.message?.content ??
+    data?.response ??
+    '';
+
+  const reply =
+    typeof rawResult === 'string'
+      ? rawResult.trim()
+      : rawResult && typeof rawResult === 'object'
+        ? JSON.stringify(rawResult)
+        : '';
+
+  if (!reply) {
+    throw new ProviderCallError('Empty Cloudflare Workers AI response', 502);
+  }
+  return reply;
+}
+
+async function invokeProviderWithKey(params: {
+  descriptor: AiProviderDescriptor;
+  apiKey: string;
+  accountId?: string;
+  fetchImpl: typeof fetch;
+  systemPrompt: string;
+  messages: AiChatMessage[];
+  maxTokens?: number;
+  jsonMode?: boolean;
+  timeoutMs?: number;
+}): Promise<string> {
+  const candidateModels = [
+    params.descriptor.model,
+    ...(params.descriptor.fallbackModels ?? []),
+  ];
+
+  let lastError: unknown;
+  for (let idx = 0; idx < candidateModels.length; idx++) {
+    const activeModel = candidateModels[idx];
+    try {
+      if (params.descriptor.protocol === 'gemini-rest') {
+        const geminiUrl = params.descriptor.endpoint.replace('{model}', activeModel);
+        return await callGeminiRest({
+          fetchImpl: params.fetchImpl,
+          url: geminiUrl,
+          apiKey: params.apiKey,
+          systemPrompt: params.systemPrompt,
+          messages: params.messages,
+          jsonMode: params.jsonMode,
+          timeoutMs: params.timeoutMs,
+        });
+      }
+
+      if (params.descriptor.protocol === 'cloudflare-workers-ai') {
+        if (!params.accountId) {
+          throw new ProviderCallError('Missing CLOUDFLARE_ACCOUNT_ID', 503);
+        }
+        return await callCloudflareWorkersAi({
+          fetchImpl: params.fetchImpl,
+          accountId: params.accountId,
+          apiToken: params.apiKey,
+          endpointTemplate: params.descriptor.endpoint,
+          model: activeModel,
+          systemPrompt: params.systemPrompt,
+          messages: params.messages,
+          maxTokens: params.maxTokens,
+          jsonMode: params.jsonMode,
+          timeoutMs: params.timeoutMs,
+        });
+      }
+
+      return await callOpenAiCompatible({
+        fetchImpl: params.fetchImpl,
+        url: params.descriptor.endpoint,
+        apiKey: params.apiKey,
+        model: activeModel,
+        systemPrompt: params.systemPrompt,
+        messages: params.messages,
+        extraHeaders: params.descriptor.extraHeaders,
+        maxTokens: params.maxTokens,
+        jsonMode: params.jsonMode,
+        timeoutMs: params.timeoutMs,
+      });
+    } catch (err) {
+      lastError = err;
+      const status = err instanceof ProviderCallError ? err.status : undefined;
+      const shouldRetryNextModel =
+        idx < candidateModels.length - 1 && (status === 404 || status === 502);
+      if (shouldRetryNextModel) {
+        continue;
+      }
+      throw err;
+    }
+  }
+
+  throw lastError ?? new ProviderCallError('Upstream model invocation failed', 502);
+}
+
+function formatFailoverFailureSummary(
+  attemptedProviders: string[],
+  providerErrors: ProviderFailureDetail[]
+): string {
+  if (attemptedProviders.length === 0) {
+    return (
+      'No server-side AI provider keys are configured in environment secrets ' +
+      '(expected GROQ_API_KEY, GEMINI_API_KEY, MISTRAL_API_KEY / MISTRAL_API_KEYS, DEEPSEEK_API_KEY, OPENROUTER_API_KEY, or CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_WORKERS_AI_TOKEN).'
+    );
+  }
+  const summary = providerErrors
+    .map((e) => `${e.provider}: ${e.reason}`)
+    .join(' | ');
+  return `All configured AI providers failed (${attemptedProviders.join(' -> ')}): ${summary}`;
 }
 
 export async function runPrepsAiWithFallback(params: {
@@ -431,62 +799,170 @@ export async function runPrepsAiWithFallback(params: {
   maxTokens?: number;
   jsonMode?: boolean;
 }): Promise<
-  | { ok: true; reply: string; provider: string; suggestedFollowUps: string[] }
-  | { ok: false; error: string }
+  | {
+      ok: true;
+      reply: string;
+      provider: string;
+      attemptedProviders: string[];
+      providerErrors?: ProviderFailureDetail[];
+      suggestedFollowUps: string[];
+    }
+  | {
+      ok: false;
+      error: string;
+      attemptedProviders: string[];
+      providerErrors: ProviderFailureDetail[];
+    }
 > {
   const runtimeEnv = params.env && typeof params.env === 'object' ? params.env : process.env;
   const fetchImpl = params.fetchImpl ?? globalThis.fetch;
   const cleanContext = sanitizeClientContext(params.context ?? {});
   const systemPrompt = params.systemPromptOverride ?? buildSystemPrompt(cleanContext);
 
-  let configuredProviders = 0;
+  const attemptedProviders: string[] = [];
+  const providerErrors: ProviderFailureDetail[] = [];
 
   for (const descriptor of AI_PROVIDER_REGISTRY) {
-    const apiKey = getServerSecret(runtimeEnv, descriptor.envVar);
-    if (!apiKey) continue;
-    configuredProviders += 1;
+    const keys = getProviderKeys(runtimeEnv, descriptor);
+    if (keys.length === 0) continue;
 
-    try {
-      const reply =
-        descriptor.protocol === 'gemini-rest'
-          ? await callGeminiRest({
-              fetchImpl,
-              url: descriptor.endpoint,
-              apiKey,
-              systemPrompt,
-              messages: params.messages,
-              jsonMode: params.jsonMode,
-            })
-          : await callOpenAiCompatible({
-              fetchImpl,
-              url: descriptor.endpoint,
-              apiKey,
-              model: descriptor.model,
-              systemPrompt,
-              messages: params.messages,
-              extraHeaders: descriptor.extraHeaders,
-              maxTokens: params.maxTokens,
-            });
-
-      return {
-        ok: true,
-        reply,
+    const accountId = descriptor.accountIdEnvVar
+      ? getServerSecret(runtimeEnv, descriptor.accountIdEnvVar)
+      : undefined;
+    if (descriptor.accountIdEnvVar && !accountId) {
+      providerErrors.push({
         provider: descriptor.id,
-        suggestedFollowUps: buildSuggestedFollowUps(params.messages, cleanContext),
-      };
-    } catch {
-      // Automatically fail over to the next configured provider without leaking secrets
+        reason: `Missing ${descriptor.accountIdEnvVar}`,
+      });
       continue;
+    }
+
+    for (let keyIdx = 0; keyIdx < keys.length; keyIdx++) {
+      const label = keys.length > 1 ? `${descriptor.id}#${keyIdx + 1}` : descriptor.id;
+      attemptedProviders.push(label);
+
+      try {
+        const reply = await invokeProviderWithKey({
+          descriptor,
+          apiKey: keys[keyIdx],
+          accountId,
+          fetchImpl,
+          systemPrompt,
+          messages: params.messages,
+          maxTokens: params.maxTokens,
+          jsonMode: params.jsonMode,
+          timeoutMs: REQUEST_TIMEOUT_MS,
+        });
+
+        return {
+          ok: true,
+          reply,
+          provider: label,
+          attemptedProviders,
+          providerErrors: providerErrors.length > 0 ? providerErrors : undefined,
+          suggestedFollowUps: buildTopicAnchoredFollowUps(params.messages, cleanContext),
+        };
+      } catch (err) {
+        const status = err instanceof ProviderCallError ? err.status : undefined;
+        const reason = sanitizeErrorMessage(err) || 'Unknown upstream provider error';
+        providerErrors.push({ provider: label, status, reason });
+        console.error(`[prepskm-ai][chat] ${label} failed -> ${reason}`);
+        continue;
+      }
     }
   }
 
   return {
     ok: false,
-    error:
-      configuredProviders === 0
-        ? 'Preps AI is running in local study mode because no server AI provider keys are configured yet in Vercel Environment Variables.'
-        : 'Preps AI is experiencing high demand right now across all models. Please wait a few seconds and try again.',
+    attemptedProviders,
+    providerErrors,
+    error: formatFailoverFailureSummary(attemptedProviders, providerErrors),
   };
+}
+
+function repairJsonStringForLatex(input: string): string {
+  let out = '';
+  let inString = false;
+  let i = 0;
+
+  while (i < input.length) {
+    const ch = input[i];
+
+    if (!inString) {
+      if (ch === '"') inString = true;
+      out += ch;
+      i += 1;
+      continue;
+    }
+
+    if (ch === '"') {
+      inString = false;
+      out += ch;
+      i += 1;
+      continue;
+    }
+
+    if (ch === '\n') {
+      out += '\\n';
+      i += 1;
+      continue;
+    }
+
+    if (ch === '\r') {
+      i += 1;
+      continue;
+    }
+
+    if (ch === '\t') {
+      out += '\\t';
+      i += 1;
+      continue;
+    }
+
+    if (ch === '\\') {
+      const next = input[i + 1];
+      if (!next) {
+        out += '\\\\';
+        i += 1;
+        continue;
+      }
+
+      // Preserve valid JSON escapes unless it is clearly a LaTeX macro like \frac, \theta, \text, \to, \right, \beta
+      const rest = input.slice(i + 1);
+      const isLatexMacro = /^(frac|theta|text|times|to\b|tau|tan|rightarrow|rho|right|beta|begin|binom|bar|cdot|cos|sin|sqrt|sum|sigma|prime|pi|phi|partial|alpha|approx|Delta|delta|epsilon|eta|gamma|infty|int|lambda|left|lim|ln|log|mu|nabla|neq|omega|Omega|pm|propto|psi|quad|vec|omega|varepsilon|varphi|leq|geq|equiv|implies|Rightarrow|leftrightarrow|therefore|because)/i.test(
+        rest
+      );
+
+      if (isLatexMacro) {
+        out += '\\\\';
+        i += 1;
+        continue;
+      }
+
+      if (next === '"' || next === '\\' || next === '/' || next === 'b' || next === 'f' || next === 'n' || next === 'r' || next === 't') {
+        out += '\\' + next;
+        i += 2;
+        continue;
+      }
+
+      if (next === 'u' && /^[0-9a-fA-F]{4}/.test(input.slice(i + 2, i + 6))) {
+        out += input.slice(i, i + 6);
+        i += 6;
+        continue;
+      }
+
+      // Escape invalid backslash (e.g., \p, \a, \s, \d, \c in LaTeX)
+      out += '\\\\';
+      i += 1;
+      continue;
+    }
+
+    out += ch;
+    i += 1;
+  }
+
+  // Strip trailing commas before } or ]
+  return out.replace(/,\s*([}\]])/g, '$1');
 }
 
 export function extractJsonObject(rawText: string): Record<string, unknown> {
@@ -499,14 +975,118 @@ export function extractJsonObject(rawText: string): Record<string, unknown> {
   if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) {
     throw new Error('Could not parse structured JSON from AI response');
   }
-  return JSON.parse(candidate.slice(firstBrace, lastBrace + 1)) as Record<string, unknown>;
+  const slice = candidate.slice(firstBrace, lastBrace + 1);
+  try {
+    return JSON.parse(slice) as Record<string, unknown>;
+  } catch {
+    const repaired = repairJsonStringForLatex(slice);
+    return JSON.parse(repaired) as Record<string, unknown>;
+  }
+}
+
+/**
+ * Executes a structured JSON prompt across the entire automatic multi-provider failover chain
+ * (all 8 configured secrets, including MISTRAL_API_KEYS rotation and Cloudflare Workers AI).
+ */
+export async function runStructuredJsonWithFallback(params: {
+  systemPrompt: string;
+  userPrompt: string;
+  env?: Record<string, string | undefined>;
+  fetchImpl?: typeof fetch;
+  maxTokens?: number;
+  validator?: (parsed: Record<string, unknown>) => boolean;
+}): Promise<
+  | {
+      ok: true;
+      data: Record<string, unknown>;
+      provider: string;
+      attemptedProviders: string[];
+      providerErrors?: ProviderFailureDetail[];
+    }
+  | {
+      ok: false;
+      error: string;
+      attemptedProviders: string[];
+      providerErrors: ProviderFailureDetail[];
+    }
+> {
+  const runtimeEnv = params.env && typeof params.env === 'object' ? params.env : process.env;
+  const fetchImpl = params.fetchImpl ?? globalThis.fetch;
+  const attemptedProviders: string[] = [];
+  const providerErrors: ProviderFailureDetail[] = [];
+
+  for (const descriptor of AI_PROVIDER_REGISTRY) {
+    const keys = getProviderKeys(runtimeEnv, descriptor);
+    if (keys.length === 0) continue;
+
+    const accountId = descriptor.accountIdEnvVar
+      ? getServerSecret(runtimeEnv, descriptor.accountIdEnvVar)
+      : undefined;
+    if (descriptor.accountIdEnvVar && !accountId) {
+      providerErrors.push({
+        provider: descriptor.id,
+        reason: `Missing ${descriptor.accountIdEnvVar}`,
+      });
+      continue;
+    }
+
+    for (let keyIdx = 0; keyIdx < keys.length; keyIdx++) {
+      const label = keys.length > 1 ? `${descriptor.id}#${keyIdx + 1}` : descriptor.id;
+      attemptedProviders.push(label);
+
+      try {
+        const rawReply = await invokeProviderWithKey({
+          descriptor,
+          apiKey: keys[keyIdx],
+          accountId,
+          fetchImpl,
+          systemPrompt: params.systemPrompt,
+          messages: [{ role: 'user', content: params.userPrompt }],
+          maxTokens: params.maxTokens ?? 2400,
+          jsonMode: true,
+          timeoutMs: STRUCTURED_TIMEOUT_MS,
+        });
+
+        const parsed = extractJsonObject(rawReply);
+        if (params.validator && !params.validator(parsed)) {
+          providerErrors.push({
+            provider: label,
+            reason: 'Structured JSON failed schema validation',
+          });
+          console.error(`[prepskm-ai][json] ${label} failed schema validation`);
+          continue;
+        }
+
+        return {
+          ok: true,
+          data: parsed,
+          provider: label,
+          attemptedProviders,
+          providerErrors: providerErrors.length > 0 ? providerErrors : undefined,
+        };
+      } catch (err) {
+        const status = err instanceof ProviderCallError ? err.status : undefined;
+        const reason = sanitizeErrorMessage(err) || 'Structured JSON provider error';
+        providerErrors.push({ provider: label, status, reason });
+        console.error(`[prepskm-ai][json] ${label} failed -> ${reason}`);
+        continue;
+      }
+    }
+  }
+
+  return {
+    ok: false,
+    attemptedProviders,
+    providerErrors,
+    error: formatFailoverFailureSummary(attemptedProviders, providerErrors),
+  };
 }
 
 export function buildTutorStudioPrompt(
   action: string,
   payload: Record<string, unknown> = {}
 ): { systemPrompt: string; userPrompt: string } {
-  const cohortLabel = String(payload.cohortLabel || 'Class 12 JEE').slice(0, 80);
+  const cohortLabel = String(payload.cohortLabel || 'Class 12 JEE / NEET').slice(0, 80);
   const studentName = String(payload.studentName || 'Student').slice(0, 80);
 
   if (action === 'analyze-sheet') {
@@ -539,7 +1119,7 @@ export function buildTutorStudioPrompt(
         2
       ),
       keepNotes.length > 0
-        ? `Student Google Keep Study Notes:\n${JSON.stringify(
+        ? `Student Study Notes:\n${JSON.stringify(
             keepNotes.map((n) => ({
               title: String(n.title || '').slice(0, 100),
               subject: String(n.subject || '').slice(0, 50),
@@ -547,14 +1127,14 @@ export function buildTutorStudioPrompt(
               content: String(n.content || '').slice(0, 400),
             }))
           )}`
-        : 'Student Google Keep Study Notes: None attached yet.',
+        : 'Student Study Notes: None attached yet.',
       '',
       'Return ONLY valid JSON with this exact shape (warm Hinglish, ZERO raw markdown symbols):',
       '{',
       '  "verdict": "2-sentence friendly Hinglish mentor summary citing exact percentages from the sheet",',
       '  "progressTrendNote": "1-2 sentences in simple Hinglish explaining the score trend",',
       '  "strengths": ["2-3 specific strengths backed by sheet numbers"],',
-      '  "priorityWeakAreas": ["2-4 highest-ROI weak chapters/concepts"],',
+      '  "priorityWeakAreas": ["2-4 highest-ROI weak chapters/concepts from the sheet"],',
       '  "constructiveAdvice": ["3-4 practical Hinglish study habits"],',
       '  "recommendedNextAction": "1 clear immediate 30-minute Hinglish study step"',
       '}',
@@ -562,14 +1142,17 @@ export function buildTutorStudioPrompt(
 
     return {
       systemPrompt:
-        'You are Preps AI, a friendly Indian JEE/NEET/Boards mentor on PREPSKM.IN. Accurately analyze the provided performance metrics and notes in warm Hinglish. Output ONLY valid JSON.',
+        'You are Preps AI, a friendly Indian JEE/NEET/Boards mentor on PREPSKM.IN. Accurately analyze the provided performance metrics and notes in warm Hinglish strictly grounded in the exact subjects and chapters in the data. Output ONLY valid JSON.',
       userPrompt: prompt,
     };
   }
 
   if (action === 'learning-path') {
-    const subjectName = String(payload.subjectName || 'Physics').slice(0, 80);
-    const chapterName = String(payload.chapterName || 'Electrostatics').slice(0, 120);
+    const subjectName = String(payload.subjectName ?? '').trim().slice(0, 80);
+    const chapterName = String(payload.chapterName ?? '').trim().slice(0, 120);
+    if (!subjectName || !chapterName) {
+      throw new Error('Both subjectName and chapterName are required to build a learning path.');
+    }
     const currentAccuracy =
       payload.currentAccuracy !== undefined && payload.currentAccuracy !== null
         ? Number(payload.currentAccuracy)
@@ -581,7 +1164,7 @@ export function buildTutorStudioPrompt(
 
     const prompt = [
       `Student: ${studentName} | Track: ${cohortLabel}`,
-      `Target Subject: ${subjectName} | Target Chapter: ${chapterName}`,
+      `STRICT SUBJECT & CHAPTER TARGET: Subject = "${subjectName}" | Chapter = "${chapterName}"`,
       currentAccuracy !== null && Number.isFinite(currentAccuracy)
         ? `Current Chapter Accuracy: ${currentAccuracy}%`
         : 'Current Chapter Accuracy: Not logged yet.',
@@ -592,52 +1175,55 @@ export function buildTutorStudioPrompt(
             .join('\n')}`
         : '',
       '',
+      `Every single concept, formula, step, and exam trap MUST strictly belong to "${chapterName}" in ${subjectName}. Do NOT include unrelated chapters.`,
       'Return ONLY valid JSON with 4 sequential learningSteps in friendly Hinglish (no markdown):',
       '{',
       `  "chapterName": "${chapterName.replace(/"/g, '\\"')}",`,
       `  "subjectName": "${subjectName.replace(/"/g, '\\"')}",`,
       '  "readinessLevel": "Foundation Rebuild | Core Strengthening | Exam Polish",',
-      '  "chapterSummary": "3-4 sentence Hinglish conceptual overview",',
-      '  "keyFormulasAndConcepts": ["4-6 essential formulas explained simply"],',
+      '  "chapterSummary": "3-4 sentence Hinglish conceptual overview of this exact chapter",',
+      '  "keyFormulasAndConcepts": ["4-6 essential formulas strictly from this chapter"],',
       '  "learningSteps": [{ "stepNumber": 1, "phase": "Concept Clarity", "durationMinutes": 25, "objective": "Clear outcome", "actionItems": ["2-3 specific tasks"] }],',
-      '  "examTrapsToAvoid": ["3-4 common NTA/Board pitfalls"],',
-      '  "keepChecklistTitle": "Short study checklist title"',
+      '  "examTrapsToAvoid": ["3-4 common NTA/Board pitfalls in this exact chapter"],',
+      '  "keepChecklistTitle": "Short study checklist title for this chapter"',
       '}',
     ]
       .filter(Boolean)
       .join('\n');
 
     return {
-      systemPrompt:
-        'You are Preps AI, a friendly Indian JEE/NEET/Boards mentor on PREPSKM.IN. Output ONLY valid JSON without markdown.',
+      systemPrompt: `You are Preps AI, a friendly Indian JEE/NEET/Boards mentor on PREPSKM.IN. Stay 100% locked to Subject "${subjectName}" and Chapter "${chapterName}". Output ONLY valid JSON without markdown.`,
       userPrompt: prompt,
     };
   }
 
   if (action === 'practice-questions') {
-    const subjectName = String(payload.subjectName || 'Physics').slice(0, 80);
-    const chapterName = String(payload.chapterName || 'Electrostatics').slice(0, 120);
+    const subjectName = String(payload.subjectName ?? '').trim().slice(0, 80);
+    const chapterName = String(payload.chapterName ?? '').trim().slice(0, 120);
+    if (!subjectName || !chapterName) {
+      throw new Error('Both subjectName and chapterName are required to generate practice questions.');
+    }
     const difficulty = String(payload.difficulty || 'Exam Level').slice(0, 40);
     const count = Math.min(5, Math.max(3, Number(payload.count) || 3));
     const focusNote = String(payload.focusNote || '').slice(0, 400);
 
     const prompt = [
       `Student Track: ${cohortLabel}`,
-      `Subject: ${subjectName} | Chapter: ${chapterName}`,
+      `STRICT SUBJECT & CHAPTER TARGET: Subject = "${subjectName}" | Chapter = "${chapterName}"`,
       `Difficulty: ${difficulty} | Number of Questions: ${count}`,
       focusNote ? `Specific Focus: ${focusNote}` : '',
       '',
-      `Generate exactly ${count} verified single-choice MCQ practice questions with 4 clean options (A-D).`,
+      `Generate exactly ${count} verified single-choice MCQ practice questions strictly from "${chapterName}" (${subjectName}) with 4 clean options (A-D). Never substitute questions from other chapters.`,
       'Return ONLY valid JSON (hints & explanations in warm Hinglish, no markdown):',
       '{',
       '  "questions": [',
       '    {',
       '      "id": "q1",',
-      '      "question": "Clear exam-style question statement",',
+      '      "question": "Clear exam-style question statement strictly from this chapter",',
       '      "options": ["Option A", "Option B", "Option C", "Option D"],',
       '      "correctIndex": 0,',
       `      "difficulty": "${difficulty.replace(/"/g, '\\"')}",`,
-      '      "conceptTag": "Short concept tag",',
+      '      "conceptTag": "Short concept tag from this chapter",',
       '      "hint": "1-sentence Hinglish hint",',
       '      "explanation": "Step-by-step Hinglish explanation"',
       '    }',
@@ -648,8 +1234,7 @@ export function buildTutorStudioPrompt(
       .join('\n');
 
     return {
-      systemPrompt:
-        'You are Preps AI, a friendly Indian JEE/NEET question author on PREPSKM.IN. Double-check calculations so correctIndex matches the right option. Output ONLY valid JSON.',
+      systemPrompt: `You are Preps AI, a friendly Indian JEE/NEET question author on PREPSKM.IN. Stay 100% locked to Subject "${subjectName}" and Chapter "${chapterName}". Double-check calculations so correctIndex matches the verified answer. Output ONLY valid JSON.`,
       userPrompt: prompt,
     };
   }
@@ -663,27 +1248,214 @@ export async function runTutorStudioWithFallback(params: {
   env?: Record<string, string | undefined>;
   fetchImpl?: typeof fetch;
 }): Promise<
-  { ok: true; data: Record<string, unknown>; provider: string } | { ok: false; error: string }
+  | { ok: true; data: Record<string, unknown>; provider: string }
+  | {
+      ok: false;
+      error: string;
+      attemptedProviders: string[];
+      providerErrors: ProviderFailureDetail[];
+    }
 > {
   const { systemPrompt, userPrompt } = buildTutorStudioPrompt(params.action, params.payload);
-  const result = await runPrepsAiWithFallback({
-    messages: [{ role: 'user', content: userPrompt }],
-    systemPromptOverride: systemPrompt,
-    context: { tutorStudioAction: params.action },
+  const result = await runStructuredJsonWithFallback({
+    systemPrompt,
+    userPrompt,
     env: params.env,
     fetchImpl: params.fetchImpl,
     maxTokens: 2400,
-    jsonMode: true,
   });
 
   if (!result.ok) {
-    return { ok: false, error: result.error };
+    return {
+      ok: false,
+      error: result.error,
+      attemptedProviders: result.attemptedProviders,
+      providerErrors: result.providerErrors,
+    };
   }
 
-  const parsed = extractJsonObject(result.reply);
   return {
     ok: true,
-    data: parsed,
+    data: result.data,
     provider: result.provider,
+  };
+}
+
+const VALID_SVG_TYPES = new Set([
+  'vectors',
+  'circuit',
+  'optics',
+  'reaction',
+  'calculus',
+  'mechanics',
+  'biology',
+  'generic',
+]);
+
+/**
+ * Generates a 100% live, dynamic 4-step whiteboard lesson for the user's exact question,
+ * subject, and chapter via the automatic multi-provider failover chain.
+ */
+export async function runLiveTeacherLessonWithFallback(params: {
+  questionText: string;
+  subjectName?: string;
+  chapterName?: string;
+  solutionText?: string;
+  officialAnswer?: string;
+  studentAnswer?: string;
+  env?: Record<string, string | undefined>;
+  fetchImpl?: typeof fetch;
+}): Promise<
+  | { ok: true; lesson: Record<string, unknown>; provider: string; attemptedProviders: string[] }
+  | {
+      ok: false;
+      error: string;
+      attemptedProviders: string[];
+      providerErrors: ProviderFailureDetail[];
+    }
+> {
+  const cleanQuestion = String(params.questionText ?? '').trim().slice(0, 2000);
+  if (!cleanQuestion) {
+    return {
+      ok: false,
+      attemptedProviders: [],
+      providerErrors: [],
+      error: 'A question or concept prompt is required to start the Live AI Tutor.',
+    };
+  }
+
+  const subjectHint = String(params.subjectName ?? '').trim().slice(0, 80);
+  const chapterHint = String(params.chapterName ?? '').trim().slice(0, 120);
+  const solutionHint = String(params.solutionText ?? '').trim().slice(0, 1500);
+  const officialAnswer = String(params.officialAnswer ?? '').trim().slice(0, 240);
+  const studentAnswer = String(params.studentAnswer ?? '').trim().slice(0, 240);
+
+  const systemPrompt = [
+    'You are Preps AI Live Tutor (AI Buddy on PREPSKM.IN — a 100% free, student-first JEE & NEET platform founded by Sumit Kumar / @UnfilteredSumit from Samastipur, Bihar).',
+    'Teach like a relatable, empathetic senior mentor/friend who prioritizes active problem-solving and clarity over passive lecturing.',
+    'STRICT SUBJECT & CHAPTER LOCK:',
+    `- Solve EXCLUSIVELY the exact question provided by the student${subjectHint ? ` in Subject "${subjectHint}"` : ''}${chapterHint ? ` and Chapter "${chapterHint}"` : ''}.`,
+    '- NEVER default to generic or unrelated templates (like inclined plane, electrostatics, or random formulas) unless the student actually asked about them.',
+    '- Every step equation (boardLatex), whiteboard note (boardNotes), Hinglish narration (narrationScript), English narration (englishNarrationScript), and proTip MUST directly solve THIS exact question accurately.',
+    '- Write clean LaTeX inside boardLatex (without surrounding $ signs) and DOUBLE-ESCAPE all JSON backslashes (for example: \\\\frac{a}{b}, \\\\theta, \\\\to). Write natural spoken sentences with NO raw markdown symbols (**, #, *, _) inside narrationScript and englishNarrationScript.',
+    '- Output ONLY valid JSON matching the exact requested schema.',
+  ].join('\n');
+
+  const userPrompt = [
+    subjectHint ? `Requested Subject: ${subjectHint}` : 'Infer Subject accurately from the question.',
+    chapterHint ? `Requested Chapter: ${chapterHint}` : 'Infer Chapter accurately from the question.',
+    `Student Question: "${cleanQuestion}"`,
+    officialAnswer ? `Official Verified Answer: ${officialAnswer}` : '',
+    studentAnswer ? `Student Attempted Answer: ${studentAnswer}` : '',
+    solutionHint ? `Reference Solution Context: ${solutionHint}` : '',
+    '',
+    'Return ONLY valid JSON with EXACTLY 4 progressive whiteboard steps:',
+    '{',
+    '  "topicTitle": "Short crisp title matching the exact chapter & concept of this question",',
+    '  "subjectName": "Exact subject (Physics | Chemistry | Mathematics | Biology)",',
+    '  "chapterName": "Exact chapter name for this question",',
+    '  "svgType": "one of: vectors | circuit | optics | reaction | calculus | mechanics | biology | generic",',
+    `  "questionPrompt": "${cleanQuestion.replace(/"/g, '\\"')}",`,
+    '  "officialAnswer": "Verified final answer to this question",',
+    '  "steps": [',
+    '    {',
+    '      "stepNumber": 1,',
+    '      "title": "Step 1 concise whiteboard heading",',
+    '      "boardLatex": "Pure LaTeX formula/relation for step 1 (no $ delimiters)",',
+    '      "boardNotes": "Concise handwritten note for step 1",',
+    '      "narrationScript": "Warm Hinglish spoken explanation for step 1 (2-3 natural sentences, no markdown)",',
+    '      "englishNarrationScript": "Clear English spoken explanation for step 1 (2-3 natural sentences, no markdown)",',
+    '      "proTip": "1-sentence exam shortcut or trap warning specific to this step",',
+    '      "svgType": "matching svgType"',
+    '    }',
+    '  ],',
+    '  "quickDoubtSuggestions": [',
+    '    "3 short, topic-specific student cross-questions about THIS exact solution"',
+    '  ]',
+    '}',
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  const result = await runStructuredJsonWithFallback({
+    systemPrompt,
+    userPrompt,
+    env: params.env,
+    fetchImpl: params.fetchImpl,
+    maxTokens: 2800,
+    validator: (parsed) => Array.isArray(parsed.steps) && parsed.steps.length >= 2,
+  });
+
+  if (!result.ok) {
+    return {
+      ok: false,
+      error: result.error,
+      attemptedProviders: result.attemptedProviders,
+      providerErrors: result.providerErrors,
+    };
+  }
+
+  const raw = result.data;
+  const resolvedSvg = VALID_SVG_TYPES.has(String(raw.svgType ?? ''))
+    ? String(raw.svgType)
+    : 'generic';
+  const rawSteps = Array.isArray(raw.steps) ? raw.steps : [];
+
+  const steps = rawSteps.slice(0, 4).map((item, idx) => {
+    const s = (item ?? {}) as Record<string, unknown>;
+    const stepSvg = VALID_SVG_TYPES.has(String(s.svgType ?? ''))
+      ? String(s.svgType)
+      : resolvedSvg;
+    const cleanLatex = String(s.boardLatex ?? '')
+      .replace(/^\$\$?|\$\$?$/g, '')
+      .trim();
+    const notes = String(s.boardNotes ?? '').trim();
+    const hinglish = String(s.narrationScript ?? notes).trim();
+    const english = String(s.englishNarrationScript ?? hinglish).trim();
+
+    return {
+      stepNumber: idx + 1,
+      title: String(s.title || `Step ${idx + 1}`).trim(),
+      boardLatex: cleanLatex || String(s.title || `Step ${idx + 1}`),
+      boardNotes: notes || hinglish,
+      narrationScript: hinglish || notes,
+      englishNarrationScript: english || hinglish,
+      proTip: String(s.proTip || 'Double-check units, signs, and boundary conditions.').trim(),
+      svgType: stepSvg,
+    };
+  });
+
+  const resolvedSubject = String(raw.subjectName || subjectHint || 'Science').trim();
+  const resolvedChapter = String(raw.chapterName || chapterHint || raw.topicTitle || 'Core Concept').trim();
+  const resolvedTopic = String(raw.topicTitle || resolvedChapter).trim();
+  const quickDoubts = Array.isArray(raw.quickDoubtSuggestions)
+    ? raw.quickDoubtSuggestions.map((d) => String(d ?? '').trim()).filter(Boolean).slice(0, 3)
+    : [];
+
+  const lesson = {
+    id: `live-ai-lesson-${Date.now()}`,
+    topicTitle: resolvedTopic,
+    subjectName: resolvedSubject,
+    chapterName: resolvedChapter,
+    svgType: resolvedSvg,
+    questionPrompt: cleanQuestion,
+    officialAnswer: officialAnswer || String(raw.officialAnswer ?? '').trim() || undefined,
+    studentAnswer: studentAnswer || undefined,
+    steps,
+    quickDoubtSuggestions:
+      quickDoubts.length > 0
+        ? quickDoubts
+        : [
+            `Step 2 mein ${resolvedChapter} ka formula kaise apply hua?`,
+            `Is ${resolvedChapter} question ka 10-second shortcut kya hai?`,
+            `${resolvedChapter} mein sabse common exam trap kya hai?`,
+          ],
+  };
+
+  return {
+    ok: true,
+    lesson,
+    provider: result.provider,
+    attemptedProviders: result.attemptedProviders,
   };
 }

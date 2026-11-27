@@ -1,3 +1,5 @@
+import { resolveApiUrl } from '../services/geminiClient';
+
 export type AiGameFormat =
   | 'Formula Blitz'
   | 'Reaction Chain'
@@ -42,7 +44,10 @@ export interface GenerateAiGameRequest {
   questionCount?: number;
 }
 
-export function validateAiGamePayload(raw: unknown): AiGeneratedGamePayload {
+export function validateAiGamePayload(
+  raw: unknown,
+  requested?: Partial<GenerateAiGameRequest>
+): AiGeneratedGamePayload {
   if (!raw || typeof raw !== 'object') {
     throw new Error('Invalid AI game payload received from server.');
   }
@@ -82,13 +87,19 @@ export function validateAiGamePayload(raw: unknown): AiGeneratedGamePayload {
     throw new Error('AI game payload contained no valid prompts.');
   }
 
+  const resolvedExam = String(requested?.exam || obj.exam || 'JEE Main').trim();
+  const resolvedSubject = String(requested?.subject || obj.subject || '').trim();
+  const resolvedChapter = String(requested?.chapter || obj.chapter || '').trim();
+  const resolvedFormat = (requested?.format || obj.format || 'Rapid-Fire Blitz') as AiGameFormat;
+  const resolvedDifficulty = (requested?.difficulty || obj.difficulty || 'Exam-Level') as AiGameDifficulty;
+
   return {
-    title: String(obj.title || `${obj.chapter || 'Chapter'} ${obj.format || 'Blitz'}`).trim(),
-    exam: String(obj.exam || 'JEE Main'),
-    subject: String(obj.subject || 'Physics'),
-    chapter: String(obj.chapter || 'Core Concepts'),
-    format: (obj.format as AiGameFormat) || 'Rapid-Fire Blitz',
-    difficulty: (obj.difficulty as AiGameDifficulty) || 'Exam-Level',
+    title: String(obj.title || `${resolvedChapter || 'Custom'} ${resolvedFormat}`).trim(),
+    exam: resolvedExam,
+    subject: resolvedSubject,
+    chapter: resolvedChapter,
+    format: resolvedFormat,
+    difficulty: resolvedDifficulty,
     xpReward: Math.max(50, Math.min(500, Number(obj.xpReward) || questions.length * 30)),
     questions,
   };
@@ -97,9 +108,13 @@ export function validateAiGamePayload(raw: unknown): AiGeneratedGamePayload {
 export async function generateCustomAiGame(
   request: GenerateAiGameRequest
 ): Promise<AiGeneratedGamePayload> {
-  const response = await fetch('/api/ai/generate-game', {
+  if (!request.subject.trim() || !request.chapter.trim()) {
+    throw new Error('Please choose a valid subject and chapter before generating a game.');
+  }
+
+  const response = await fetch(resolveApiUrl('/api/ai/generate-game'), {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify(request),
   });
 
@@ -112,9 +127,9 @@ export async function generateCustomAiGame(
   if (!response.ok || !data.ok || !data.game) {
     throw new Error(
       data.error ||
-        `AI Game Generator returned HTTP ${response.status}. Ensure GEMINI_API_KEY is active in server secrets.`
+        `AI Game Generator returned HTTP ${response.status}. Please retry in a moment.`
     );
   }
 
-  return validateAiGamePayload(data.game);
+  return validateAiGamePayload(data.game, request);
 }

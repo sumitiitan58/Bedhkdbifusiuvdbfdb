@@ -47,10 +47,18 @@ export async function POST(request: Request): Promise<Response> {
   });
 
   if (!result.ok) {
-    return new Response(JSON.stringify({ ok: false, error: result.error }), {
-      status: 503,
-      headers,
-    });
+    return new Response(
+      JSON.stringify({
+        ok: false,
+        error: result.error,
+        attemptedProviders: result.attemptedProviders,
+        providerErrors: result.providerErrors,
+      }),
+      {
+        status: 503,
+        headers,
+      }
+    );
   }
 
   return new Response(

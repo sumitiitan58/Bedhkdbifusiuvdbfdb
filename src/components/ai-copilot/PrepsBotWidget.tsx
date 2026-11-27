@@ -387,8 +387,9 @@ export function PrepsBotWidget() {
   if (inLiveCbtExam || zenMode || liveTeacherRequest) return null;
 
   const lastUserTopic =
-    [...messages].reverse().find((m) => m.role === 'user')?.text.slice(0, 90) ||
-    'Rotational Motion / Organic Reaction Mechanisms';
+    input.trim().slice(0, 140) ||
+    [...messages].reverse().find((m) => m.role === 'user')?.text.slice(0, 140) ||
+    '';
 
   return (
     <div className="fixed bottom-20 right-4 lg:bottom-6 lg:right-6 z-[75] flex flex-col items-end pointer-events-none">
@@ -536,6 +537,11 @@ export function PrepsBotWidget() {
                 type="button"
                 onClick={() => {
                   playClick();
+                  if (!lastUserTopic) {
+                    setErrorMsg('Pehle apna chapter ya question type karein, phir Live Teacher start karein.');
+                    return;
+                  }
+                  setErrorMsg('');
                   openLiveTeacher({
                     questionText: lastUserTopic,
                     source: 'preps-ai',
@@ -551,7 +557,13 @@ export function PrepsBotWidget() {
                   key={chip.label}
                   type="button"
                   disabled={loading}
-                  onClick={() => void sendMessage(chip.buildPrompt(lastUserTopic))}
+                  onClick={() => {
+                    if (!lastUserTopic && chip.label !== 'Analyze My Weak Chapters') {
+                      setErrorMsg('Pehle apna doubt ya topic neeche box mein likhein.');
+                      return;
+                    }
+                    void sendMessage(chip.buildPrompt(lastUserTopic || cohortLabel));
+                  }}
                   className="px-2.5 py-1 rounded-lg bg-[#0D1324] border border-[#00B4FF]/25 hover:border-[#00B4FF] text-[11px] font-semibold text-slate-200 hover:text-[#00B4FF] whitespace-nowrap shrink-0 transition-colors"
                 >
                   {chip.label}
@@ -595,15 +607,23 @@ export function PrepsBotWidget() {
                     </div>
 
                     {/* Action strip on assistant replies: Live Teacher + Save to Mistake Notebook */}
-                    {isAssistant && !isStreaming && (
+                    {isAssistant && !isStreaming && msg.id !== 'welcome-prepsbot' && (
                       <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                         <button
                           type="button"
                           onClick={() => {
                             playClick();
+                            const idx = messages.findIndex((item) => item.id === msg.id);
+                            const matchedUserQuestion =
+                              [...messages.slice(0, idx >= 0 ? idx : messages.length)]
+                                .reverse()
+                                .find((m) => m.role === 'user')?.text || lastUserTopic;
+                            if (!matchedUserQuestion) {
+                              setErrorMsg('Pehle apna doubt likhein, phir Live Teacher open karein.');
+                              return;
+                            }
                             openLiveTeacher({
-                              questionText:
-                                msg.id === 'welcome-prepsbot' ? lastUserTopic : lastUserTopic,
+                              questionText: matchedUserQuestion,
                               solutionText: msg.text,
                               source: 'preps-ai',
                             });

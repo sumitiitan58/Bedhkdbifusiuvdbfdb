@@ -32,6 +32,9 @@ import {
   getEloRankBadge,
   getTrifectaProgress,
 } from '../utils/arenaProgression';
+import { SundayBlitzCard } from '../components/dashboard/SundayBlitzCard';
+import { DailyTrifectaBar } from '../components/dashboard/DailyTrifectaBar';
+import { FOCUS_LEADERBOARD_TOP5 } from '../data/prepskm2UpgradeData';
 import { playClick } from '../utils/soundEffects';
 
 type ArenaModeId =
@@ -56,7 +59,7 @@ const APEX_ARENA_MODES: Array<{
     label: 'Apex 1v1 vs AI',
     tagline: 'Equal 1000 pts · Live Point Trading',
     duration: '1v1 Live',
-    accent: 'text-[#F27B13]',
+    accent: 'text-[#F97316]',
     icon: Swords,
   },
   {
@@ -64,7 +67,7 @@ const APEX_ARENA_MODES: Array<{
     label: 'Quantum Clash',
     tagline: 'KaTeX blueprint + [?] snap + 1–4 keys',
     duration: '90s',
-    accent: 'text-[#00B4FF]',
+    accent: 'text-[#06B6D4]',
     icon: Zap,
   },
   {
@@ -72,7 +75,7 @@ const APEX_ARENA_MODES: Array<{
     label: 'Synthesis Strike',
     tagline: 'Node-graph pipeline + SVG flasks',
     duration: '60s',
-    accent: 'text-[#10B981]',
+    accent: 'text-[#22C55E]',
     icon: FlaskConical,
   },
   {
@@ -80,7 +83,7 @@ const APEX_ARENA_MODES: Array<{
     label: 'Logic Labyrinth',
     tagline: 'Rapid triage stack + ← ↓ → strategy',
     duration: '15s/card',
-    accent: 'text-[#00B4FF]',
+    accent: 'text-[#06B6D4]',
     icon: Radar,
   },
   {
@@ -88,7 +91,7 @@ const APEX_ARENA_MODES: Array<{
     label: 'Titan Overlord',
     tagline: 'Segmented Boss HP + 3 Hearts',
     duration: '120s',
-    accent: 'text-[#F43F5E]',
+    accent: 'text-[#EF4444]',
     icon: Shield,
   },
   {
@@ -96,7 +99,7 @@ const APEX_ARENA_MODES: Array<{
     label: 'Codex Fracture',
     tagline: 'Expose NCERT trap word + 3D flip',
     duration: '20s/line',
-    accent: 'text-[#F27B13]',
+    accent: 'text-[#F97316]',
     icon: BookOpenCheck,
   },
   {
@@ -109,6 +112,9 @@ const APEX_ARENA_MODES: Array<{
   },
 ];
 
+type LeaderboardMetricTab = 'focus' | 'elo' | 'xp';
+type LeaderboardPeriod = 'today' | 'week' | 'season';
+
 export default function ArenaPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { progression } = usePrepskm2();
@@ -119,6 +125,8 @@ export default function ArenaPage() {
   const [activeMode, setActiveMode] = useState<ArenaModeId>(
     APEX_ARENA_MODES.some((m) => m.id === initialMode) ? initialMode : 'apex-duel'
   );
+  const [lbMetric, setLbMetric] = useState<LeaderboardMetricTab>('elo');
+  const [lbPeriod, setLbPeriod] = useState<LeaderboardPeriod>('week');
 
   useEffect(() => {
     const param = searchParams.get('mode') as ArenaModeId | null;
@@ -140,6 +148,32 @@ export default function ArenaPage() {
     [studentName, cohortLabel, progression]
   );
 
+  const periodFactor = lbPeriod === 'today' ? 1 : lbPeriod === 'week' ? 6.2 : 24;
+
+  const globalLeaderboardRows = useMemo(() => {
+    if (lbMetric === 'focus') {
+      return FOCUS_LEADERBOARD_TOP5.map((row) => ({
+        rank: row.rank,
+        name: row.name,
+        subtitle: row.exam,
+        primaryVal: `${(row.hoursToday * periodFactor).toFixed(1)}h`,
+        secondaryVal: `${row.delta === '0' ? 'Steady' : `${row.delta} rank`}`,
+        isCurrentUser: false,
+      }));
+    }
+    return leaderboard.map((row) => ({
+      rank: row.rank,
+      name: row.name,
+      subtitle: `${row.cohort} · ${row.city}`,
+      primaryVal:
+        lbMetric === 'elo'
+          ? `${row.speedElo} ELO`
+          : `${Math.round(row.seasonXp * (lbPeriod === 'today' ? 0.14 : lbPeriod === 'week' ? 0.45 : 1))} XP`,
+      secondaryVal: lbMetric === 'elo' ? `${row.seasonXp} XP` : `Elo ${row.speedElo}`,
+      isCurrentUser: row.isCurrentUser,
+    }));
+  }, [lbMetric, lbPeriod, leaderboard, periodFactor]);
+
   const selectMode = (mode: ArenaModeId) => {
     playClick();
     setActiveMode(mode);
@@ -158,30 +192,33 @@ export default function ArenaPage() {
         {/* Top Apex Arena Header & Season Progression Strip */}
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#1D56C6] dark:text-[#00B4FF]">
+            <p className="font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#0284C7] dark:text-[#06B6D4]">
               APEX ARENA · COMPETITIVE JEE &amp; NEET BATTLEGROUND
             </p>
-            <h1 className="font-display text-2xl sm:text-3xl font-extrabold tracking-tight text-[#0E234E] dark:text-white mt-0.5 text-balance">
+            <h1 className="font-display text-2xl sm:text-3xl font-extrabold tracking-tight text-[#0B1F3A] dark:text-[#F8FAFC] mt-0.5 text-balance">
               Apex Arena — 1v1 AI Point-Trading &amp; Speed Trials
             </h1>
-            <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">
+            <p className="text-sm text-[#475569] dark:text-[#94A3B8] mt-1">
               Battle AI rivals starting at equal 1,000 points or master Quantum Clash, Synthesis Strike, and Logic Labyrinth for live Elo rank climbs.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3 text-xs font-mono tabular-nums">
-            <span className="px-3 py-1.5 rounded-xl bg-[#00B4FF]/15 border border-[#00B4FF]/35 text-[#1D56C6] dark:text-[#00B4FF] font-bold backdrop-blur-md">
+            <span className="px-3 py-1.5 rounded-xl bg-[#06B6D4]/15 border border-[#06B6D4]/35 text-[#0284C7] dark:text-[#22D3EE] font-bold">
               XP: {progression.seasonXp}
             </span>
-            <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[#10B981]/15 border border-[#10B981]/35 text-emerald-700 dark:text-[#10B981] font-bold backdrop-blur-md">
+            <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[#22C55E]/15 border border-[#22C55E]/35 text-[#15803D] dark:text-[#22C55E] font-bold">
               <Shield className="w-3.5 h-3.5" />
               Shields: {progression.streakShields}
             </span>
-            <span className="px-3 py-1.5 rounded-xl bg-[#F27B13]/15 border border-[#F27B13]/35 text-[#F27B13] font-bold backdrop-blur-md">
+            <span className="px-3 py-1.5 rounded-xl bg-[#F97316]/15 border border-[#F97316]/35 text-[#EA580C] dark:text-[#F97316] font-bold">
               Trifecta: {trifectaProgress.completedCount}/3
             </span>
           </div>
         </div>
+
+        {/* Daily Trifecta Habit Loop Bar */}
+        <DailyTrifectaBar />
 
         {/* 4 Elo-Style Subject Ratings Strip */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -193,15 +230,15 @@ export default function ArenaPage() {
           ].map((stat) => (
             <div
               key={stat.label}
-              className="preps-glass-panel p-4 rounded-2xl flex items-center justify-between gap-2"
+              className="rounded-2xl bg-[#FFFFFF] dark:bg-[#0F172A] border border-[#E2E8F0] dark:border-white/[0.08] p-4 flex items-center justify-between gap-2"
             >
               <div>
-                <p className="text-xs text-slate-500 dark:text-slate-400">{stat.label}</p>
-                <p className="font-mono text-2xl font-extrabold text-[#0E234E] dark:text-white tabular-nums mt-0.5">
+                <p className="text-xs text-[#475569] dark:text-[#94A3B8]">{stat.label}</p>
+                <p className="font-mono text-2xl font-extrabold text-[#0B1F3A] dark:text-[#F8FAFC] tabular-nums mt-0.5">
                   {stat.rating}
                 </p>
               </div>
-              <span className="text-[11px] font-bold text-[#1D56C6] dark:text-[#00B4FF] text-right">
+              <span className="text-[11px] font-bold text-[#0284C7] dark:text-[#22D3EE] text-right">
                 {getEloRankBadge(stat.rating)}
               </span>
             </div>
@@ -218,17 +255,17 @@ export default function ArenaPage() {
                 key={m.id}
                 type="button"
                 onClick={() => selectMode(m.id)}
-                className={`text-left p-3.5 rounded-2xl border-2 transition-all backdrop-blur-xl ${
+                className={`text-left p-3.5 rounded-2xl border-2 transition-all ${
                   active
-                    ? 'bg-gradient-to-br from-[#0E234E] to-[#1D56C6] border-[#00B4FF] text-white shadow-[0_0_24px_rgba(0,180,255,0.3)]'
-                    : 'bg-white/75 dark:bg-[#0D1324]/70 border-white/70 dark:border-[#00B4FF]/20 text-slate-800 dark:text-slate-200 hover:border-[#00B4FF]/65'
+                    ? 'bg-[#0B1F3A] dark:bg-[#162033] border-[#06B6D4] text-white'
+                    : 'bg-[#FFFFFF] dark:bg-[#0F172A] border-[#E2E8F0] dark:border-white/[0.08] text-[#0B1F3A] dark:text-[#F8FAFC] hover:border-[#06B6D4]/65'
                 }`}
               >
                 <div className="flex items-center justify-between gap-1.5">
-                  <Icon className={`w-4 h-4 ${active ? 'text-[#00B4FF]' : m.accent}`} />
+                  <Icon className={`w-4 h-4 ${active ? 'text-[#22D3EE]' : m.accent}`} />
                   <span
                     className={`font-mono text-[10px] font-bold ${
-                      active ? 'text-amber-300' : 'text-slate-500 dark:text-slate-400'
+                      active ? 'text-[#FB923C]' : 'text-[#475569] dark:text-[#94A3B8]'
                     }`}
                   >
                     {m.duration}
@@ -237,7 +274,7 @@ export default function ArenaPage() {
                 <p className="font-display text-xs font-extrabold mt-2 leading-tight">{m.label}</p>
                 <p
                   className={`text-[11px] mt-0.5 leading-snug ${
-                    active ? 'text-sky-100' : 'text-slate-500 dark:text-slate-400'
+                    active ? 'text-slate-300' : 'text-[#475569] dark:text-[#94A3B8]'
                   }`}
                 >
                   {m.tagline}
@@ -247,7 +284,7 @@ export default function ArenaPage() {
           })}
         </div>
 
-        {/* Active Competitive Stage + Side Trifecta & Apex Season Ladder */}
+        {/* Active Competitive Stage + Global Rating & Leaderboards */}
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
           <div className="xl:col-span-8">
             {activeMode === 'apex-duel' && <ApexDuelBattle />}
@@ -260,14 +297,107 @@ export default function ArenaPage() {
           </div>
 
           <div className="xl:col-span-4 space-y-5">
-            {/* Daily Trifecta Checklist */}
-            <div className="preps-glass-panel rounded-2xl p-5 space-y-3">
-              <div className="flex items-center justify-between">
-                <h2 className="font-display text-sm font-bold text-[#0E234E] dark:text-white flex items-center gap-2">
-                  <Gamepad2 className="w-4 h-4 text-[#10B981]" />
-                  Daily Trifecta Streak Shield
+            {/* Global Rating & Leaderboards Card (Focus Hours | Apex Arena ELO | Season XP) */}
+            <div className="rounded-2xl bg-[#FFFFFF] dark:bg-[#0F172A] border border-[#E2E8F0] dark:border-white/[0.08] p-5 space-y-4">
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="font-display text-sm font-bold text-[#0B1F3A] dark:text-[#F8FAFC] flex items-center gap-2 min-w-0 truncate">
+                  <Trophy className="w-4 h-4 text-[#F97316] shrink-0" />
+                  <span className="truncate">Global Leaderboards</span>
                 </h2>
-                <span className="font-mono text-xs font-bold text-[#10B981] tabular-nums">
+                <div className="inline-flex items-center gap-1 text-[10px] font-mono">
+                  {(
+                    [
+                      { id: 'today', label: 'Today' },
+                      { id: 'week', label: 'Week' },
+                      { id: 'season', label: 'Season' },
+                    ] as const
+                  ).map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => {
+                        playClick();
+                        setLbPeriod(p.id);
+                      }}
+                      className={`px-2 py-0.5 rounded-md font-bold transition-colors ${
+                        lbPeriod === p.id
+                          ? 'bg-[#0284C7] dark:bg-[#06B6D4] text-white dark:text-[#070B14]'
+                          : 'text-[#475569] dark:text-[#94A3B8] hover:text-[#0B1F3A] dark:hover:text-white'
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 3 Leaderboard Metric Tabs */}
+              <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-[#EEF4FF] dark:bg-[#162033] border border-[#E2E8F0] dark:border-white/[0.08]">
+                {(
+                  [
+                    { id: 'focus', label: 'Focus Hours' },
+                    { id: 'elo', label: 'Arena ELO' },
+                    { id: 'xp', label: 'Season XP' },
+                  ] as const
+                ).map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => {
+                      playClick();
+                      setLbMetric(tab.id);
+                    }}
+                    className={`py-1.5 rounded-lg text-[11px] font-bold transition-colors ${
+                      lbMetric === tab.id
+                        ? 'bg-[#FFFFFF] dark:bg-[#0F172A] text-[#0284C7] dark:text-[#22D3EE] shadow-sm'
+                        : 'text-[#475569] dark:text-[#94A3B8]'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="divide-y divide-[#E2E8F0] dark:divide-white/[0.08]">
+                {globalLeaderboardRows.map((row) => (
+                  <div
+                    key={`${lbMetric}-${row.rank}-${row.name}`}
+                    className={`py-2.5 flex items-center justify-between gap-2 text-xs ${
+                      row.isCurrentUser
+                        ? 'px-2.5 -mx-2.5 rounded-lg bg-[#06B6D4]/15 text-[#0284C7] dark:text-[#22D3EE] font-bold'
+                        : 'text-[#0B1F3A] dark:text-[#F8FAFC]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="font-mono w-5 text-[#475569] dark:text-[#94A3B8] tabular-nums">
+                        #{row.rank}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="font-semibold truncate">{row.name}</p>
+                        <p className="text-[11px] text-[#475569] dark:text-[#94A3B8] truncate">
+                          {row.subtitle}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right font-mono tabular-nums shrink-0">
+                      <p className="font-bold">{row.primaryVal}</p>
+                      <p className="text-[10px] text-[#475569] dark:text-[#94A3B8]">
+                        {row.secondaryVal}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Compact Trifecta Status Summary */}
+            <div className="rounded-2xl bg-[#FFFFFF] dark:bg-[#0F172A] border border-[#E2E8F0] dark:border-white/[0.08] p-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="font-display text-sm font-bold text-[#0B1F3A] dark:text-[#F8FAFC] flex items-center gap-2">
+                  <Gamepad2 className="w-4 h-4 text-[#22C55E]" />
+                  Arena Streak Checklist
+                </h2>
+                <span className="font-mono text-xs font-bold text-[#15803D] dark:text-[#22C55E] tabular-nums">
                   {trifectaProgress.percent}%
                 </span>
               </div>
@@ -275,7 +405,7 @@ export default function ArenaPage() {
                 {[
                   {
                     done: progression.trifecta.pyqsOrTestDone,
-                    label: `Solve 15 PYQs or 1 Chapter Test (${progression.trifecta.pyqsSolvedToday}/15)`,
+                    label: `Solve 10 Concept PYQs (${progression.trifecta.pyqsSolvedToday}/10)`,
                   },
                   {
                     done: progression.trifecta.focusBlockDone,
@@ -283,16 +413,16 @@ export default function ArenaPage() {
                   },
                   {
                     done: progression.trifecta.arenaOrMistakesDone,
-                    label: `Win 1 Apex Battle or clear 3 Mistakes (${progression.trifecta.arenaWinsToday} wins)`,
+                    label: `Win 1 Apex Battle (${progression.trifecta.arenaWinsToday} wins)`,
                   },
                 ].map((pillar) => (
                   <div
                     key={pillar.label}
-                    className="flex items-start gap-2 text-slate-600 dark:text-slate-300"
+                    className="flex items-start gap-2 text-[#475569] dark:text-[#94A3B8]"
                   >
                     <CheckCircle2
                       className={`w-4 h-4 shrink-0 mt-0.5 ${
-                        pillar.done ? 'text-[#10B981]' : 'text-slate-300 dark:text-slate-700'
+                        pillar.done ? 'text-[#22C55E]' : 'text-slate-300 dark:text-slate-700'
                       }`}
                     />
                     <span className={pillar.done ? 'line-through opacity-75' : ''}>
@@ -302,52 +432,11 @@ export default function ArenaPage() {
                 ))}
               </div>
             </div>
-
-            {/* Live Apex Arena Season Ladder */}
-            <div className="preps-glass-panel rounded-2xl p-5 space-y-3">
-              <div className="flex items-center justify-between gap-2">
-                <h2 className="font-display text-sm font-bold text-[#0E234E] dark:text-white flex items-center gap-2 min-w-0 truncate">
-                  <Trophy className="w-4 h-4 text-[#F27B13] shrink-0" />
-                  <span className="truncate">Apex Season Ladder</span>
-                </h2>
-                <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400 whitespace-nowrap shrink-0">
-                  Live Rank
-                </span>
-              </div>
-
-              <div className="divide-y divide-slate-200/70 dark:divide-white/[0.07]">
-                {leaderboard.map((row) => (
-                  <div
-                    key={`${row.rank}-${row.name}`}
-                    className={`py-2.5 flex items-center justify-between gap-2 text-xs ${
-                      row.isCurrentUser
-                        ? 'px-2.5 -mx-2.5 rounded-lg bg-[#00B4FF]/20 text-[#1D56C6] dark:text-[#00B4FF] font-bold'
-                        : 'text-slate-700 dark:text-slate-300'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <span className="font-mono w-5 text-slate-500 dark:text-slate-400 tabular-nums">
-                        #{row.rank}
-                      </span>
-                      <div className="min-w-0">
-                        <p className="font-semibold truncate">{row.name}</p>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                          {row.cohort} · {row.city}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right font-mono tabular-nums shrink-0">
-                      <p className="font-bold">{row.seasonXp} XP</p>
-                      <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                        Elo {row.speedElo}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
           </div>
         </div>
+
+        {/* Sunday All-India Blitz Banner */}
+        <SundayBlitzCard />
       </ResponsiveContainer>
     </PageLayout>
   );

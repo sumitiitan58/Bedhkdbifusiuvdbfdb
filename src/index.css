@@ -6,18 +6,22 @@
   --font-sans: "Plus Jakarta Sans", "DM Sans", system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
 
-  --color-preps-canvas: #070A12;
-  --color-preps-card: #0D1324;
-  --color-brand-navy: #0E234E;
+  --color-preps-canvas: #070B14;
+  --color-preps-card: #0F172A;
+  --color-preps-elevated: #162033;
+  --color-preps-light-canvas: #F4F8FF;
+  --color-preps-light-elevated: #EEF4FF;
+  --color-brand-navy: #0B1F3A;
   --color-brand-navy-hover: #142B59;
-  --color-brand-royal: #1D56C6;
-  --color-brand-cobalt: #1D56C6;
-  --color-brand-cyan: #00B4FF;
-  --color-brand-saffron: #F27B13;
-  --color-brand-saffron-hover: #EA580C;
-  --color-brand-mint: #10B981;
-  --color-brand-danger: #F43F5E;
-  --color-brand-sky: #00B4FF;
+  --color-brand-royal: #0284C7;
+  --color-brand-cobalt: #0284C7;
+  --color-brand-cyan: #06B6D4;
+  --color-brand-cyan-hover: #22D3EE;
+  --color-brand-saffron: #F97316;
+  --color-brand-saffron-hover: #FB923C;
+  --color-brand-mint: #22C55E;
+  --color-brand-danger: #EF4444;
+  --color-brand-sky: #06B6D4;
 }
 
 @layer base {
@@ -45,21 +49,33 @@
   }
 
   :focus-visible {
-    outline: 2px solid #00B4FF;
+    outline: 2px solid #06B6D4;
     outline-offset: 2px;
   }
 }
 
-/* Bento Card Surface Utility */
+/* Prepskm 2.0 Surface & Featured Glow Utilities */
+.preps-hero-gradient {
+  background: linear-gradient(135deg, #F4F8FF 0%, #EEF4FF 55%, #E0F2FE 100%);
+}
+
+.dark .preps-hero-gradient {
+  background: linear-gradient(135deg, #070B14 0%, #0B192C 55%, #0F2537 100%);
+}
+
+.preps-featured-glow {
+  box-shadow: 0 0 0 1px rgba(6, 182, 212, 0.45), 0 12px 32px -8px rgba(6, 182, 212, 0.18);
+}
+
 .preps-bento-card {
-  background-color: #ffffff;
-  border: 1px solid rgba(15, 23, 42, 0.08);
+  background-color: #FFFFFF;
+  border: 1px solid #E2E8F0;
 }
 
 .dark .preps-bento-card {
-  background-color: #0D1324;
-  border: 1px solid rgba(0, 180, 255, 0.14);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  background-color: #0F172A;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 /* KaTeX Crisp Rendering Overrides */

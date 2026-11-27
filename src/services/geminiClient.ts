@@ -1,4 +1,7 @@
-import { generateLiveTeacherLesson } from '../utils/liveTeacherEngine';
+import type {
+  LiveTeacherLesson,
+  LiveTeacherLessonRequest,
+} from '../utils/liveTeacherEngine';
 import type {
   KeepStudyNote,
   SheetPerformanceAnalysis,
@@ -39,8 +42,65 @@ export interface GeminiQuestionExplanation {
   examShortcut: string;
 }
 
-export function resolveApiUrl(path: string, envBase?: string): string {
+function isSameOriginHostedEnv(hostname: string): boolean {
+  const host = hostname.trim().toLowerCase();
+  if (!host) return false;
+  return (
+    host === 'localhost' ||
+    host === '127.0.0.1' ||
+    host === '0.0.0.0' ||
+    host === 'prepskm.in' ||
+    host === 'www.prepskm.in' ||
+    host.endsWith('.prepskm.in') ||
+    host.endsWith('.vercel.app') ||
+    host.endsWith('.run.app') ||
+    host.endsWith('.googleusercontent.com') ||
+    host.endsWith('.scf.usercontent.goog') ||
+    host.endsWith('.web.app') ||
+    host.endsWith('.firebaseapp.com') ||
+    host.endsWith('.aistudio.google.com')
+  );
+}
+
+function isDisallowedApiBaseUrl(base: string): boolean {
+  try {
+    const parsed = new URL(base);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return true;
+    }
+    const host = parsed.hostname.toLowerCase();
+    // Never allow accidental Cloudflare dashboard URLs (e.g., dash.cloudflare.com) to hijack /api/* calls
+    if (host === 'dash.cloudflare.com' || host.endsWith('.dash.cloudflare.com')) {
+      return true;
+    }
+    if (host === 'cloudflare.com' || host === 'www.cloudflare.com') {
+      return true;
+    }
+    return false;
+  } catch {
+    return true;
+  }
+}
+
+export function resolveApiUrl(
+  path: string,
+  envBase?: string,
+  runtimeHostname?: string
+): string {
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  const activeHostname =
+    typeof runtimeHostname === 'string'
+      ? runtimeHostname
+      : typeof window !== 'undefined' && window.location?.hostname
+        ? window.location.hostname
+        : '';
+
+  // Always use same-origin relative endpoints (/api/chat, /api/preps-ai, etc.)
+  // when running on localhost, Google AI Studio preview, prepskm.in, or Vercel.
+  if (activeHostname && isSameOriginHostedEnv(activeHostname)) {
+    return cleanPath;
+  }
+
   const rawBase =
     typeof envBase === 'string'
       ? envBase
@@ -49,19 +109,63 @@ export function resolveApiUrl(path: string, envBase?: string): string {
         ? (import.meta as unknown as { env?: Record<string, string | undefined> }).env!.VITE_API_BASE_URL!
         : '';
   const trimmedBase = rawBase.trim().replace(/\/+$/, '');
-  return trimmedBase ? `${trimmedBase}${cleanPath}` : cleanPath;
+  if (!trimmedBase || isDisallowedApiBaseUrl(trimmedBase)) {
+    return cleanPath;
+  }
+  return `${trimmedBase}${cleanPath}`;
+}
+
+export interface ProviderErrorSummary {
+  provider: string;
+  status?: number;
+  reason: string;
 }
 
 class ApiHttpError extends Error {
   status: number;
-  constructor(message: string, status: number) {
+  providerErrors?: ProviderErrorSummary[];
+  constructor(message: string, status: number, providerErrors?: ProviderErrorSummary[]) {
     super(message);
     this.status = status;
+    this.providerErrors = providerErrors;
   }
 }
 
-const DEFAULT_FETCH_TIMEOUT_MS = 22_000;
+const DEFAULT_FETCH_TIMEOUT_MS = 35_000;
 const RETRYABLE_HTTP_STATUSES = new Set([408, 429, 502, 503, 504]);
+
+function formatApiErrorMessage(
+  endpoint: string,
+  status: number,
+  data: { error?: string; providerErrors?: ProviderErrorSummary[] }
+): string {
+  if (typeof data.error === 'string' && data.error.trim()) {
+    return data.error.trim();
+  }
+  if (Array.isArray(data.providerErrors) && data.providerErrors.length > 0) {
+    const details = data.providerErrors.map((e) => `${e.provider}: ${e.reason}`).join(' | ');
+    return `AI provider error at ${endpoint} (HTTP ${status}): ${details}`;
+  }
+  return `Preps AI endpoint ${endpoint} returned HTTP ${status}.`;
+}
+
+function normalizeNetworkError(err: unknown, endpoint: string, timeoutMs: number): ApiHttpError {
+  if (err instanceof ApiHttpError) return err;
+  if (err instanceof Error && err.name === 'AbortError') {
+    return new ApiHttpError(
+      `Request to ${endpoint} timed out after ${Math.round(timeoutMs / 1000)}s while waiting for active AI models.`,
+      504
+    );
+  }
+  const raw = err instanceof Error ? err.message : String(err ?? '');
+  if (/load failed|failed to fetch|networkerror/i.test(raw)) {
+    return new ApiHttpError(
+      `Network connection to ${endpoint} was interrupted (${raw}). Verify internet connectivity or Vercel API route availability and retry.`,
+      0
+    );
+  }
+  return new ApiHttpError(raw || `Unexpected network error calling ${endpoint}.`, 0);
+}
 
 async function postJson<T>(
   url: string,
@@ -89,39 +193,42 @@ async function postJson<T>(
         signal: controller.signal,
       });
 
-      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string } & T;
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        providerErrors?: ProviderErrorSummary[];
+      } & T;
       if (!res.ok || data.ok === false) {
         const httpErr = new ApiHttpError(
-          data.error || `Request failed with status ${res.status}`,
-          res.status
+          formatApiErrorMessage(resolvedUrl, res.status, data),
+          res.status,
+          data.providerErrors
         );
         if (attempt < maxRetries && RETRYABLE_HTTP_STATUSES.has(res.status)) {
           lastError = httpErr;
-          await new Promise((r) => globalThis.setTimeout(r, 350 * (attempt + 1)));
+          await new Promise((r) => globalThis.setTimeout(r, 400 * (attempt + 1)));
           continue;
         }
         throw httpErr;
       }
       return data;
     } catch (err) {
-      lastError = err;
-      if (err instanceof ApiHttpError && !RETRYABLE_HTTP_STATUSES.has(err.status)) {
-        throw err;
+      const normalized = normalizeNetworkError(err, resolvedUrl, timeoutMs);
+      lastError = normalized;
+      if (normalized.status > 0 && !RETRYABLE_HTTP_STATUSES.has(normalized.status)) {
+        throw normalized;
       }
       if (attempt < maxRetries) {
-        await new Promise((r) => globalThis.setTimeout(r, 350 * (attempt + 1)));
+        await new Promise((r) => globalThis.setTimeout(r, 400 * (attempt + 1)));
         continue;
       }
-      if (err instanceof Error && err.name === 'AbortError') {
-        throw new ApiHttpError('Request timed out while contacting Preps AI.', 504);
-      }
-      throw err;
+      throw normalized;
     } finally {
       globalThis.clearTimeout(timer);
     }
   }
 
-  throw lastError instanceof Error ? lastError : new ApiHttpError('Network request failed.', 0);
+  throw normalizeNetworkError(lastError, resolvedUrl, timeoutMs);
 }
 
 export async function requestGeminiMentor(payload: {
@@ -183,36 +290,11 @@ export interface PrepsAiChatResponse {
   suggestedFollowUps: string[];
 }
 
-function buildOfflineStudyChatFallback(
-  messages: Array<{ role: 'user' | 'assistant'; content: string }>
-): PrepsAiChatResponse {
-  const latestPrompt =
-    [...messages].reverse().find((m) => m.role === 'user')?.content?.trim() ||
-    'Explain core JEE/NEET problem solving strategy';
-  const lesson = generateLiveTeacherLesson({
-    questionText: latestPrompt,
-    source: 'preps-ai',
-  });
-  const reply = [
-    `Chalo ${lesson.topicTitle} ko step-by-step samajhte hain:`,
-    `1. ${lesson.steps[0].boardNotes}`,
-    `2. ${lesson.steps[1].boardNotes}`,
-    `3. ${lesson.steps[2].boardNotes}`,
-    `Exam Rule: ${lesson.steps[3].proTip} (Tap "Explain Like a Teacher" for full animated whiteboard & voice!)`,
-  ].join('\n');
-
-  return {
-    reply,
-    provider: 'prepskm-local-tutor',
-    suggestedFollowUps: lesson.quickDoubtSuggestions,
-  };
-}
-
 export async function requestPrepsAiMessages(payload: {
   messages: Array<{ role: 'user' | 'assistant'; content: string }>;
   context?: Record<string, unknown>;
 }): Promise<PrepsAiChatResponse> {
-  const endpoints = ['/api/preps-ai', '/api/gemini/chat', '/api/chat'];
+  const endpoints = ['/api/chat', '/api/preps-ai', '/api/gemini/chat'];
   let lastErr: unknown = null;
 
   for (const endpoint of endpoints) {
@@ -223,27 +305,62 @@ export async function requestPrepsAiMessages(payload: {
         suggestedFollowUps?: string[];
       }>(endpoint, payload);
 
+      const cleanReply = typeof data.reply === 'string' ? data.reply.trim() : '';
+      if (!cleanReply) {
+        throw new ApiHttpError('Active AI model returned an empty response.', 502);
+      }
+
       return {
-        reply: data.reply || 'Preps AI could not generate a response right now. Please try again.',
+        reply: cleanReply,
         provider: data.provider,
         suggestedFollowUps: Array.isArray(data.suggestedFollowUps) ? data.suggestedFollowUps : [],
       };
     } catch (err) {
       lastErr = err;
       const status = err instanceof ApiHttpError ? err.status : 0;
-      // Retry next fallback route when endpoint returns 404/405/503 or network error
-      if (status === 404 || status === 405 || status === 503 || status === 0) {
+      // Fail over cleanly to alternate backend endpoint on route/transient errors
+      if (status === 404 || status === 405 || status === 502 || status === 503 || status === 504 || status === 0) {
         continue;
       }
       throw err;
     }
   }
 
-  // Seamless zero-404 local study fallback if deployed on static-only hosting without Functions/keys
-  if (lastErr instanceof ApiHttpError && (lastErr.status === 404 || lastErr.status === 503)) {
-    return buildOfflineStudyChatFallback(payload.messages);
+  throw lastErr instanceof Error
+    ? lastErr
+    : new ApiHttpError(
+        'Preps AI live models are currently unreachable. Please check server environment keys and retry.',
+        503
+      );
+}
+
+export async function requestLiveTeacherLesson(
+  payload: LiveTeacherLessonRequest
+): Promise<{ lesson: LiveTeacherLesson; provider?: string }> {
+  const data = await postJson<{ lesson?: LiveTeacherLesson; provider?: string }>(
+    '/api/ai/live-lesson',
+    {
+      questionText: payload.questionText,
+      subjectName: payload.subjectName,
+      chapterName: payload.chapterName,
+      solutionText: payload.solutionText,
+      officialAnswer: payload.officialAnswer,
+      studentAnswer: payload.studentAnswer,
+    },
+    { timeoutMs: 28_000, maxRetries: 1 }
+  );
+
+  if (!data.lesson || !Array.isArray(data.lesson.steps) || data.lesson.steps.length === 0) {
+    throw new ApiHttpError(
+      'Live AI Tutor returned an incomplete lesson. Please tap Retry to regenerate.',
+      502
+    );
   }
-  return buildOfflineStudyChatFallback(payload.messages);
+
+  return {
+    lesson: data.lesson,
+    provider: data.provider,
+  };
 }
 
 export async function requestPrepsAiChat(payload: {

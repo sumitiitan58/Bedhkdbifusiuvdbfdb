@@ -3,9 +3,11 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { LoadingScreen } from './components/LoadingScreen';
 import { ThemeProvider } from './context/ThemeProvider';
+import { LanguageProvider } from './context/LanguageContext';
 import { AuthProvider } from './context/AuthContext';
 import { DownloadGateProvider } from './context/DownloadGateContext';
 import { PlatformDataProvider } from './context/PlatformDataContext';
+import { ExamProvider } from './context/ExamContext';
 import { Prepskm2Provider } from './context/Prepskm2Context';
 import { DownloadGateModal } from './components/monetization/DownloadGateModal';
 import { CommandPalette } from './components/CommandPalette';
@@ -14,6 +16,9 @@ import { PrepsBotWidget } from './components/ai-copilot/PrepsBotWidget';
 import { LiveTeacherModal } from './components/live-teacher/LiveTeacherModal';
 
 const HomePage = lazy(() => import('./pages/HomePage'));
+const LearnHub = lazy(() => import('./pages/LearnHub'));
+const Community = lazy(() => import('./pages/Community'));
+const Pricing = lazy(() => import('./pages/Pricing'));
 const ArenaPage = lazy(() => import('./pages/ArenaPage'));
 const MaterialsPage = lazy(() => import('./pages/MaterialsPage'));
 const MaterialDetailPage = lazy(() => import('./pages/MaterialDetailPage'));
@@ -34,53 +39,60 @@ export default function App() {
   return (
     <ErrorBoundary>
       <ThemeProvider>
-        <AuthProvider>
-          <DownloadGateProvider>
-            <PlatformDataProvider>
-              <Prepskm2Provider>
-                <BrowserRouter>
-                  <Suspense
-                    fallback={<LoadingScreen fullScreen message="Loading PREPSKM 2.0 workspace..." />}
-                  >
-                    <Routes>
-                      <Route path="/" element={<HomePage />} />
-                      <Route path="/arena" element={<ArenaPage />} />
-                      <Route path="/materials" element={<MaterialsPage />} />
-                      <Route
-                        path="/materials/:classSlug/:subjectSlug/:chapterSlug"
-                        element={<MaterialDetailPage />}
-                      />
-                      <Route path="/materials/:slug" element={<MaterialDetailPage />} />
-                      <Route path="/pyqs/:slug" element={<MaterialDetailPage />} />
-                      <Route path="/lectures" element={<LecturesPage />} />
-                      <Route path="/cbt-mocks" element={<CbtMocksPage />} />
-                      <Route path="/tests" element={<Navigate to="/cbt-mocks" replace />} />
-                      <Route path="/cbt-mocks/:examSlug/:testSlug" element={<CbtMockDetailPage />} />
-                      <Route path="/cbt-mocks/:slug" element={<CbtMockDetailPage />} />
-                      <Route path="/dpp" element={<DppPage />} />
-                      <Route path="/dpp/:classSlug/:chapterSlug" element={<CbtMockDetailPage />} />
-                      <Route path="/analytics" element={<AnalyticsPage />} />
-                      <Route path="/analysis" element={<Navigate to="/analytics" replace />} />
-                      <Route path="/mistakes" element={<MistakeNotebookPage />} />
-                      <Route path="/mistake-notebook" element={<Navigate to="/mistakes" replace />} />
-                      <Route path="/preps-ai" element={<PrepsAiPage />} />
-                      <Route path="/mentors" element={<MentorsPage />} />
-                      <Route path="/profile" element={<ProfilePage />} />
-                      <Route path="/about" element={<AboutPage />} />
-                      <Route path="/admin" element={<AdminPage />} />
-                      <Route path="*" element={<NotFoundPage />} />
-                    </Routes>
-                  </Suspense>
-                  <DownloadGateModal />
-                  <CommandPalette />
-                  <ZenStudyOverlay />
-                  <PrepsBotWidget />
-                  <LiveTeacherModal />
-                </BrowserRouter>
-              </Prepskm2Provider>
-            </PlatformDataProvider>
-          </DownloadGateProvider>
-        </AuthProvider>
+        <LanguageProvider>
+          <AuthProvider>
+            <DownloadGateProvider>
+              <PlatformDataProvider>
+                <ExamProvider>
+                  <Prepskm2Provider>
+                    <BrowserRouter>
+                      <Suspense
+                        fallback={<LoadingScreen fullScreen message="Loading PREPSKM 2.0 workspace..." />}
+                      >
+                        <Routes>
+                          <Route path="/" element={<HomePage />} />
+                          <Route path="/learn" element={<LearnHub />} />
+                          <Route path="/community" element={<Community />} />
+                          <Route path="/pricing" element={<Pricing />} />
+                          <Route path="/arena" element={<ArenaPage />} />
+                          <Route path="/materials" element={<MaterialsPage />} />
+                          <Route
+                            path="/materials/:classSlug/:subjectSlug/:chapterSlug"
+                            element={<MaterialDetailPage />}
+                          />
+                          <Route path="/materials/:slug" element={<MaterialDetailPage />} />
+                          <Route path="/pyqs/:slug" element={<MaterialDetailPage />} />
+                          <Route path="/lectures" element={<LecturesPage />} />
+                          <Route path="/cbt-mocks" element={<CbtMocksPage />} />
+                          <Route path="/tests" element={<Navigate to="/cbt-mocks" replace />} />
+                          <Route path="/cbt-mocks/:examSlug/:testSlug" element={<CbtMockDetailPage />} />
+                          <Route path="/cbt-mocks/:slug" element={<CbtMockDetailPage />} />
+                          <Route path="/dpp" element={<DppPage />} />
+                          <Route path="/dpp/:classSlug/:chapterSlug" element={<CbtMockDetailPage />} />
+                          <Route path="/analytics" element={<AnalyticsPage />} />
+                          <Route path="/analysis" element={<Navigate to="/analytics" replace />} />
+                          <Route path="/mistakes" element={<MistakeNotebookPage />} />
+                          <Route path="/mistake-notebook" element={<Navigate to="/mistakes" replace />} />
+                          <Route path="/preps-ai" element={<PrepsAiPage />} />
+                          <Route path="/mentors" element={<MentorsPage />} />
+                          <Route path="/profile" element={<ProfilePage />} />
+                          <Route path="/about" element={<AboutPage />} />
+                          <Route path="/admin" element={<AdminPage />} />
+                          <Route path="*" element={<NotFoundPage />} />
+                        </Routes>
+                      </Suspense>
+                      <DownloadGateModal />
+                      <CommandPalette />
+                      <ZenStudyOverlay />
+                      <PrepsBotWidget />
+                      <LiveTeacherModal />
+                    </BrowserRouter>
+                  </Prepskm2Provider>
+                </ExamProvider>
+              </PlatformDataProvider>
+            </DownloadGateProvider>
+          </AuthProvider>
+        </LanguageProvider>
       </ThemeProvider>
     </ErrorBoundary>
   );

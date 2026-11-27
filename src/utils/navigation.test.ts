@@ -14,17 +14,18 @@ test('PUBLIC_NAV_ROUTES exposes 5 clean Prepskm 2.0 spaces and hides /admin from
   const navPaths = PUBLIC_NAV_ROUTES.map((r) => r.path);
   assert.deepEqual(navPaths, [
     '/',
-    '/arena',
+    '/learn',
     '/cbt-mocks',
-    '/materials',
+    '/community',
     '/mentors',
   ]);
   assert.equal(navPaths.includes('/lectures'), false);
   assert.equal(navPaths.includes('/admin'), false);
   assert.deepEqual(
     MOBILE_BOTTOM_TABS.map((t) => t.path),
-    ['/', '/arena', '/cbt-mocks', '/materials', '/mentors']
+    ['/', '/learn', '/cbt-mocks', '/community', '/mentors']
   );
+  assert.ok(ALL_APP_ROUTES.some((r) => r.path === '/pricing'));
   assert.ok(ALL_APP_ROUTES.some((r) => r.path === '/profile'));
   assert.ok(ALL_APP_ROUTES.some((r) => r.path === '/about'));
   assert.ok(ALL_APP_ROUTES.some((r) => r.path === '/admin' && r.showInPublicNav === false));

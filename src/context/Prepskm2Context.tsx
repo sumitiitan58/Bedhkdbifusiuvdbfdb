@@ -204,7 +204,7 @@ export function Prepskm2Provider({ children }: { children: ReactNode }) {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [copilotOpen, setCopilotOpen] = useState(false);
   const [pendingCopilotPrompt, setPendingCopilotPrompt] = useState<string | null>(null);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [prepsbotVictory, setPrepsbotVictory] = useState<PrepsBotVictoryEvent | null>(null);
   const [liveTeacherRequest, setLiveTeacherRequest] = useState<LiveTeacherLessonRequest | null>(null);
 

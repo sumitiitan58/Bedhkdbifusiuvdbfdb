@@ -338,13 +338,21 @@ export default function PrepsAiPage() {
                 onClick={() => {
                   playClick();
                   const latestUserQ =
-                    [...messages].reverse().find((m) => m.role === 'user')?.text ||
-                    'Block of mass m sliding down a rough inclined plane of angle θ with friction μ — derive acceleration.';
+                    input.trim() ||
+                    [...messages].reverse().find((m) => m.role === 'user')?.text?.trim() ||
+                    '';
+                  if (!latestUserQ) {
+                    setActiveTab('chat');
+                    setError('Pehle neeche apna specific subject, chapter ya doubt likhein, phir Explain Like a Teacher click karein.');
+                    window.setTimeout(() => chatInputRef.current?.focus(), 60);
+                    return;
+                  }
+                  setError('');
                   const latestReply =
                     [...messages].reverse().find((m) => m.role === 'assistant')?.text;
                   openLiveTeacher({
                     questionText: latestUserQ,
-                    solutionText: latestReply,
+                    solutionText: input.trim() ? undefined : latestReply,
                     source: 'preps-ai',
                   });
                 }}
@@ -567,7 +575,7 @@ export default function PrepsAiPage() {
                         }`}
                       >
                         <div>{msg.text}</div>
-                        {msg.role === 'assistant' && (
+                        {msg.role === 'assistant' && idx > 0 && (
                           <div className="mt-2 pt-1.5 border-t border-slate-200/70 dark:border-slate-700/70 flex flex-wrap items-center justify-between gap-2">
                             <button
                               type="button"
@@ -575,11 +583,13 @@ export default function PrepsAiPage() {
                                 playClick();
                                 const prevUserMsg = [...messages.slice(0, idx)]
                                   .reverse()
-                                  .find((m) => m.role === 'user')?.text;
+                                  .find((m) => m.role === 'user')?.text?.trim();
+                                if (!prevUserMsg) {
+                                  chatInputRef.current?.focus();
+                                  return;
+                                }
                                 openLiveTeacher({
-                                  questionText:
-                                    prevUserMsg ||
-                                    'Inclined plane free-body diagram and acceleration derivation for JEE/NEET',
+                                  questionText: prevUserMsg,
                                   solutionText: msg.text,
                                   source: 'preps-ai',
                                 });

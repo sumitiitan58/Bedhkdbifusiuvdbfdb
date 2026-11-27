@@ -29,12 +29,13 @@ import {
   buildTestSeoTitle,
 } from './src/data/seoContent';
 import {
-  buildTutorStudioPrompt,
-  countConfiguredProviders,
-  extractJsonObject,
-  isAllowedCorsOrigin,
+  AI_PROVIDER_REGISTRY,
+  listConfiguredProviders,
   normalizeMessages,
+  resolveCorsHeaders,
+  runLiveTeacherLessonWithFallback,
   runPrepsAiWithFallback,
+  runStructuredJsonWithFallback,
   runTutorStudioWithFallback,
   sanitizeClientContext,
   sanitizeErrorMessage,
@@ -537,14 +538,33 @@ async function createApp() {
   const app = express();
   app.use(express.json({ limit: '25mb' }));
 
+  // Unified CORS middleware across ALL /api/* routes (prepskm.in, www.prepskm.in, *.vercel.app, localhost & AI Studio preview)
+  app.use('/api', (req, res, next) => {
+    const corsHeaders = resolveCorsHeaders(
+      typeof req.headers.origin === 'string' ? req.headers.origin : undefined,
+      'GET, POST, OPTIONS'
+    );
+    for (const [key, value] of Object.entries(corsHeaders)) {
+      if (key.toLowerCase() === 'content-type') continue;
+      res.setHeader(key, value);
+    }
+    if (req.method === 'OPTIONS') {
+      res.status(204).end();
+      return;
+    }
+    next();
+  });
+
   // Health check
   app.get('/api/health', (_req, res) => {
-    const providersReady = countConfiguredProviders(process.env);
+    const configuredProviders = listConfiguredProviders(process.env);
     res.json({
       ok: true,
       service: 'prepskm-api',
-      aiConfigured: providersReady > 0,
-      providersReady,
+      aiConfigured: configuredProviders.length > 0,
+      providersReady: configuredProviders.length,
+      configuredProviders,
+      supportedProviders: AI_PROVIDER_REGISTRY.length,
     });
   });
 
@@ -710,10 +730,9 @@ async function createApp() {
     res.status(200).send(xml);
   });
 
-  // 1. Gemini AI IQ, Priority ("Kya Jaruri Hai / Kya Nahi") & Strategy Mentor
+  // 1. Dynamic AI IQ, Priority ("Kya Jaruri Hai / Kya Nahi") & Strategy Mentor (Auto Multi-Provider Failover)
   app.post('/api/gemini/mentor', async (req, res) => {
     try {
-      const ai = getGeminiClient();
       const {
         studentName = 'Student',
         cohortLabel = 'Class 12 JEE',
@@ -738,84 +757,41 @@ async function createApp() {
         userQuestion
           ? `Student's Direct Question: "${String(userQuestion).slice(0, 600)}"`
           : 'Student wants a clear high-ROI diagnosis of their Exam IQ, what is strictly essential ("Kya Jaruri Hai"), what to avoid/skip ("Kya Jaruri Nahi Hai"), and a crisp 7-day execution plan.',
+        '',
+        'Return ONLY valid JSON matching this exact structure (no markdown):',
+        '{"headline":"string","iqDiagnosis":"string","mustDoPriorities":["string"],"avoidOrSkip":["string"],"sevenDayPlan":[{"day":"Day 1","focus":"string"}],"directAnswer":"string"}',
       ].join('\n');
 
-      const response = await ai.models.generateContent({
-        model: GEMINI_MODEL,
-        contents: prompt,
-        config: {
-          systemInstruction:
-            'You are Preps AI, a friendly Indian JEE Main, JEE Advanced, NEET UG & CBSE Board bhaiya/mentor at PREPSKM.IN. ' +
-            'Speak warmly, practically, and encouragingly in natural Hinglish (conversational Hindi-English mix) so students grasp advice immediately. ' +
-            'Give concrete, honest, high-ROI advice tailored to the student track and real stats. Never use raw markdown symbols (#, **, *, _, backticks).',
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              headline: {
-                type: Type.STRING,
-                description: 'A sharp 1-sentence strategic verdict for this student.',
-              },
-              iqDiagnosis: {
-                type: Type.STRING,
-                description:
-                  '2-3 sentences explaining the student IQ Score, pacing balance (rushing vs slow), and how to boost exam IQ.',
-              },
-              mustDoPriorities: {
-                type: Type.ARRAY,
-                items: { type: Type.STRING },
-                description:
-                  '4-5 specific high-yield topics, habits, or revision actions that are strictly necessary right now (Kya Jaruri Hai).',
-              },
-              avoidOrSkip: {
-                type: Type.ARRAY,
-                items: { type: Type.STRING },
-                description:
-                  '3-4 low-ROI traps, distractions, or time-wasters the student must stop doing right now (Kya Jaruri Nahi Hai).',
-              },
-              sevenDayPlan: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    day: { type: Type.STRING },
-                    focus: { type: Type.STRING },
-                  },
-                  required: ['day', 'focus'],
-                },
-                description: 'Compact 4-to-7 step action sprint for the upcoming week.',
-              },
-              directAnswer: {
-                type: Type.STRING,
-                description:
-                  'Direct, helpful answer to the student specific question if one was asked; otherwise a closing motivational tip.',
-              },
-            },
-            required: [
-              'headline',
-              'iqDiagnosis',
-              'mustDoPriorities',
-              'avoidOrSkip',
-              'sevenDayPlan',
-              'directAnswer',
-            ],
-          },
-        },
+      const result = await runStructuredJsonWithFallback({
+        systemPrompt:
+          'You are Preps AI, a friendly Indian JEE Main, JEE Advanced, NEET UG & CBSE Board bhaiya/mentor at PREPSKM.IN. ' +
+          'Speak warmly, practically, and encouragingly in natural Hinglish. Strictly ground all advice in the student exact subjects, weak chapters, and question. Never use raw markdown symbols (#, **, *, _, backticks). Output ONLY valid JSON.',
+        userPrompt: prompt,
+        env: process.env,
+        maxTokens: 1800,
+        validator: (parsed) => typeof parsed.headline === 'string' && Array.isArray(parsed.mustDoPriorities),
       });
 
-      const rawText = (response.text ?? '{}').trim();
-      const parsed = JSON.parse(rawText);
-      res.json({ ok: true, mentor: parsed });
+      if (!result.ok) {
+        res.status(503).json({
+          ok: false,
+          error: result.error,
+          attemptedProviders: result.attemptedProviders,
+          providerErrors: result.providerErrors,
+        });
+        return;
+      }
+
+      res.json({ ok: true, mentor: result.data, provider: result.provider });
     } catch (err) {
       const { status, message } = formatGeminiError(err);
       res.status(status).json({ ok: false, error: message });
     }
   });
 
-  // 2. Gemini AI PDF / Image Question Paper Extractor for Admin Builder
+  // 2. Dynamic AI PDF / Image / Text Question Paper Extractor for Admin Builder
   app.post('/api/gemini/extract-pdf', async (req, res) => {
     try {
-      const ai = getGeminiClient();
       const {
         fileBase64,
         mimeType = 'application/pdf',
@@ -844,18 +820,46 @@ async function createApp() {
         '- Detect subjectName (Physics, Chemistry, Mathematics, or Biology) and chapterName for each question.',
       ].join('\n');
 
-      const parts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = [];
-      if (fileBase64) {
-        parts.push({
+      // Text-only extraction runs through the full 5-provider automatic failover chain
+      if (!fileBase64) {
+        const textResult = await runStructuredJsonWithFallback({
+          systemPrompt:
+            'You are an expert Indian JEE/NEET exam digitizer. Extract clean, accurate questions, options, verified answer keys, and concise step-by-step solutions in strict JSON.',
+          userPrompt: `${instruction}\n\nSOURCE TEXT:\n${String(rawTextInput).slice(0, 30000)}\n\nReturn ONLY valid JSON: {"questions":[{"questionNumber":1,"subjectName":"string","chapterName":"string","questionType":"single-mcq","questionText":"string","optionTexts":["A","B","C","D"],"correctOptionIndices":[0],"numericalAnswer":"","solutionText":"string"}]}`,
+          env: process.env,
+          maxTokens: 3200,
+          validator: (parsed) => Array.isArray(parsed.questions),
+        });
+
+        if (!textResult.ok) {
+          res.status(503).json({
+            ok: false,
+            error: textResult.error,
+            attemptedProviders: textResult.attemptedProviders,
+            providerErrors: textResult.providerErrors,
+          });
+          return;
+        }
+        res.json({
+          ok: true,
+          questions: Array.isArray(textResult.data.questions) ? textResult.data.questions : [],
+          provider: textResult.provider,
+        });
+        return;
+      }
+
+      const ai = getGeminiClient();
+      const parts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = [
+        {
           inlineData: {
             mimeType: String(mimeType),
             data: String(fileBase64),
           },
-        });
-      }
-      parts.push({
-        text: rawTextInput ? `${instruction}\n\nSOURCE TEXT:\n${String(rawTextInput).slice(0, 30000)}` : instruction,
-      });
+        },
+        {
+          text: rawTextInput ? `${instruction}\n\nSOURCE TEXT:\n${String(rawTextInput).slice(0, 30000)}` : instruction,
+        },
+      ];
 
       const response = await ai.models.generateContent({
         model: GEMINI_MODEL,
@@ -902,19 +906,18 @@ async function createApp() {
 
       const jsonText = (response.text ?? '{"questions":[]}').trim();
       const parsed = JSON.parse(jsonText) as { questions?: unknown[] };
-      res.json({ ok: true, questions: Array.isArray(parsed.questions) ? parsed.questions : [] });
+      res.json({ ok: true, questions: Array.isArray(parsed.questions) ? parsed.questions : [], provider: 'gemini' });
     } catch (err) {
       const { status, message } = formatGeminiError(err);
       res.status(status).json({ ok: false, error: message });
     }
   });
 
-  // 3. Gemini AI Step-by-Step Solution & Shortcut Explainer (for Past Test Review)
+  // 3. Dynamic AI Step-by-Step Solution & Shortcut Explainer (Auto Multi-Provider Failover + Strict Topic Lock)
   app.post('/api/gemini/explain-question', async (req, res) => {
     try {
-      const ai = getGeminiClient();
       const {
-        subjectName = 'Science',
+        subjectName = '',
         chapterName = '',
         questionText = '',
         optionTexts = [],
@@ -923,43 +926,53 @@ async function createApp() {
         solutionText = '',
       } = req.body ?? {};
 
+      const cleanQuestion = String(questionText ?? '').trim();
+      if (!cleanQuestion) {
+        res.status(400).json({ ok: false, error: 'questionText is required to generate an explanation.' });
+        return;
+      }
+
+      const cleanSubject = String(subjectName ?? '').trim();
+      const cleanChapter = String(chapterName ?? '').trim();
+
       const prompt = [
-        `Subject: ${subjectName}${chapterName ? ` | Chapter: ${chapterName}` : ''}`,
-        `Question: ${questionText}`,
+        cleanSubject || cleanChapter
+          ? `STRICT SUBJECT & CHAPTER LOCK: Subject = ${cleanSubject || 'Match question'} | Chapter = ${cleanChapter || 'Match question'}`
+          : '',
+        `Question: ${cleanQuestion}`,
         Array.isArray(optionTexts) && optionTexts.length > 0
           ? `Options: ${optionTexts.map((o: string, i: number) => `${['A', 'B', 'C', 'D'][i] ?? i + 1}) ${o}`).join(' | ')}`
           : '',
         `Official Correct Answer: ${correctAnswer}`,
         `Student's Answer: ${studentAnswer || 'Skipped'}`,
         solutionText ? `Existing Solution Note: ${solutionText}` : '',
+        '',
+        'Return ONLY valid JSON (no markdown): {"coreConcept":"string","stepByStep":["step 1","step 2","step 3"],"examShortcut":"string"}',
       ]
         .filter(Boolean)
         .join('\n');
 
-      const response = await ai.models.generateContent({
-        model: GEMINI_MODEL,
-        contents: prompt,
-        config: {
-          systemInstruction:
-            'You are Preps AI, a friendly Indian JEE/NEET bhaiya and mentor at PREPSKM.IN. Explain the question in simple, relatable Hinglish (conversational Hindi-English mix, zero robotic jargon, zero raw markdown like **, #, _, backticks) in 3 compact sections: (1) Core Concept & Formula, (2) Step-by-Step Solving, (3) 10-Second Exam Shortcut / Mistake to Avoid. Keep it under 180 words.',
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              coreConcept: { type: Type.STRING },
-              stepByStep: {
-                type: Type.ARRAY,
-                items: { type: Type.STRING },
-              },
-              examShortcut: { type: Type.STRING },
-            },
-            required: ['coreConcept', 'stepByStep', 'examShortcut'],
-          },
-        },
+      const result = await runStructuredJsonWithFallback({
+        systemPrompt:
+          'You are Preps AI, a friendly Indian JEE/NEET bhaiya and mentor at PREPSKM.IN. ' +
+          'Stay 100% locked to the exact Subject, Chapter, and Question provided. Explain in simple Hinglish (zero raw markdown like **, #, _, backticks) in 3 compact JSON fields: coreConcept, stepByStep array, and examShortcut. Output ONLY valid JSON.',
+        userPrompt: prompt,
+        env: process.env,
+        maxTokens: 1400,
+        validator: (parsed) => typeof parsed.coreConcept === 'string' && Array.isArray(parsed.stepByStep),
       });
 
-      const parsed = JSON.parse((response.text ?? '{}').trim());
-      res.json({ ok: true, explanation: parsed });
+      if (!result.ok) {
+        res.status(503).json({
+          ok: false,
+          error: result.error,
+          attemptedProviders: result.attemptedProviders,
+          providerErrors: result.providerErrors,
+        });
+        return;
+      }
+
+      res.json({ ok: true, explanation: result.data, provider: result.provider });
     } catch (err) {
       const { status, message } = formatGeminiError(err);
       res.status(status).json({ ok: false, error: message });
@@ -967,24 +980,7 @@ async function createApp() {
   });
 
   // 4. Preps AI Multi-Provider Fallback Endpoint (mirrors Vercel /api/preps-ai, /api/chat & /api/gemini/chat)
-  app.options(['/api/preps-ai', '/api/chat', '/api/gemini/chat'], (req, res) => {
-    const origin = req.headers.origin || '';
-    if (isAllowedCorsOrigin(origin)) {
-      res.setHeader('Access-Control-Allow-Origin', origin);
-      res.setHeader('Vary', 'Origin');
-    }
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    res.status(204).end();
-  });
-
   app.post(['/api/preps-ai', '/api/chat', '/api/gemini/chat'], async (req, res) => {
-    const origin = req.headers.origin || '';
-    if (isAllowedCorsOrigin(origin)) {
-      res.setHeader('Access-Control-Allow-Origin', origin);
-      res.setHeader('Vary', 'Origin');
-    }
-
     try {
       const body = (req.body ?? {}) as Record<string, unknown>;
       const normalizedMessages = normalizeMessages(body);
@@ -1012,6 +1008,8 @@ async function createApp() {
         res.status(503).json({
           ok: false,
           error: result.error,
+          attemptedProviders: result.attemptedProviders,
+          providerErrors: result.providerErrors,
         });
         return;
       }
@@ -1022,18 +1020,17 @@ async function createApp() {
         provider: result.provider,
         suggestedFollowUps: result.suggestedFollowUps ?? [],
       });
-    } catch {
+    } catch (err) {
       res.status(503).json({
         ok: false,
-        error: 'Preps AI is temporarily busy. Please try your question again in a moment.',
+        error: sanitizeErrorMessage(err) || 'Preps AI encountered an unexpected server error.',
       });
     }
   });
 
-  // 5. Instant AI Performance Report for a Specific CBT / DPP Test Attempt
+  // 5. Instant AI Performance Report for a Specific CBT / DPP Test Attempt (Auto Multi-Provider Failover)
   app.post('/api/gemini/test-report', async (req, res) => {
     try {
-      const ai = getGeminiClient();
       const {
         testTitle = 'Mock Test',
         cohortLabel = 'JEE Main',
@@ -1049,39 +1046,37 @@ async function createApp() {
         `Subject Breakdown: ${JSON.stringify(subjectScores)}`,
         `Attempt & Time Buckets: ${JSON.stringify(attemptBuckets)}`,
         `Difficulty Breakdown: ${JSON.stringify(difficultyBreakdown)}`,
-        'Generate a sharp, Quizrr-style post-test executive report covering score verdict, biggest mark-leak source (negative marks / silly mistakes / overtime), top 3 immediate fixes before next mock, and a realistic target score jump.',
+        'Generate a sharp post-test executive report covering score verdict, biggest mark-leak source (negative marks / silly mistakes / overtime), top 3 immediate fixes before next mock, and a realistic target score jump.',
+        'Return ONLY valid JSON: {"verdict":"string","markLeakAnalysis":"string","strengths":["string"],"immediateFixes":["string"],"nextMockTarget":"string"}',
       ].join('\n');
 
-      const response = await ai.models.generateContent({
-        model: GEMINI_MODEL,
-        contents: prompt,
-        config: {
-          systemInstruction:
-            'You are a top JEE/NEET exam analyst at PREPSKM.IN. Produce a concise, numbers-first post-test AI Report in strict JSON.',
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              verdict: { type: Type.STRING },
-              markLeakAnalysis: { type: Type.STRING },
-              strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
-              immediateFixes: { type: Type.ARRAY, items: { type: Type.STRING } },
-              nextMockTarget: { type: Type.STRING },
-            },
-            required: ['verdict', 'markLeakAnalysis', 'strengths', 'immediateFixes', 'nextMockTarget'],
-          },
-        },
+      const result = await runStructuredJsonWithFallback({
+        systemPrompt:
+          'You are a top JEE/NEET exam analyst at PREPSKM.IN. Produce a concise, numbers-first post-test AI Report strictly grounded in the provided subjects and metrics in valid JSON.',
+        userPrompt: prompt,
+        env: process.env,
+        maxTokens: 1500,
+        validator: (parsed) => typeof parsed.verdict === 'string' && Array.isArray(parsed.immediateFixes),
       });
 
-      const parsed = JSON.parse((response.text ?? '{}').trim());
-      res.json({ ok: true, report: parsed });
+      if (!result.ok) {
+        res.status(503).json({
+          ok: false,
+          error: result.error,
+          attemptedProviders: result.attemptedProviders,
+          providerErrors: result.providerErrors,
+        });
+        return;
+      }
+
+      res.json({ ok: true, report: result.data, provider: result.provider });
     } catch (err) {
       const { status, message } = formatGeminiError(err);
       res.status(status).json({ ok: false, error: message });
     }
   });
 
-  // 6. Expert AI Tutor & Mentor Studio (Google Sheets Feedback, Chapter Learning Paths & Practice Questions)
+  // 6. Expert AI Tutor & Mentor Studio (Automatic Multi-Provider Failover + Strict Subject/Chapter Lock)
   app.post('/api/ai/tutor-studio', async (req, res) => {
     const body = (req.body ?? {}) as { action?: string; payload?: Record<string, unknown> };
     const action = String(body.action ?? '').trim();
@@ -1090,54 +1085,35 @@ async function createApp() {
       return;
     }
 
-    // Prefer @google/genai (gemini-4-hydrogen) with strict JSON when GEMINI_API_KEY is available,
-    // and automatically fail over to the 6-provider backend if Gemini errors or is absent.
-    if (process.env.GEMINI_API_KEY?.trim()) {
-      try {
-        const ai = getGeminiClient();
-        const { systemPrompt, userPrompt } = buildTutorStudioPrompt(action, body.payload ?? {});
-        const response = await ai.models.generateContent({
-          model: GEMINI_MODEL,
-          contents: userPrompt,
-          config: {
-            systemInstruction: systemPrompt,
-            responseMimeType: 'application/json',
-          },
-        });
-        const rawText = (response.text ?? '').trim();
-        if (rawText) {
-          const parsed = extractJsonObject(rawText);
-          res.status(200).json({ ok: true, result: parsed, provider: 'gemini' });
-          return;
-        }
-      } catch {
-        // Seamlessly fall through to 6-provider automatic failover below
-      }
-    }
-
     try {
-      const fallback = await runTutorStudioWithFallback({
+      const result = await runTutorStudioWithFallback({
         action,
         payload: body.payload ?? {},
         env: process.env,
       });
-      if (!fallback.ok) {
-        res.status(503).json({ ok: false, error: fallback.error });
+      if (!result.ok) {
+        res.status(503).json({
+          ok: false,
+          error: result.error,
+          attemptedProviders: result.attemptedProviders,
+          providerErrors: result.providerErrors,
+        });
         return;
       }
-      res.status(200).json({ ok: true, result: fallback.data, provider: fallback.provider });
-    } catch {
-      res.status(502).json({
+      res.status(200).json({ ok: true, result: result.data, provider: result.provider });
+    } catch (err) {
+      const message = sanitizeErrorMessage(err);
+      const isValidation = /required|unsupported/i.test(message);
+      res.status(isValidation ? 400 : 502).json({
         ok: false,
-        error: 'The AI Tutor could not complete this request right now. Please try again shortly.',
+        error: message || 'The AI Tutor could not complete this request right now. Please try again shortly.',
       });
     }
   });
 
-  // 7. Prepskm 2.0 Arena — AI Custom Study Game Generator (Gemini gemini-4-hydrogen + strict JSON schema)
+  // 7. Prepskm Arena — Dynamic AI Custom Study Game Generator (Auto Multi-Provider Failover + Strict Subject/Chapter Lock)
   app.post('/api/ai/generate-game', async (req, res) => {
     try {
-      const ai = getGeminiClient();
       const body = (req.body ?? {}) as {
         exam?: string;
         subject?: string;
@@ -1148,84 +1124,113 @@ async function createApp() {
       };
 
       const exam = String(body.exam ?? 'JEE Main').trim().slice(0, 40);
-      const subject = String(body.subject ?? 'Physics').trim().slice(0, 40);
-      const chapter = String(body.chapter ?? 'Electrostatics').trim().slice(0, 120);
+      const subject = String(body.subject ?? '').trim().slice(0, 40);
+      const chapter = String(body.chapter ?? '').trim().slice(0, 120);
+      if (!subject || !chapter) {
+        res.status(400).json({
+          ok: false,
+          error: 'Both subject and chapter are required to generate a custom AI game.',
+        });
+        return;
+      }
+
       const format = String(body.format ?? 'Formula Blitz').trim().slice(0, 60);
-      const difficulty = String(body.difficulty ?? 'Exam-Grade').trim().slice(0, 40);
+      const difficulty = String(body.difficulty ?? 'Exam-Level').trim().slice(0, 40);
       const count = Math.min(8, Math.max(3, Number(body.questionCount) || 5));
 
       const prompt = [
         `Create a playable ${count}-question interactive study game for Indian ${exam} aspirants.`,
-        `Subject: ${subject} | Chapter/Topic: ${chapter} | Game Format: ${format} | Difficulty: ${difficulty}.`,
+        `STRICT SUBJECT & CHAPTER LOCK: Subject = "${subject}" | Chapter = "${chapter}" | Format = "${format}" | Difficulty = "${difficulty}".`,
         'Requirements:',
-        `- Every question must be authentically aligned with NCERT / ${exam} syllabus for "${chapter}".`,
+        `- Every single question MUST strictly belong to "${chapter}" under ${subject} (${exam} syllabus). Do NOT drift to unrelated chapters.`,
         '- Provide exactly 4 distinct options per question and accurate 0-based correctIndex (0..3).',
         '- Set timeLimitSeconds between 20 and 60 depending on question complexity.',
-        '- Include a concise 1-sentence hint (without giving away the answer directly) and a crisp explanation with the exact formula or NCERT rule.',
-        '- Output strictly valid JSON matching the schema. Avoid raw markdown formatting.',
+        '- Include a concise 1-sentence hint and a crisp explanation with the exact formula or NCERT rule.',
+        '- Output strictly valid JSON (no markdown):',
+        `{"title":"${chapter} ${format}","exam":"${exam}","subject":"${subject}","chapter":"${chapter}","format":"${format}","difficulty":"${difficulty}","xpReward":${count * 30},"questions":[{"id":"q1","prompt":"string","options":["A","B","C","D"],"correctIndex":0,"timeLimitSeconds":25,"hint":"string","explanation":"string"}]}`,
       ].join('\n');
 
-      const response = await ai.models.generateContent({
-        model: GEMINI_MODEL,
-        contents: prompt,
-        config: {
-          systemInstruction:
-            'You are the Prepskm 2.0 Arena Game Designer for JEE Main, JEE Advanced, NEET UG, and Class 9-12 Boards. ' +
-            'Generate high-accuracy, trick-aware, zero-hallucination multiple-choice study game rounds strictly matching the JSON schema.',
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              title: { type: Type.STRING },
-              exam: { type: Type.STRING },
-              subject: { type: Type.STRING },
-              chapter: { type: Type.STRING },
-              format: { type: Type.STRING },
-              difficulty: { type: Type.STRING },
-              xpReward: { type: Type.INTEGER },
-              questions: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    id: { type: Type.STRING },
-                    prompt: { type: Type.STRING },
-                    options: {
-                      type: Type.ARRAY,
-                      items: { type: Type.STRING },
-                    },
-                    correctIndex: { type: Type.INTEGER },
-                    timeLimitSeconds: { type: Type.INTEGER },
-                    hint: { type: Type.STRING },
-                    explanation: { type: Type.STRING },
-                  },
-                  required: [
-                    'id',
-                    'prompt',
-                    'options',
-                    'correctIndex',
-                    'timeLimitSeconds',
-                    'hint',
-                    'explanation',
-                  ],
-                },
-              },
-            },
-            required: ['title', 'exam', 'subject', 'chapter', 'format', 'difficulty', 'xpReward', 'questions'],
-          },
-        },
+      const result = await runStructuredJsonWithFallback({
+        systemPrompt:
+          'You are the Prepskm Arena Game Designer for JEE Main, JEE Advanced, NEET UG, and Class 9-12 Boards. ' +
+          `Stay 100% locked to Subject "${subject}" and Chapter "${chapter}". Output ONLY valid JSON with verified answers.`,
+        userPrompt: prompt,
+        env: process.env,
+        maxTokens: 2800,
+        validator: (parsed) => Array.isArray(parsed.questions) && parsed.questions.length > 0,
       });
 
-      const rawText = (response.text ?? '').trim();
-      if (!rawText) {
-        res.status(502).json({ ok: false, error: 'Gemini returned an empty game payload.' });
+      if (!result.ok) {
+        res.status(503).json({
+          ok: false,
+          error: result.error,
+          attemptedProviders: result.attemptedProviders,
+          providerErrors: result.providerErrors,
+        });
         return;
       }
-      const parsed = JSON.parse(rawText);
-      res.status(200).json({ ok: true, game: parsed });
+
+      res.status(200).json({
+        ok: true,
+        provider: result.provider,
+        game: {
+          ...result.data,
+          exam,
+          subject,
+          chapter,
+          format,
+          difficulty,
+        },
+      });
     } catch (err) {
       const { status, message } = formatGeminiError(err);
       res.status(status).json({ ok: false, error: message });
+    }
+  });
+
+  // 8. Dynamic Live AI Teacher Whiteboard Lesson Endpoint (mirrors Vercel /api/ai/live-lesson)
+  app.post('/api/ai/live-lesson', async (req, res) => {
+    try {
+      const body = (req.body ?? {}) as Record<string, unknown>;
+      const questionText = String(body.questionText ?? '').trim();
+      if (!questionText) {
+        res.status(400).json({
+          ok: false,
+          error: 'Please enter a question or concept to start the Live AI Tutor.',
+        });
+        return;
+      }
+
+      const result = await runLiveTeacherLessonWithFallback({
+        questionText,
+        subjectName: typeof body.subjectName === 'string' ? body.subjectName : undefined,
+        chapterName: typeof body.chapterName === 'string' ? body.chapterName : undefined,
+        solutionText: typeof body.solutionText === 'string' ? body.solutionText : undefined,
+        officialAnswer: typeof body.officialAnswer === 'string' ? body.officialAnswer : undefined,
+        studentAnswer: typeof body.studentAnswer === 'string' ? body.studentAnswer : undefined,
+        env: process.env,
+      });
+
+      if (!result.ok) {
+        res.status(503).json({
+          ok: false,
+          error: result.error,
+          attemptedProviders: result.attemptedProviders,
+          providerErrors: result.providerErrors,
+        });
+        return;
+      }
+
+      res.status(200).json({
+        ok: true,
+        lesson: result.lesson,
+        provider: result.provider,
+      });
+    } catch (err) {
+      res.status(503).json({
+        ok: false,
+        error: sanitizeErrorMessage(err) || 'Live AI Tutor could not generate this lesson right now.',
+      });
     }
   });
 
@@ -1268,7 +1273,7 @@ async function createApp() {
       const cleanRoute = req.path.replace(/^\/+|\/+$/g, '');
       if (cleanRoute && !cleanRoute.includes('..')) {
         const prerenderedPath = path.resolve(distDir, cleanRoute, 'index.html');
-        if (prerenderedPath.startsWith(distDir) && fs.existsSync(prerenderedPath)) {
+        if (prerenderedPath.startsWith(distDir + path.sep) && fs.existsSync(prerenderedPath)) {
           res.status(200).set({ 'Content-Type': 'text/html; charset=utf-8' }).sendFile(prerenderedPath);
           return;
         }
