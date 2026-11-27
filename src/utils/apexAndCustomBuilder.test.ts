@@ -53,7 +53,7 @@ test('Apex Arena 2-player duel begins with equal points and dynamically trades p
   assert.equal(getDuelQuestionsForTrack('logic-labyrinth', 8).length, 8);
 });
 
-test('Custom Mock Builder balances 10, 25, and 45 questions cleanly across subjects', () => {
+test('Custom Mock Builder balances 10, 25, and 45 questions cleanly with zero synthetic prefixes and randomized A/B/C/D options', () => {
   for (const count of [10, 25, 45] as const) {
     const quotas = computeBalancedSubjectQuota(count, ['Physics', 'Chemistry', 'Mathematics']);
     const sum = quotas.reduce((acc, q) => acc + q.count, 0);
@@ -71,8 +71,39 @@ test('Custom Mock Builder balances 10, 25, and 45 questions cleanly across subje
     assert.equal(mock.questions.length, count);
     assert.equal(mock.test.totalQuestions, count);
     assert.equal(new Set(mock.questions.map((q) => q.id)).size, count);
-    assert.ok(mock.test.title.includes('AI Balanced'));
+    assert.ok(mock.test.title.includes('JEE Main'));
+
+    // Zero synthetic prefixes in question stems
+    for (const q of mock.questions) {
+      assert.ok(
+        !/^\s*\[(?:Custom Mock|AI Balanced|Mock)\]/i.test(q.questionText ?? ''),
+        `Unexpected synthetic prefix in: ${q.questionText}`
+      );
+    }
+
+    // Randomized option positions across A/B/C/D (must not all be index 0)
+    const mcqIndices = new Set(
+      mock.questions
+        .filter((q) => q.questionType === 'single-mcq')
+        .map((q) => q.correctOptionIndices?.[0])
+    );
+    assert.ok(mcqIndices.size >= 2, 'Expected randomized correct option indices across A/B/C/D');
   }
+
+  // Strict single-subject and chapter filtering (no cross-subject bleed)
+  const physicsOnly = buildBalancedCustomMock(
+    {
+      questionCount: 10,
+      examType: 'JEE Main',
+      subjects: ['Physics'],
+      chapters: ['Electrostatics'],
+      aiBalanced: false,
+    },
+    []
+  );
+  assert.equal(physicsOnly.questions.length, 10);
+  assert.ok(physicsOnly.questions.every((q) => q.subjectName === 'Physics'));
+  assert.ok(physicsOnly.questions.every((q) => q.chapterName === 'Electrostatics'));
 });
 
 test('Generate DPP creates a tailored chapter practice set with exact count and solutions', () => {

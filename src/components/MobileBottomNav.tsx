@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { BookOpen, ClipboardCheck, Home, MessageSquare, Users } from 'lucide-react';
+import { BookOpen, ClipboardCheck, FileSpreadsheet, Gamepad2, Home } from 'lucide-react';
 import { MOBILE_BOTTOM_TABS, isRouteActive } from '../utils/navigation';
 import { useLanguage } from '../context/LanguageContext';
 import { playNav } from '../utils/soundEffects';
@@ -7,10 +7,10 @@ import type { RoutePath } from '../types';
 
 const TAB_ICONS: Record<string, typeof Home> = {
   '/': Home,
-  '/learn': BookOpen,
+  '/materials': BookOpen,
+  '/dpp': FileSpreadsheet,
   '/cbt-mocks': ClipboardCheck,
-  '/community': MessageSquare,
-  '/mentors': Users,
+  '/arena': Gamepad2,
 };
 
 export function MobileBottomNav() {

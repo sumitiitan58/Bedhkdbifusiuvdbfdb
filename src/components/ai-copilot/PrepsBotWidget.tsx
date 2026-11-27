@@ -13,7 +13,7 @@ import {
   Upload,
   X,
 } from 'lucide-react';
-import prepsbotMascotImg from '../../assets/images/prepsbot_3d_transparent.png';
+import { AiRoleAvatar } from '../ai/AiRoleAvatar';
 import { RichMathText } from '../math/KatexFormula';
 import { usePrepskm2 } from '../../context/Prepskm2Context';
 import { useAuth } from '../../context/AuthContext';
@@ -78,21 +78,6 @@ const QUICK_ACTION_CHIPS = [
 
 const SAVED_MISTAKE_NOTES_KEY = 'prepskm_saved_ai_mistakes_v1';
 
-function getContextualNudge(pathname: string): string {
-  if (pathname === '/') return 'Aaj Organic ka 60s Reaction Duel khelein?';
-  if (pathname.startsWith('/arena')) return 'Formula Blitz mein 3x combo try karein?';
-  if (pathname.startsWith('/analytics') || pathname.startsWith('/mistakes')) {
-    return '2 questions mein silly mistake hui—step-by-step samjhaun?';
-  }
-  if (pathname.startsWith('/cbt-mocks')) {
-    return 'Mock se pehle 3-min Paper Scanner warm-up karein?';
-  }
-  if (pathname.startsWith('/materials')) {
-    return 'Koi formula ya derivation unclear hai? Photo bhejo!';
-  }
-  return 'Doubt aaya? Screenshot drop karo ya step-by-step pucho!';
-}
-
 function saveSolutionToMistakeNotebook(entry: { id: string; text: string; cohort: string }) {
   try {
     const raw = window.localStorage.getItem(SAVED_MISTAKE_NOTES_KEY);
@@ -152,10 +137,7 @@ export function PrepsBotWidget() {
   }, [location.pathname]);
 
   const [mode, setMode] = useState<PrepsBotMode>('doubt');
-  const [nudgeDismissed, setNudgeDismissed] = useState(false);
-  const [nudgeVisible, setNudgeVisible] = useState(false);
   const [dragActive, setDragActive] = useState(false);
-  const [spinCount, setSpinCount] = useState(0);
   const isArenaFightMode = location.pathname.startsWith('/arena');
 
   const [messages, setMessages] = useState<BotMessage[]>([
@@ -217,7 +199,6 @@ export function PrepsBotWidget() {
   useEffect(() => {
     if (!prepsbotVictory) return;
     playSuccess();
-    setSpinCount((c) => c + 1);
     const timer = window.setTimeout(() => {
       clearPrepsBotVictory();
     }, 5500);
@@ -225,17 +206,6 @@ export function PrepsBotWidget() {
   }, [prepsbotVictory, clearPrepsBotVictory]);
 
   const isVictoryActive = Boolean(prepsbotVictory);
-  const nudgeText = useMemo(() => getContextualNudge(location.pathname), [location.pathname]);
-
-  // Show contextual nudge smoothly after route change if not dismissed
-  useEffect(() => {
-    if (copilotOpen || nudgeDismissed || inLiveCbtExam || zenMode) {
-      setNudgeVisible(false);
-      return;
-    }
-    const timer = window.setTimeout(() => setNudgeVisible(true), 650);
-    return () => window.clearTimeout(timer);
-  }, [location.pathname, copilotOpen, nudgeDismissed, inLiveCbtExam, zenMode]);
 
   // Smooth typewriter streaming reveal for the newest assistant message
   useEffect(() => {
@@ -392,7 +362,7 @@ export function PrepsBotWidget() {
     '';
 
   return (
-    <div className="fixed bottom-20 right-4 lg:bottom-6 lg:right-6 z-[75] flex flex-col items-end pointer-events-none">
+    <div className="fixed bottom-16 right-3 lg:bottom-5 lg:right-5 z-[75] flex flex-col items-end pointer-events-none">
       {/* EXPANDED PREPSBOT DRAWER (380x540 desktop, responsive sheet on mobile) */}
       <AnimatePresence>
         {copilotOpen && (
@@ -425,37 +395,25 @@ export function PrepsBotWidget() {
               </div>
             )}
 
-            {/* Header with Mascot Mini-Avatar, Green Online Dot & Mode Switcher */}
+            {/* Header with Role-Specific Standalone AI Avatar & Mode Switcher */}
             <div className="px-4 pt-3.5 pb-3 bg-[#070A12]/90 border-b border-white/10 space-y-2.5 shrink-0">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <motion.button
-                    type="button"
-                    onClick={() => {
-                      playClick();
-                      setSpinCount((c) => c + 1);
-                    }}
-                    animate={{ rotateY: spinCount * 360 }}
-                    transition={{ type: 'spring', stiffness: 180, damping: 16 }}
-                    title="Tap PrepsBot to spin!"
-                    aria-label="Spin PrepsBot 3D mascot"
-                    className="relative w-11 h-12 shrink-0 flex items-center justify-center bg-transparent border-0 p-0"
-                    style={{ perspective: 500 }}
-                  >
-                    <img
-                      src={prepsbotMascotImg}
-                      alt="PrepsBot 3D Mascot"
-                      className="w-full h-full object-contain drop-shadow-[0_4px_10px_rgba(0,180,255,0.45)]"
+                  <div className="relative shrink-0">
+                    <AiRoleAvatar
+                      role={mode === 'doubt' ? 'tutor' : 'mentor'}
+                      size="sm"
+                      animated={mode === 'doubt'}
                     />
                     <span
                       aria-label="Online"
-                      className="absolute bottom-0.5 right-0 w-2.5 h-2.5 rounded-full bg-[#10B981] ring-2 ring-[#070A12]"
+                      className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#10B981] ring-2 ring-[#070A12]"
                     />
-                  </motion.button>
+                  </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5">
                       <h2 className="font-display text-sm font-extrabold text-white truncate">
-                        PrepsBot • AI Mentor
+                        {mode === 'doubt' ? 'Doubt Solver Tutor' : 'PrepsAI Mentor'}
                       </h2>
                     </div>
                     <p className="text-[11px] text-[#00B4FF] truncate font-medium">
@@ -736,34 +694,23 @@ export function PrepsBotWidget() {
         )}
       </AnimatePresence>
 
-      {/* FLOATING DOCK: Victory Banner or Contextual Nudge + Free-Floating 3D Transparent PrepsBot (No Circle Frame) */}
-      <div className="flex items-end gap-2 sm:gap-3 pointer-events-auto">
+      {/* COMPACT, UNOBTRUSIVE CORNER DOCK */}
+      <div className="flex items-end gap-2 pointer-events-auto">
         <AnimatePresence mode="wait">
-          {prepsbotVictory ? (
+          {prepsbotVictory && (
             <motion.div
               key={`victory-${prepsbotVictory.id}`}
               role="status"
               aria-live="polite"
               data-testid="prepsbot-victory-banner"
-              initial={{ opacity: 0, x: 20, scale: 0.88 }}
+              initial={{ opacity: 0, x: 16, scale: 0.92 }}
               animate={{ opacity: 1, x: 0, scale: 1 }}
-              exit={{ opacity: 0, x: 14, scale: 0.92 }}
-              transition={{ type: 'spring', stiffness: 360, damping: 22 }}
-              className="flex items-start gap-2.5 max-w-[290px] mb-4 pl-3.5 pr-2 py-2.5 rounded-2xl rounded-br-sm bg-gradient-to-br from-[#0D1324] via-[#101C36] to-[#0D1324] backdrop-blur-xl border border-amber-400/60 shadow-[0_14px_34px_rgba(0,0,0,0.6),0_0_26px_rgba(245,158,11,0.3)] text-xs text-slate-100"
+              exit={{ opacity: 0, x: 12, scale: 0.94 }}
+              transition={{ type: 'spring', stiffness: 360, damping: 24 }}
+              className="flex items-start gap-2 max-w-[260px] mb-1 pl-3 pr-2 py-2 rounded-2xl rounded-br-sm bg-[#0D1324] border border-amber-400/60 shadow-xl text-xs text-slate-100"
             >
-              <div className="h-7 w-7 rounded-lg bg-amber-400/20 border border-amber-400/40 text-amber-300 inline-flex items-center justify-center shrink-0 mt-0.5">
-                <Trophy className="w-4 h-4" />
-              </div>
-              <div className="min-w-0 flex-1 space-y-0.5">
-                <div className="flex items-center gap-1.5">
-                  <span className="font-mono text-[10px] font-extrabold uppercase tracking-wider text-amber-300">
-                    {prepsbotVictory.badge}
-                  </span>
-                  <span className="h-1 w-1 rounded-full bg-[#10B981]" />
-                  <span className="font-mono text-[10px] font-bold text-[#10B981]">
-                    Lvl {levelProgress.level}
-                  </span>
-                </div>
+              <Trophy className="w-4 h-4 text-amber-300 shrink-0 mt-0.5" />
+              <div className="min-w-0 flex-1">
                 <p className="font-display text-xs font-extrabold text-white leading-snug">
                   {prepsbotVictory.title}
                 </p>
@@ -780,115 +727,40 @@ export function PrepsBotWidget() {
                 <X className="w-3.5 h-3.5" />
               </button>
             </motion.div>
-          ) : (
-            nudgeVisible &&
-            !copilotOpen && (
-              <motion.div
-                key="nudge-bubble"
-                initial={{ opacity: 0, x: 18, scale: 0.9 }}
-                animate={{ opacity: 1, x: 0, scale: 1 }}
-                exit={{ opacity: 0, x: 14, scale: 0.92 }}
-                transition={{ type: 'spring', stiffness: 320, damping: 22 }}
-                className="hidden sm:flex items-center gap-2 max-w-[270px] mb-5 pl-3.5 pr-2 py-2.5 rounded-2xl rounded-br-sm bg-[#0D1324]/95 backdrop-blur-xl border border-[#00B4FF]/35 shadow-[0_12px_30px_rgba(0,0,0,0.5),0_0_20px_rgba(0,180,255,0.16)] text-xs text-slate-100"
-              >
-                <button
-                  type="button"
-                  onClick={() => {
-                    playClick();
-                    setSpinCount((c) => c + 1);
-                    setNudgeVisible(false);
-                    setCopilotOpen(true);
-                  }}
-                  className="text-left leading-snug font-medium hover:text-[#00B4FF] transition-colors"
-                >
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-[#F27B13] mr-1.5">
-                    <Sparkles className="w-3 h-3" />
-                    PrepsBot
-                  </span>
-                  {nudgeText}
-                </button>
-                <button
-                  type="button"
-                  aria-label="Dismiss PrepsBot nudge"
-                  onClick={() => {
-                    playClick();
-                    setNudgeDismissed(true);
-                    setNudgeVisible(false);
-                  }}
-                  className="p-1 rounded-md text-slate-400 hover:text-white hover:bg-white/10 shrink-0"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </motion.div>
-            )
           )}
         </AnimatePresence>
 
-        {/* Direct Free-Floating 3D Mascot (Zero background, zero circle border, 360° 3D spin, Arena fight stance & Victory pose) */}
         <button
           type="button"
           onClick={() => {
             playClick();
-            setSpinCount((c) => c + 1);
             setCopilotOpen(!copilotOpen);
           }}
+          data-testid="prepsbot-corner-launcher"
           data-victory={isVictoryActive ? 'true' : 'false'}
           aria-label={copilotOpen ? 'Minimize PrepsBot AI Mentor' : 'Open PrepsBot AI Mentor'}
           title={
             isVictoryActive
-              ? 'PrepsBot • Victory Celebration!'
+              ? 'PrepsBot • Milestone Achieved!'
               : isArenaFightMode
-                ? 'PrepsBot • Battle Coach (Tap to spin & open!)'
-                : 'PrepsBot • 3D AI Mentor'
+                ? 'PrepsBot • Arena Coach'
+                : 'PrepsBot • AI Mentor'
           }
-          className="group relative w-[76px] h-[94px] sm:w-[88px] sm:h-[108px] flex flex-col items-center justify-end bg-transparent border-0 p-0 focus-visible:rounded-2xl select-none"
-          style={{ perspective: 750 }}
+          className="group relative w-12 h-12 rounded-2xl p-0.5 bg-[#0D1324]/95 border border-[#06B6D4]/45 shadow-[0_8px_20px_rgba(0,0,0,0.45)] hover:scale-105 active:scale-95 transition-transform select-none flex items-center justify-center"
         >
-          {/* Celebratory Sparkle Burst around floating mascot during victory pose */}
-          {isVictoryActive && (
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute -inset-2 flex items-start justify-between"
-            >
-              <Sparkles className="w-4 h-4 text-amber-300 animate-bounce" />
-              <Sparkles className="w-4 h-4 text-[#10B981] animate-pulse mt-1" />
-            </span>
-          )}
-
-          {/* Ambient neon floor glow & levitation shadow beneath feet */}
+          <AiRoleAvatar role="mentor" size="md" className="w-full h-full border-0" />
           <span
             aria-hidden="true"
-            className={`pointer-events-none absolute bottom-1 w-12 h-3 rounded-full blur-md prepsbot-shadow ${
-              isVictoryActive
-                ? 'bg-gradient-to-r from-amber-400 via-[#10B981] to-[#00B4FF] w-16 h-3.5'
-                : isArenaFightMode
-                  ? 'bg-[#F27B13]/65'
-                  : 'bg-[#00B4FF]/55'
+            className={`absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-[#070B14] ${
+              isVictoryActive ? 'bg-amber-400' : 'bg-[#10B981]'
             }`}
           />
-
-          {/* 3D Animated Robot Figure (Hover triggers playful 360° round-round spin & lift) */}
-          <motion.div
-            animate={{ rotateY: spinCount * 360 }}
-            whileHover={{ scale: 1.12, y: -6, rotateY: spinCount * 360 + 360 }}
-            whileTap={{ scale: 0.93 }}
-            transition={{ type: 'spring', stiffness: 170, damping: 16 }}
-            className="w-full h-full flex items-center justify-center"
-            style={{ transformStyle: 'preserve-3d' }}
-          >
-            <img
-              src={prepsbotMascotImg}
-              alt="PrepsBot 3D AI Mentor Mascot"
-              draggable={false}
-              className={`w-full h-full object-contain pointer-events-none ${
-                isVictoryActive
-                  ? 'prepsbot-victory'
-                  : isArenaFightMode
-                    ? 'prepsbot-fight drop-shadow-[0_12px_22px_rgba(242,123,19,0.45)]'
-                    : 'prepsbot-float drop-shadow-[0_14px_22px_rgba(0,180,255,0.42)]'
-              }`}
+          {isVictoryActive && (
+            <Sparkles
+              aria-hidden="true"
+              className="pointer-events-none absolute -top-2 -left-2 w-3.5 h-3.5 text-amber-300 animate-bounce"
             />
-          </motion.div>
+          )}
         </button>
       </div>
     </div>

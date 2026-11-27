@@ -5,25 +5,25 @@ export const PUBLIC_NAV_ROUTES: NavRouteItem[] = [
   {
     path: '/',
     label: 'Home',
-    shortDescription: 'Focused Study Dashboard, Daily Trifecta & Quick Launch',
+    shortDescription: 'Focused Dashboard, Study Materials, Chapter DPPs & CBT Mock Quick Launch',
     showInPublicNav: true,
   },
   {
     path: '/materials',
-    label: 'Study Materials',
-    shortDescription: 'Curated Chapter Notes, Formula Sheets, Syllabus PDFs & Keep Notes',
+    label: 'Materials & Notes',
+    shortDescription: 'Curated Study Materials, Formula Sheets, Syllabus Notes & Google Keep Sync',
     showInPublicNav: true,
   },
   {
     path: '/dpp',
     label: 'Chapter DPPs',
-    shortDescription: 'Chapter-wise Daily Practice Problems & Interactive Quizzes',
+    shortDescription: 'Chapter-Wise Daily Practice Problems with Interactive Quiz Mode & Solutions',
     showInPublicNav: true,
   },
   {
     path: '/cbt-mocks',
     label: 'CBT Mocks',
-    shortDescription: 'NTA CBT Mock Tests & Dedicated Custom Mock Builder',
+    shortDescription: 'NTA CBT Mock Tests & Dedicated Custom Mock Builder with Strict Chapter Matching',
     showInPublicNav: true,
   },
   {
@@ -38,19 +38,19 @@ export const SECONDARY_SIDEBAR_ROUTES: NavRouteItem[] = [
   {
     path: '/learn',
     label: 'NCERT-to-PYQ',
-    shortDescription: 'Concept-Mapped PYQs, 2027 High-Yield Predictor & NCERT-to-PYQ Mapper',
+    shortDescription: 'Concept-Mapped PYQs, 2027 High-Yield Predictor & NCERT-to-PYQ Split Mapper',
     showInPublicNav: false,
   },
   {
     path: '/preps-ai',
     label: 'Preps AI Chat',
-    shortDescription: 'AI Mentor, Doubt Solver Tutor & Live Classroom Whiteboard',
+    shortDescription: 'PrepsAI Mentor, Doubt Solver Tutor & Live Classroom synced with your exam track',
     showInPublicNav: false,
   },
   {
     path: '/analytics',
     label: 'Test Analysis',
-    shortDescription: 'Score Diagnostics, Predicted Percentile & Compact Solution Review',
+    shortDescription: 'AI Analytical Assistant, Predicted Percentile, Score Diagnostics & Compact Solutions',
     showInPublicNav: false,
   },
   {
@@ -69,7 +69,7 @@ export const SECONDARY_SIDEBAR_ROUTES: NavRouteItem[] = [
 
 export const MOBILE_BOTTOM_TABS: { path: RoutePath; label: string; langKey: string }[] = [
   { path: '/', label: 'Home', langKey: 'mobile.home' },
-  { path: '/materials', label: 'Notes', langKey: 'mobile.materials' },
+  { path: '/materials', label: 'Materials', langKey: 'mobile.materials' },
   { path: '/dpp', label: 'DPPs', langKey: 'mobile.dpp' },
   { path: '/cbt-mocks', label: 'Mocks', langKey: 'mobile.mocks' },
   { path: '/arena', label: 'Arena', langKey: 'mobile.arena' },

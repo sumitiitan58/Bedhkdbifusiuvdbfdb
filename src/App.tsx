@@ -24,6 +24,7 @@ const MaterialsPage = lazy(() => import('./pages/MaterialsPage'));
 const MaterialDetailPage = lazy(() => import('./pages/MaterialDetailPage'));
 const LecturesPage = lazy(() => import('./pages/LecturesPage'));
 const CbtMocksPage = lazy(() => import('./pages/CbtMocksPage'));
+const CustomMockBuilderPage = lazy(() => import('./pages/CustomMockBuilderPage'));
 const CbtMockDetailPage = lazy(() => import('./pages/CbtMockDetailPage'));
 const DppPage = lazy(() => import('./pages/DppPage'));
 const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
@@ -47,7 +48,7 @@ export default function App() {
                   <Prepskm2Provider>
                     <BrowserRouter>
                       <Suspense
-                        fallback={<LoadingScreen fullScreen message="Loading PREPSKM 2.0 workspace..." />}
+                        fallback={<LoadingScreen fullScreen message="Loading PREPSKM workspace..." />}
                       >
                         <Routes>
                           <Route path="/" element={<HomePage />} />
@@ -64,6 +65,7 @@ export default function App() {
                           <Route path="/pyqs/:slug" element={<MaterialDetailPage />} />
                           <Route path="/lectures" element={<LecturesPage />} />
                           <Route path="/cbt-mocks" element={<CbtMocksPage />} />
+                          <Route path="/cbt-mocks/builder" element={<CustomMockBuilderPage />} />
                           <Route path="/tests" element={<Navigate to="/cbt-mocks" replace />} />
                           <Route path="/cbt-mocks/:examSlug/:testSlug" element={<CbtMockDetailPage />} />
                           <Route path="/cbt-mocks/:slug" element={<CbtMockDetailPage />} />

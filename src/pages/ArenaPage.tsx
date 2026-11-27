@@ -3,12 +3,14 @@ import { useSearchParams } from 'react-router-dom';
 import {
   BookOpenCheck,
   CheckCircle2,
+  Crosshair,
   FlaskConical,
   Gamepad2,
   Radar,
   Shield,
   Sparkles,
   Swords,
+  Target,
   Trophy,
   Zap,
 } from 'lucide-react';
@@ -17,6 +19,8 @@ import { ResponsiveContainer } from '../components/ResponsiveContainer';
 import { SeoHead } from '../components/SeoHead';
 import { AiCustomGamePlayer } from '../components/arena-games/AiCustomGamePlayer';
 import { ApexDuelBattle } from '../components/arena-games/ApexDuelBattle';
+import { TacticalShooterGame } from '../components/arena-games/TacticalShooterGame';
+import { BubbleShooterGame } from '../components/arena-games/BubbleShooterGame';
 import {
   FormulaBlitzGame,
   MistakeBossFightGame,
@@ -38,6 +42,8 @@ import { FOCUS_LEADERBOARD_TOP5 } from '../data/prepskm2UpgradeData';
 import { playClick } from '../utils/soundEffects';
 
 type ArenaModeId =
+  | 'tactical-shooter'
+  | 'bubble-shooter'
   | 'apex-duel'
   | 'formula-blitz'
   | 'reaction-chain'
@@ -54,6 +60,22 @@ const APEX_ARENA_MODES: Array<{
   accent: string;
   icon: typeof Sparkles;
 }> = [
+  {
+    id: 'tactical-shooter',
+    label: 'Tactical Shooter',
+    tagline: 'Reload & Revive via syllabus MCQs',
+    duration: 'Lvl 1–3',
+    accent: 'text-[#22D3EE]',
+    icon: Crosshair,
+  },
+  {
+    id: 'bubble-shooter',
+    label: 'Bubble Shooter',
+    tagline: 'Hex cluster pops + Plasma Bomb quiz',
+    duration: 'Lvl 1–3',
+    accent: 'text-purple-400',
+    icon: Target,
+  },
   {
     id: 'apex-duel',
     label: 'Apex 1v1 vs AI',
@@ -121,9 +143,9 @@ export default function ArenaPage() {
   const { profile, firebaseUser, cohortId } = useAuth();
   const { allCohorts } = usePlatformData();
 
-  const initialMode = (searchParams.get('mode') as ArenaModeId) || 'apex-duel';
+  const initialMode = (searchParams.get('mode') as ArenaModeId) || 'tactical-shooter';
   const [activeMode, setActiveMode] = useState<ArenaModeId>(
-    APEX_ARENA_MODES.some((m) => m.id === initialMode) ? initialMode : 'apex-duel'
+    APEX_ARENA_MODES.some((m) => m.id === initialMode) ? initialMode : 'tactical-shooter'
   );
   const [lbMetric, setLbMetric] = useState<LeaderboardMetricTab>('elo');
   const [lbPeriod, setLbPeriod] = useState<LeaderboardPeriod>('week');
@@ -196,10 +218,10 @@ export default function ArenaPage() {
               APEX ARENA · COMPETITIVE JEE &amp; NEET BATTLEGROUND
             </p>
             <h1 className="font-display text-2xl sm:text-3xl font-extrabold tracking-tight text-[#0B1F3A] dark:text-[#F8FAFC] mt-0.5 text-balance">
-              Apex Arena — 1v1 AI Point-Trading &amp; Speed Trials
+              Apex Arena — Tactical Shooter, Bubble Shooter &amp; Speed Trials
             </h1>
             <p className="text-sm text-[#475569] dark:text-[#94A3B8] mt-1">
-              Battle AI rivals starting at equal 1,000 points or master Quantum Clash, Synthesis Strike, and Logic Labyrinth for live Elo rank climbs.
+              Play Level 1–3 study-powered Tactical Shooter (Reload &amp; Revive via syllabus MCQs), Bubble Shooter, 1v1 AI duels, and rapid JEE/NEET drills.
             </p>
           </div>
 
@@ -245,8 +267,8 @@ export default function ArenaPage() {
           ))}
         </div>
 
-        {/* 7 Competitive Apex Arena Stage Switcher Deck */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-2.5">
+        {/* Competitive Apex Arena Stage Switcher Deck */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
           {APEX_ARENA_MODES.map((m) => {
             const Icon = m.icon;
             const active = activeMode === m.id;
@@ -255,7 +277,7 @@ export default function ArenaPage() {
                 key={m.id}
                 type="button"
                 onClick={() => selectMode(m.id)}
-                className={`text-left p-3.5 rounded-2xl border-2 transition-all ${
+                className={`text-left p-3 rounded-2xl border-2 transition-all ${
                   active
                     ? 'bg-[#0B1F3A] dark:bg-[#162033] border-[#06B6D4] text-white'
                     : 'bg-[#FFFFFF] dark:bg-[#0F172A] border-[#E2E8F0] dark:border-white/[0.08] text-[#0B1F3A] dark:text-[#F8FAFC] hover:border-[#06B6D4]/65'
@@ -287,6 +309,8 @@ export default function ArenaPage() {
         {/* Active Competitive Stage + Global Rating & Leaderboards */}
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
           <div className="xl:col-span-8">
+            {activeMode === 'tactical-shooter' && <TacticalShooterGame />}
+            {activeMode === 'bubble-shooter' && <BubbleShooterGame />}
             {activeMode === 'apex-duel' && <ApexDuelBattle />}
             {activeMode === 'formula-blitz' && <FormulaBlitzGame />}
             {activeMode === 'reaction-chain' && <ReactionChainDuelGame />}

@@ -42,7 +42,7 @@ import {
 import { playAiSparkle, playClick, playSuccess } from '../../utils/soundEffects';
 
 const SPEED_OPTIONS = [0.85, 1, 1.25, 1.5] as const;
-const TUTOR_VIDEO_SRC = '/assets/aistudio/569470444_1795786942824369_725e1467.mov';
+const TUTOR_VIDEO_SRC = '/assets/aistudio/live_tutor_muted.mp4';
 
 interface DoubtExchange {
   id: string;

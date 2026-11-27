@@ -45,12 +45,29 @@ interface DeepToolLink {
 
 const DEEP_TOOL_LINKS: DeepToolLink[] = [
   {
+    id: 'materials',
+    to: '/materials',
+    matchPath: '/materials',
+    labelKey: 'sidebar.materials',
+    fallbackLabel: 'Study Materials & Notes',
+    icon: BookOpen,
+  },
+  {
     id: 'dpp',
     to: '/dpp',
     matchPath: '/dpp',
     labelKey: 'sidebar.dpp',
     fallbackLabel: 'Chapter DPPs',
     icon: FileSpreadsheet,
+  },
+  {
+    id: 'cbt-mocks',
+    to: '/cbt-mocks',
+    matchPath: '/cbt-mocks',
+    labelKey: 'sidebar.mocks',
+    fallbackLabel: 'CBT Mock Tests',
+    icon: ClipboardCheck,
+    accent: 'text-[#06B6D4]',
   },
   {
     id: 'ncert',
@@ -63,22 +80,12 @@ const DEEP_TOOL_LINKS: DeepToolLink[] = [
     accent: 'text-[#F97316]',
   },
   {
-    id: 'predictor',
-    to: '/learn?tab=predictor',
-    matchPath: '/learn',
-    matchTab: 'predictor',
-    labelKey: 'sidebar.predictor',
-    fallbackLabel: '2027 Predictor',
-    icon: TrendingUp,
-    accent: 'text-[#06B6D4]',
-  },
-  {
-    id: 'mistakes',
-    to: '/mistakes',
-    matchPath: '/mistakes',
-    labelKey: 'sidebar.mistakes',
-    fallbackLabel: 'Mistake Notebook',
-    icon: BookMarked,
+    id: 'preps-ai',
+    to: '/preps-ai',
+    matchPath: '/preps-ai',
+    labelKey: 'sidebar.ai',
+    fallbackLabel: 'Preps AI Chat',
+    icon: Sparkles,
   },
   {
     id: 'analysis',
@@ -89,12 +96,12 @@ const DEEP_TOOL_LINKS: DeepToolLink[] = [
     icon: BarChart3,
   },
   {
-    id: 'preps-ai',
-    to: '/preps-ai',
-    matchPath: '/preps-ai',
-    labelKey: 'sidebar.ai',
-    fallbackLabel: 'Preps AI Chat',
-    icon: Sparkles,
+    id: 'mistakes',
+    to: '/mistakes',
+    matchPath: '/mistakes',
+    labelKey: 'sidebar.mistakes',
+    fallbackLabel: 'Mistake Notebook',
+    icon: BookMarked,
   },
   {
     id: 'arena',
@@ -117,10 +124,10 @@ const DEEP_TOOL_LINKS: DeepToolLink[] = [
 
 const PRIMARY_ICONS: Record<string, typeof Home> = {
   '/': Home,
-  '/learn': BookOpen,
+  '/materials': BookOpen,
+  '/dpp': FileSpreadsheet,
   '/cbt-mocks': ClipboardCheck,
-  '/community': MessageSquare,
-  '/mentors': Users,
+  '/arena': Gamepad2,
 };
 
 interface AppSidebarProps {

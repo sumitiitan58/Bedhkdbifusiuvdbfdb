@@ -13,7 +13,6 @@ import {
   Sparkles,
   Target,
   TrendingUp,
-  Trophy,
   XCircle,
 } from 'lucide-react';
 import {
@@ -39,11 +38,6 @@ import {
   categorizeAttemptQuestions,
   computeDifficultyBreakdown,
   computeProAttemptMetrics,
-  getJeeMarkSensitivityForScore,
-  JEE_2026_NTA_SHIFT_PROOFS,
-  JEE_MAIN_2026_PERCENTILE_TABLE,
-  JEE_MAIN_2026_TOTAL_CANDIDATES,
-  JEE_MARK_SENSITIVITY_ZONES,
   type AttemptTimeBucket,
 } from '../../utils/testAnalysisEngine';
 import {
@@ -55,6 +49,7 @@ import {
 import { ReusableCard } from '../ReusableCard';
 import { ReusableButton } from '../ReusableButton';
 import { SolutionCardDeck, type SolutionReviewItem } from '../exam/SolutionCardDeck';
+import { AiRoleAvatar } from '../ai/AiRoleAvatar';
 import { playAiSparkle, playClick } from '../../utils/soundEffects';
 
 export type AnalysisSubTab =
@@ -109,7 +104,7 @@ const SUB_NAV_ITEMS: Array<{
   {
     id: 'overview',
     label: 'Overview',
-    description: 'Score, percentile & 6-metric scorecard',
+    description: 'Score, predicted percentile & key metrics',
     icon: LayoutGrid,
   },
   {
@@ -375,11 +370,16 @@ export function ProTestAnalysisDashboard({
       {(aiReport || aiReportError) && (
         <ReusableCard className="border-blue-200 dark:border-blue-800/80 bg-gradient-to-br from-blue-50/60 via-white to-white dark:from-[#12203D] dark:via-[#111A2E] dark:to-[#111A2E] space-y-4">
           <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-[#2563EB] dark:text-sky-400" />
-              <h3 className="font-display text-base sm:text-lg font-bold text-[#0B1B3B] dark:text-white">
-                Preps AI Performance Report
-              </h3>
+            <div className="flex items-center gap-2.5">
+              <AiRoleAvatar role="analytics" size="sm" />
+              <div>
+                <h3 className="font-display text-base sm:text-lg font-bold text-[#0B1B3B] dark:text-white leading-tight">
+                  AI Analytical Report
+                </h3>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Data-driven mark-leak audit &amp; next-mock plan
+                </p>
+              </div>
             </div>
             <button
               type="button"
@@ -555,13 +555,10 @@ export function ProTestAnalysisDashboard({
                     </div>
                   </div>
 
-                  <div className="space-y-2.5 pt-4 border-t border-white/15">
-                    <div className="flex items-center justify-between text-xs text-slate-200 tabular-nums">
-                      <span>Projected Rank</span>
-                      <span className="font-mono font-bold text-white">
-                        #{proMetrics.leaderboardRank.toLocaleString()} /{' '}
-                        {proMetrics.estimatedTestTakers.toLocaleString()}
-                      </span>
+                  <div className="space-y-3 pt-4 border-t border-white/15">
+                    <div className="flex items-center justify-between text-xs text-slate-200">
+                      <span>Target Exam Track</span>
+                      <span className="font-mono font-bold text-white">{examCategory}</span>
                     </div>
                     <div className="w-full h-2 rounded-full bg-white/15 overflow-hidden">
                       <div
@@ -570,276 +567,93 @@ export function ProTestAnalysisDashboard({
                       />
                     </div>
                     <p className="text-xs text-slate-300">
-                      {examCategory.toLowerCase().includes('neet')
-                        ? `Calibrated against historical ${examCategory} score-to-percentile bands.`
-                        : `NTA 2025–26 calibrated (Anchor: 165/300 = 99.00%ile · ${JEE_MAIN_2026_TOTAL_CANDIDATES.toLocaleString('en-IN')} candidates).`}
+                      Estimated percentile based on your accuracy, net score, and target {examCategory} benchmark.
                     </p>
                   </div>
                 </ReusableCard>
               </div>
 
-              {/* 6-Card Metrics Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 tabular-nums">
-                <ReusableCard>
+              {/* Clean 5-Metric Performance Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 tabular-nums">
+                <ReusableCard padding="sm">
                   <div className="flex items-center justify-between">
-                    <p className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                      Leaderboard Rank
-                    </p>
-                    <Trophy className="w-4 h-4 text-[#F97316]" />
-                  </div>
-                  <p className="mt-3 font-mono text-3xl font-extrabold text-[#0B1B3B] dark:text-white">
-                    #{proMetrics.leaderboardRank.toLocaleString()}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                    Out of {proMetrics.estimatedTestTakers.toLocaleString()} benchmark aspirants
-                  </p>
-                </ReusableCard>
-
-                <ReusableCard>
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                      Questions Attempted
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      Attempted
                     </p>
                     <Target className="w-4 h-4 text-[#2563EB]" />
                   </div>
-                  <p className="mt-3 font-mono text-3xl font-extrabold text-[#0B1B3B] dark:text-white">
+                  <p className="mt-2 font-mono text-2xl font-extrabold text-[#0B1B3B] dark:text-white">
                     {proMetrics.attemptedCount}{' '}
-                    <span className="text-base font-medium text-slate-400">
+                    <span className="text-sm font-medium text-slate-400">
                       / {proMetrics.totalQuestions}
                     </span>
                   </p>
-                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
                     {attempt.unattemptedCount} skipped ·{' '}
-                    {Math.round((proMetrics.attemptedCount / proMetrics.totalQuestions) * 100)}% attempt rate
+                    {Math.round((proMetrics.attemptedCount / proMetrics.totalQuestions) * 100)}%
                   </p>
                 </ReusableCard>
 
-                <ReusableCard>
+                <ReusableCard padding="sm">
                   <div className="flex items-center justify-between">
-                    <p className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                       Accuracy %
                     </p>
                     <CheckCircle2 className="w-4 h-4 text-[#10B981]" />
                   </div>
-                  <p className="mt-3 font-mono text-3xl font-extrabold text-[#10B981]">
+                  <p className="mt-2 font-mono text-2xl font-extrabold text-[#10B981]">
                     {proMetrics.accuracyPercent}%
                   </p>
-                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                    {attempt.correctCount} correct · {attempt.incorrectCount} incorrect
+                  <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                    {attempt.correctCount} right · {attempt.incorrectCount} wrong
                   </p>
                 </ReusableCard>
 
-                <ReusableCard>
+                <ReusableCard padding="sm">
                   <div className="flex items-center justify-between">
-                    <p className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                       Positive Score
                     </p>
                     <Flame className="w-4 h-4 text-[#10B981]" />
                   </div>
-                  <p className="mt-3 font-mono text-3xl font-extrabold text-emerald-700 dark:text-emerald-400">
+                  <p className="mt-2 font-mono text-2xl font-extrabold text-emerald-700 dark:text-emerald-400">
                     +{proMetrics.positiveScore}
                   </p>
-                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                    Gross marks earned from correct answers
+                  <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                    Gross marks earned
                   </p>
                 </ReusableCard>
 
-                <ReusableCard>
+                <ReusableCard padding="sm">
                   <div className="flex items-center justify-between">
-                    <p className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                      Marks Lost (Negative)
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      Negative Lost
                     </p>
                     <XCircle className="w-4 h-4 text-rose-500" />
                   </div>
-                  <p className="mt-3 font-mono text-3xl font-extrabold text-rose-600 dark:text-rose-400">
+                  <p className="mt-2 font-mono text-2xl font-extrabold text-rose-600 dark:text-rose-400">
                     -{proMetrics.marksLostNegative}
                   </p>
-                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                    Penalty deducted across {attempt.incorrectCount} wrong answers
+                  <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                    {attempt.incorrectCount} wrong answers
                   </p>
                 </ReusableCard>
 
-                <ReusableCard>
+                <ReusableCard padding="sm">
                   <div className="flex items-center justify-between">
-                    <p className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                       Time Taken
                     </p>
                     <Clock className="w-4 h-4 text-[#2563EB]" />
                   </div>
-                  <p className="mt-3 font-mono text-3xl font-extrabold text-[#0B1B3B] dark:text-white">
+                  <p className="mt-2 font-mono text-2xl font-extrabold text-[#0B1B3B] dark:text-white">
                     {formatDuration(proMetrics.totalTimeSeconds)}
                   </p>
-                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                    Avg {proMetrics.avgTimePerQuestion}s per question
+                  <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                    Avg {proMetrics.avgTimePerQuestion}s / Q
                   </p>
                 </ReusableCard>
               </div>
-
-              {/* Official NTA 2025–2026 Calibrated JEE Main Marks vs Percentile vs Rank Reference */}
-              {!examCategory.toLowerCase().includes('neet') && (() => {
-                const safeMax = Math.max(1, attempt.maxScore);
-                const equivalent300 = Math.round(
-                  Math.max(-75, Math.min(300, (attempt.score / safeMax) * 300))
-                );
-                const activeZone = getJeeMarkSensitivityForScore(equivalent300);
-                const nearestRowMarks = JEE_MAIN_2026_PERCENTILE_TABLE.reduce(
-                  (best, row) =>
-                    Math.abs(row.marks - equivalent300) < Math.abs(best - equivalent300)
-                      ? row.marks
-                      : best,
-                  JEE_MAIN_2026_PERCENTILE_TABLE[0].marks
-                );
-
-                return (
-                  <ReusableCard className="space-y-5">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div>
-                        <p className="text-xs font-bold uppercase tracking-wider text-[#2563EB] dark:text-sky-400">
-                          NTA 2025–2026 Calibrated Bell-Curve Reference
-                        </p>
-                        <h3 className="mt-1 font-display text-lg font-bold text-[#0B1B3B] dark:text-white">
-                          JEE Main Marks vs Percentile vs Rank (Anchor: 165 = 99.00%ile)
-                        </h3>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                          Base: {JEE_MAIN_2026_TOTAL_CANDIDATES.toLocaleString('en-IN')} NTA unique
-                          candidates · Your scaled 300-mark score:{' '}
-                          <span className="font-mono font-bold text-[#0B1B3B] dark:text-white">
-                            {equivalent300}/300
-                          </span>{' '}
-                          ({proMetrics.predictedPercentile}%ile · AIR ~
-                          {proMetrics.leaderboardRank.toLocaleString('en-IN')})
-                        </p>
-                      </div>
-                      <div className="rounded-xl border border-orange-200 dark:border-orange-900/60 bg-orange-50/80 dark:bg-orange-950/30 px-3.5 py-2 text-xs shrink-0">
-                        <p className="font-bold text-orange-800 dark:text-orange-300">
-                          Your Zone: {activeZone.rangeLabel}
-                        </p>
-                        <p className="text-orange-700 dark:text-orange-200 font-mono mt-0.5">
-                          {activeZone.deltaPercentilePerMark} · {activeZone.rankImpactPerMark}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* 1-Mark Impact Sensitivity Zones */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                      {JEE_MARK_SENSITIVITY_ZONES.map((zone) => {
-                        const isCurrent = zone.rangeLabel === activeZone.rangeLabel;
-                        return (
-                          <div
-                            key={zone.rangeLabel}
-                            className={`rounded-xl border p-3.5 transition-colors ${
-                              isCurrent
-                                ? 'border-[#2563EB] bg-blue-50/70 dark:bg-blue-950/30'
-                                : 'border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/50'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="font-mono text-xs font-extrabold text-[#0B1B3B] dark:text-white">
-                                {zone.rangeLabel}
-                              </span>
-                              {isCurrent && (
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-[#2563EB] dark:text-sky-400">
-                                  Active
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 mt-1">
-                              {zone.percentileRange}
-                            </p>
-                            <p className="font-mono text-xs font-bold text-[#F97316] mt-1.5">
-                              {zone.deltaPercentilePerMark}
-                            </p>
-                            <p className="font-mono text-[11px] text-slate-700 dark:text-slate-300">
-                              {zone.rankImpactPerMark}
-                            </p>
-                            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5 leading-snug">
-                              {zone.insight}
-                            </p>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    {/* Full 26-Row Calibrated NTA Table */}
-                    <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 max-h-80 overflow-y-auto">
-                      <table className="w-full text-left text-xs tabular-nums">
-                        <thead className="sticky top-0 bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[11px] border-b border-slate-200 dark:border-slate-800">
-                          <tr>
-                            <th className="py-2.5 px-3.5 font-bold">Marks (Out of 300)</th>
-                            <th className="py-2.5 px-3.5 font-bold">Expected Percentile</th>
-                            <th className="py-2.5 px-3.5 font-bold">Approx. AIR (15.38L)</th>
-                            <th className="py-2.5 px-3.5 font-bold">Peer Intake</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
-                          {JEE_MAIN_2026_PERCENTILE_TABLE.map((row) => {
-                            const isNearest = row.marks === nearestRowMarks;
-                            const isAnchor = row.marks === 165 || row.marks === 120;
-                            return (
-                              <tr
-                                key={row.marksLabel}
-                                className={
-                                  isNearest
-                                    ? 'bg-blue-50/90 dark:bg-blue-950/40 font-semibold'
-                                    : isAnchor
-                                      ? 'bg-amber-50/50 dark:bg-amber-950/15'
-                                      : 'bg-white dark:bg-slate-950/20'
-                                }
-                              >
-                                <td className="py-2 px-3.5 font-mono font-bold text-[#0B1B3B] dark:text-white">
-                                  {row.marksLabel}
-                                  {isNearest && (
-                                    <span className="ml-2 text-[10px] font-sans font-bold text-[#2563EB] dark:text-sky-400">
-                                      ← Nearest
-                                    </span>
-                                  )}
-                                </td>
-                                <td className="py-2 px-3.5 font-mono text-slate-800 dark:text-slate-100">
-                                  {row.percentile.toFixed(2)}%ile
-                                  {row.percentileNote && (
-                                    <span className="ml-1.5 text-[11px] font-sans text-slate-500 dark:text-slate-400">
-                                      ({row.percentileNote})
-                                    </span>
-                                  )}
-                                </td>
-                                <td className="py-2 px-3.5 font-mono text-slate-700 dark:text-slate-300">
-                                  ~{row.approxAir.toLocaleString('en-IN')}
-                                </td>
-                                <td className="py-2 px-3.5 text-slate-600 dark:text-slate-400">
-                                  {row.peerIntake}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    {/* Real 2026 NTA Shift Proofs */}
-                    <div className="pt-1">
-                      <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
-                        Real NTA Shift Proof (Moderate-to-Tough Shifts · 99%ile ≈ 160–166 Marks)
-                      </p>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
-                        {JEE_2026_NTA_SHIFT_PROOFS.map((proof) => (
-                          <div
-                            key={proof.shiftLabel}
-                            className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/40 px-3.5 py-2.5 text-xs"
-                          >
-                            <p className="font-bold text-[#0B1B3B] dark:text-white">
-                              {proof.shiftLabel}
-                            </p>
-                            <p className="text-slate-600 dark:text-slate-300 font-mono text-[11px] mt-1">
-                              99%ile: {proof.marks99} · 97%ile: {proof.marks97} · 95%ile:{' '}
-                              {proof.marks95}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </ReusableCard>
-                );
-              })()}
             </>
           )}
 

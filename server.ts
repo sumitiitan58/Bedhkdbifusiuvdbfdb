@@ -1235,6 +1235,46 @@ async function createApp() {
   });
 
   // 9. Gemini Natural 18-Year-Old Friend TTS Voice Endpoint (mirrors Vercel /api/tts)
+  const wrapPcmAsWavBase64 = (base64Data: string, mimeType: string) => {
+    const normalized = mimeType.toLowerCase();
+    if (
+      normalized.startsWith('audio/wav') ||
+      normalized.startsWith('audio/mpeg') ||
+      normalized.startsWith('audio/mp3') ||
+      normalized.startsWith('audio/ogg') ||
+      normalized.startsWith('audio/webm')
+    ) {
+      return { audioBase64: base64Data, mimeType };
+    }
+    const rateMatch = /rate=(\d+)/i.exec(mimeType);
+    const sampleRate = rateMatch ? Number(rateMatch[1]) || 24000 : 24000;
+    const pcmBuffer = Buffer.from(base64Data, 'base64');
+    const numChannels = 1;
+    const bitsPerSample = 16;
+    const byteRate = (sampleRate * numChannels * bitsPerSample) / 8;
+    const blockAlign = (numChannels * bitsPerSample) / 8;
+
+    const wavHeader = Buffer.alloc(44);
+    wavHeader.write('RIFF', 0);
+    wavHeader.writeUInt32LE(36 + pcmBuffer.length, 4);
+    wavHeader.write('WAVE', 8);
+    wavHeader.write('fmt ', 12);
+    wavHeader.writeUInt32LE(16, 16);
+    wavHeader.writeUInt16LE(1, 20);
+    wavHeader.writeUInt16LE(numChannels, 22);
+    wavHeader.writeUInt32LE(sampleRate, 24);
+    wavHeader.writeUInt32LE(byteRate, 28);
+    wavHeader.writeUInt16LE(blockAlign, 32);
+    wavHeader.writeUInt16LE(bitsPerSample, 34);
+    wavHeader.write('data', 36);
+    wavHeader.writeUInt32LE(pcmBuffer.length, 40);
+
+    return {
+      audioBase64: Buffer.concat([wavHeader, pcmBuffer]).toString('base64'),
+      mimeType: 'audio/wav',
+    };
+  };
+
   app.post('/api/tts', async (req, res) => {
     try {
       const body = (req.body ?? {}) as { text?: unknown; language?: unknown };
@@ -1243,6 +1283,16 @@ async function createApp() {
 
       if (!rawText) {
         res.status(400).json({ ok: false, error: 'text is required for TTS.' });
+        return;
+      }
+
+      const apiKey = process.env.GEMINI_API_KEY?.trim();
+      if (!apiKey) {
+        res.status(200).json({
+          ok: false,
+          fallback: 'browser-tts',
+          error: 'GEMINI_API_KEY is not configured for Gemini TTS.',
+        });
         return;
       }
 
@@ -1258,57 +1308,128 @@ async function createApp() {
 
       const stylePrompt =
         language === 'hinglish'
-          ? 'Warm, friendly 18-year-old Indian peer mentor speaking natural Hinglish to a close friend, calm and clear at a relaxed normal conversational pace, encouraging and approachable, never robotic or rushed'
-          : 'Warm, friendly 18-year-old peer mentor explaining clearly to a close friend in natural English, relaxed normal conversational pace, encouraging and easy to follow, never robotic or rushed';
+          ? 'Warm, friendly 18-year-old Indian peer mentor speaking natural Hinglish to a close friend at a relaxed normal conversational pace, encouraging and approachable, never robotic or rushed'
+          : 'Warm, friendly 18-year-old peer mentor explaining clearly to a close friend in natural English at a relaxed normal conversational pace, encouraging and easy to follow, never robotic or rushed';
 
-      const ai = getGeminiClient();
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash-lite-tts',
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              {
-                text: cleanSpokenText,
-                speechMetadata: { style: stylePrompt },
-              } as unknown as { text: string },
-            ],
-          },
-        ],
-        config: {
-          responseModalities: ['AUDIO'],
-          speechConfig: {
-            voiceConfig: {
-              prebuiltVoiceConfig: {
-                voiceName: 'Puck',
+      const errors: string[] = [];
+
+      // Attempt 1: Official @google/genai SDK with gemini-3.8-flash-lite-tts
+      try {
+        const ai = getGeminiClient();
+        const response = await ai.models.generateContent({
+          model: 'gemini-3.8-flash-lite-tts',
+          contents: [
+            {
+              role: 'user',
+              parts: [
+                {
+                  text: cleanSpokenText,
+                  speechMetadata: { style: stylePrompt },
+                } as unknown as { text: string },
+              ],
+            },
+          ],
+          config: {
+            responseModalities: ['AUDIO'],
+            speechConfig: {
+              voiceConfig: {
+                prebuiltVoiceConfig: {
+                  voiceName: 'Puck',
+                },
               },
             },
           },
-        },
-      });
+        });
 
-      const inlinePart = response.candidates?.[0]?.content?.parts?.find(
-        (part) => Boolean((part as { inlineData?: { data?: string } }).inlineData?.data)
-      ) as { inlineData?: { data?: string; mimeType?: string } } | undefined;
+        const inlinePart = response.candidates?.[0]?.content?.parts?.find((part) =>
+          Boolean((part as { inlineData?: { data?: string } }).inlineData?.data)
+        ) as { inlineData?: { data?: string; mimeType?: string } } | undefined;
 
-      const audioBase64 = inlinePart?.inlineData?.data;
-      const mimeType = inlinePart?.inlineData?.mimeType || 'audio/wav';
+        const rawBase64 = inlinePart?.inlineData?.data;
+        const rawMime = inlinePart?.inlineData?.mimeType || 'audio/wav';
+        if (rawBase64) {
+          const wrapped = wrapPcmAsWavBase64(rawBase64, rawMime);
+          res.status(200).json({
+            ok: true,
+            audioBase64: wrapped.audioBase64,
+            mimeType: wrapped.mimeType,
+            model: 'gemini-3.8-flash-lite-tts',
+            voice: 'Puck',
+          });
+          return;
+        }
+        errors.push('SDK gemini-3.8-flash-lite-tts returned empty audio.');
+      } catch (err) {
+        errors.push(sanitizeErrorMessage(err));
+      }
 
-      if (!audioBase64) {
-        res.status(502).json({ ok: false, error: 'Gemini TTS returned empty audio data.' });
-        return;
+      // Attempt 2 & 3: Direct v1beta REST fallback for gemini-2.5-flash-preview-tts and gemini-3.8-flash-lite-tts
+      const restPrompt = `Say in a ${stylePrompt}: ${cleanSpokenText}`;
+      for (const model of ['gemini-2.5-flash-preview-tts', 'gemini-3.8-flash-lite-tts'] as const) {
+        try {
+          const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+          const upstream = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'User-Agent': 'aistudio-build',
+            },
+            body: JSON.stringify({
+              contents: [{ role: 'user', parts: [{ text: restPrompt }] }],
+              generationConfig: {
+                responseModalities: ['AUDIO'],
+                speechConfig: {
+                  voiceConfig: {
+                    prebuiltVoiceConfig: {
+                      voiceName: 'Puck',
+                    },
+                  },
+                },
+              },
+            }),
+          });
+          if (!upstream.ok) {
+            const errText = await upstream.text().catch(() => '');
+            errors.push(`REST ${model} HTTP ${upstream.status}: ${errText.slice(0, 180)}`);
+            continue;
+          }
+          const data = (await upstream.json()) as {
+            candidates?: Array<{
+              content?: {
+                parts?: Array<{ inlineData?: { data?: string; mimeType?: string } }>;
+              };
+            }>;
+          };
+          const inlinePart = data.candidates?.[0]?.content?.parts?.find((p) => Boolean(p.inlineData?.data));
+          const rawBase64 = inlinePart?.inlineData?.data;
+          const rawMime = inlinePart?.inlineData?.mimeType || 'audio/L16;codec=pcm;rate=24000';
+          if (rawBase64) {
+            const wrapped = wrapPcmAsWavBase64(rawBase64, rawMime);
+            res.status(200).json({
+              ok: true,
+              audioBase64: wrapped.audioBase64,
+              mimeType: wrapped.mimeType,
+              model,
+              voice: 'Puck',
+            });
+            return;
+          }
+        } catch (err) {
+          errors.push(sanitizeErrorMessage(err));
+        }
       }
 
       res.status(200).json({
-        ok: true,
-        audioBase64,
-        mimeType,
-        model: 'gemini-3.8-flash-lite-tts',
-        voice: 'Puck',
+        ok: false,
+        fallback: 'browser-tts',
+        error: errors[0] || 'Gemini TTS unavailable; using browser speech synthesis.',
       });
     } catch (err) {
-      const { status, message } = formatGeminiError(err);
-      res.status(status).json({ ok: false, error: message });
+      res.status(200).json({
+        ok: false,
+        fallback: 'browser-tts',
+        error: sanitizeErrorMessage(err) || 'Gemini TTS unavailable; using browser speech synthesis.',
+      });
     }
   });
 

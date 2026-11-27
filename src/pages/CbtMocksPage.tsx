@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
+  ArrowRight,
   BookOpen,
   CheckCircle2,
   ClipboardCheck,
@@ -9,6 +10,7 @@ import {
   FileCheck2,
   Play,
   ShieldAlert,
+  Sliders,
   Trophy,
   X,
 } from 'lucide-react';
@@ -18,7 +20,6 @@ import { ReusableCard } from '../components/ReusableCard';
 import { ReusableButton } from '../components/ReusableButton';
 import { SeoHead } from '../components/SeoHead';
 import { CbtExamRunner } from '../components/exam/CbtExamRunner';
-import { CustomMockAndTemperamentHub } from '../components/cbt-engine/CustomMockAndTemperamentHub';
 import { AttemptReviewModal } from '../components/analytics/AttemptReviewModal';
 import { useAuth } from '../context/AuthContext';
 import { usePlatformData } from '../context/PlatformDataContext';
@@ -185,13 +186,29 @@ export default function CbtMocksPage() {
           </div>
         </div>
 
-        {/* Prepskm 2.0 Custom Mock Generator, Tilt & SM-2 Diagnostics, and 6-Step Multi-Crop Builder */}
-        <CustomMockAndTemperamentHub
-          onLaunchCustomTest={(generatedTest, generatedQs) => {
-            setCustomQuestions(generatedQs);
-            setActiveTest(generatedTest);
-          }}
-        />
+        {/* Dedicated Custom CBT Mock Builder CTA Banner */}
+        <div className="rounded-2xl bg-gradient-to-r from-[#EEF4FF] via-[#F4F8FF] to-[#E6F7FF] dark:from-[#0F172A] dark:via-[#111D35] dark:to-[#0C2233] border border-[#06B6D4]/30 p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1.5 max-w-2xl">
+            <div className="inline-flex items-center gap-1.5 text-xs font-mono font-bold uppercase tracking-wider text-[#0284C7] dark:text-[#22D3EE]">
+              <Sliders className="w-3.5 h-3.5" />
+              Dedicated Custom Builder
+            </div>
+            <h2 className="font-display text-lg sm:text-xl font-bold text-[#0B1B3B] dark:text-white">
+              Create Your Own Chapter-Locked CBT Mock Test
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300">
+              Choose exact subjects, chapters, and question count (10Q, 25Q, 45Q, 75Q, or 180Q) with clean unprefixed stems and randomized A/B/C/D options.
+            </p>
+          </div>
+          <Link
+            to="/cbt-mocks/builder"
+            onClick={() => playClick()}
+            className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-extrabold bg-[#0284C7] dark:bg-[#06B6D4] text-white dark:text-[#070B14] hover:opacity-95 transition-opacity shrink-0 whitespace-nowrap"
+          >
+            Build Custom Mock
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
 
         {/* Published CBT Mocks Grid */}
         {publishedCbts.length === 0 ? (

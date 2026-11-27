@@ -23,6 +23,7 @@ import { ReusableButton } from '../components/ReusableButton';
 import { SeoHead } from '../components/SeoHead';
 import { ProTestAnalysisDashboard } from '../components/analytics/ProTestAnalysisDashboard';
 import { AiPrepScoreCard } from '../components/analytics/AiPrepScoreCard';
+import { AiRoleAvatar } from '../components/ai/AiRoleAvatar';
 import { useAuth } from '../context/AuthContext';
 import { usePlatformData } from '../context/PlatformDataContext';
 import { estimatePercentileAndRank } from '../utils/testAnalysisEngine';
@@ -248,16 +249,19 @@ export default function AnalyticsPage() {
       <ResponsiveContainer className="py-6 sm:py-8 space-y-6">
         {/* Page Header + Attempt Picker */}
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
-          <div className="space-y-1">
-            <p className="text-xs font-bold uppercase tracking-wider text-[#F97316]">
-              Deep Performance Intelligence · {activeCohortLabel}
-            </p>
-            <h1 className="font-display text-3xl sm:text-4xl font-extrabold text-[#0B1B3B] dark:text-white tracking-tight">
-              Test Analysis Dashboard
-            </h1>
-            <p className="text-base text-slate-600 dark:text-slate-400">
-              Inspect overall score, predicted percentile, attempt quality, difficulty tiers, and step-by-step solutions.
-            </p>
+          <div className="flex items-start gap-3.5">
+            <AiRoleAvatar role="analytics" size="lg" className="hidden sm:block mt-0.5" />
+            <div className="space-y-1">
+              <p className="text-xs font-bold uppercase tracking-wider text-[#F97316]">
+                AI Analytical Assistant · {activeCohortLabel}
+              </p>
+              <h1 className="font-display text-3xl sm:text-4xl font-extrabold text-[#0B1B3B] dark:text-white tracking-tight">
+                Test Analysis Dashboard
+              </h1>
+              <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400">
+                Inspect overall score, predicted percentile, attempt quality, difficulty tiers, and compact step-by-step solutions.
+              </p>
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-3 shrink-0">

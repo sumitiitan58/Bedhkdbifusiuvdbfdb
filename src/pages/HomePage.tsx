@@ -23,7 +23,7 @@ import {
   Users,
   Zap,
 } from 'lucide-react';
-import prepsbotMascotImg from '../assets/images/prepsbot_3d_transparent.png';
+import { AiRoleAvatar } from '../components/ai/AiRoleAvatar';
 import { PageLayout } from '../layouts/PageLayout';
 import { ResponsiveContainer } from '../components/ResponsiveContainer';
 import { SeoHead } from '../components/SeoHead';
@@ -214,8 +214,8 @@ export default function HomePage() {
   return (
     <PageLayout>
       <SeoHead
-        title="Prepskm 2.0 — Concept-Mapped PYQs, Real NTA CBT Mocks & 1:1 IIT/AIIMS Mentors"
-        description="Master JEE Main/Adv, NEET UG, and Class 9–12 with zero-login Guest Mode, Concept-Mapped PYQs, 2027 High-Yield Predictor, NCERT-to-PYQ Mapper, and 1:1 IIT/AIIMS Mentors."
+        title="Prepskm — Study Materials, Chapter DPPs & NTA CBT Mock Tests for JEE & NEET"
+        description="Prepare for JEE Main/Adv, NEET UG, and Class 9–12 with curated Study Materials & Notes, interactive Chapter DPPs, NTA CBT Mock Tests, Preps AI, and Apex Arena."
         canonicalPath="/"
       />
 
@@ -249,12 +249,12 @@ export default function HomePage() {
                 <span className="text-[#94A3B8]" aria-hidden="true">·</span>
                 <span className="inline-flex items-center gap-1.5">
                   <BookOpen className="w-4 h-4 text-[#15803D] dark:text-[#22C55E]" />
-                  {t('hero.metricNcert')}
+                  Study Materials &amp; Keep Notes
                 </span>
                 <span className="text-[#94A3B8]" aria-hidden="true">·</span>
                 <span className="inline-flex items-center gap-1.5">
                   <Award className="w-4 h-4 text-[#EA580C] dark:text-[#F97316]" />
-                  {t('hero.metricMentor')}
+                  Chapter DPPs &amp; Interactive Quizzes
                 </span>
               </div>
 
@@ -269,12 +269,12 @@ export default function HomePage() {
                   {t('hero.ctaMock')}
                 </Link>
                 <Link
-                  to="/mentors"
+                  to="/materials"
                   onClick={() => playNav()}
                   className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-bold bg-[#FFFFFF] dark:bg-[#0F172A] hover:bg-[#EEF4FF] dark:hover:bg-[#162033] text-[#0B1F3A] dark:text-[#F8FAFC] border border-[#E2E8F0] dark:border-white/[0.12] transition-colors"
                 >
-                  <Users className="w-4 h-4 text-[#EA580C] dark:text-[#F97316]" />
-                  {t('hero.ctaMentor')}
+                  <BookOpen className="w-4 h-4 text-[#0284C7] dark:text-[#06B6D4]" />
+                  Study Materials &amp; Notes
                 </Link>
               </div>
             </div>
@@ -291,14 +291,10 @@ export default function HomePage() {
                         playClick();
                         setCopilotOpen(true);
                       }}
-                      className="h-14 w-14 rounded-2xl bg-[#EEF4FF] dark:bg-[#162033] border border-[#E2E8F0] dark:border-white/[0.08] flex items-center justify-center shrink-0 hover:scale-105 transition-transform"
-                      title="Ask PrepsBot AI Tutor"
+                      className="rounded-2xl shrink-0 hover:scale-105 transition-transform"
+                      title="Ask PrepsAI Mentor"
                     >
-                      <img
-                        src={prepsbotMascotImg}
-                        alt="PrepsBot 3D AI Mascot"
-                        className="h-12 w-12 object-contain"
-                      />
+                      <AiRoleAvatar role="mentor" size="md" />
                     </button>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
@@ -901,44 +897,44 @@ export default function HomePage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {[
               {
-                title: 'Concept-Mapped PYQ Hub',
-                desc: 'Group 2019–2026 JEE & NEET PYQs by exact NTA concept with bilingual EN/हिं KaTeX solutions.',
-                to: '/learn?tab=pyqs',
-                icon: Layers,
+                title: 'Study Materials & Notes',
+                desc: 'Browse curated concise chapter notes, formula sheets, syllabus guides, and personal Keep notes.',
+                to: '/materials',
+                icon: BookOpen,
                 accent: 'text-[#0284C7] dark:text-[#06B6D4]',
               },
               {
-                title: 'NCERT-to-PYQ Mapper',
-                desc: '50/50 split view tracing highlighted Class 11 & 12 NCERT lines directly to past exam questions.',
-                to: '/learn?tab=ncert',
-                icon: BookOpen,
+                title: 'Chapter DPPs & Interactive Quizzes',
+                desc: 'Practice chapter-wise Daily Practice Problems with timed quiz mode, +4/-1 scoring, and instant solutions.',
+                to: '/dpp',
+                icon: Layers,
                 accent: 'text-[#15803D] dark:text-[#22C55E]',
               },
               {
-                title: '2027 High-Yield Predictor',
-                desc: 'Recharts weightage chart & Tier 1–3 priority roadmap showing the highest-ROI chapters first.',
-                to: '/learn?tab=predictor',
-                icon: TrendingUp,
-                accent: 'text-[#EA580C] dark:text-[#F97316]',
-              },
-              {
-                title: 'NTA Custom CBT Mock Builder',
-                desc: 'Build 10, 25, or 45-question authentic +4/-1 NTA tests with instant Tilt & Mistake diagnostics.',
+                title: 'CBT Mock Tests & Custom Builder',
+                desc: 'Attempt NTA-pattern full mocks or open the dedicated Custom Mock Builder for chapter-locked practice.',
                 to: '/cbt-mocks',
                 icon: ClipboardCheck,
                 accent: 'text-[#0284C7] dark:text-[#22D3EE]',
               },
               {
-                title: 'Live Peer Community & Cut-offs',
-                desc: 'Join 6 active exam rooms, ask KaTeX doubts verified by mentors, and check JoSAA/MCC ranks.',
-                to: '/community',
-                icon: Users,
-                accent: 'text-[#15803D] dark:text-[#22C55E]',
+                title: 'NCERT-to-PYQ Mapper',
+                desc: '50/50 split view tracing highlighted Class 11 & 12 NCERT lines directly to past JEE & NEET questions.',
+                to: '/learn?tab=ncert',
+                icon: TrendingUp,
+                accent: 'text-[#EA580C] dark:text-[#F97316]',
               },
               {
-                title: '1:1 IIT/AIIMS Human Mentorship',
-                desc: 'Book 15-minute strategy sessions (₹129–₹149) with verified IIT Bombay, Delhi & AIIMS rankers.',
-                to: '/mentors',
+                title: 'Preps AI Chat & Live Tutor',
+                desc: 'Get step-by-step equation explanations, full-screen whiteboard tutoring, and instant doubt resolution.',
+                to: '/preps-ai',
+                icon: Sparkles,
+                accent: 'text-[#0284C7] dark:text-[#06B6D4]',
+              },
+              {
+                title: 'Apex Arena Study Games',
+                desc: 'Play Tactical Shooter, Bubble Shooter, and 1v1 AI duels where syllabus mastery unlocks ammo & power-ups.',
+                to: '/arena',
                 icon: Target,
                 accent: 'text-[#EA580C] dark:text-[#F97316]',
               },

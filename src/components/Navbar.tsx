@@ -23,10 +23,10 @@ interface NavbarProps {
 
 const NAV_LANG_KEYS: Record<string, string> = {
   '/': 'nav.home',
-  '/learn': 'nav.learn',
+  '/materials': 'nav.materials',
+  '/dpp': 'nav.dpp',
   '/cbt-mocks': 'nav.mocks',
-  '/community': 'nav.community',
-  '/mentors': 'nav.mentors',
+  '/arena': 'nav.arena',
 };
 
 const TRACK_OPTIONS: Array<{ id: ExamTrackId; shortLabel: string; fullLabel: string }> = [
@@ -51,7 +51,7 @@ export function Navbar({ onOpenSidebar, hideSidebarToggle = false }: NavbarProps
   return (
     <header className="sticky top-0 z-30 h-16 bg-[#F4F8FF]/85 dark:bg-[#070B14]/80 backdrop-blur-xl border-b border-[#E2E8F0] dark:border-white/[0.08]">
       <div className="w-full max-w-[1440px] mx-auto px-3 sm:px-4 md:px-6 h-full flex items-center justify-between gap-2 sm:gap-3">
-        {/* Left: Mobile Drawer Trigger + Prepskm Logo + 2.0 Cyan Badge */}
+        {/* Left: Mobile Drawer Trigger + Prepskm Logo */}
         <div className="flex items-center gap-2 shrink-0">
           {!hideSidebarToggle && onOpenSidebar && (
             <button
@@ -70,19 +70,16 @@ export function Navbar({ onOpenSidebar, hideSidebarToggle = false }: NavbarProps
           <Link
             to="/"
             onClick={() => playNav()}
-            aria-label="Prepskm 2.0 Home"
+            aria-label="Prepskm Home"
             className="inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 focus-visible:rounded-xl"
           >
             <BrandLogo variant="navbar" />
-            <span className="font-mono text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-[#06B6D4]/15 text-[#0284C7] dark:text-[#06B6D4] border border-[#06B6D4]/30 leading-none">
-              2.0
-            </span>
           </Link>
         </div>
 
-        {/* Center: 5 Primary Spaces Horizontal Pill Nav + Highlighted Pricing Link (Desktop) */}
+        {/* Center: Streamlined Primary Student Workflow Navigation (Desktop) */}
         <nav
-          aria-label="Primary 5-space navigation"
+          aria-label="Primary student navigation"
           className="hidden xl:flex items-center gap-1 p-1 rounded-full bg-[#EEF4FF]/90 dark:bg-[#0F172A]/90 border border-[#E2E8F0] dark:border-white/[0.08] shrink-0"
         >
           {PUBLIC_NAV_ROUTES.map((item) => {
@@ -94,7 +91,7 @@ export function Navbar({ onOpenSidebar, hideSidebarToggle = false }: NavbarProps
                 to={item.path}
                 onClick={() => playNav()}
                 aria-current={active ? 'page' : undefined}
-                className={`relative px-3 py-1.5 rounded-full text-xs font-semibold transition-colors whitespace-nowrap shrink-0 ${
+                className={`relative px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors whitespace-nowrap shrink-0 ${
                   active
                     ? 'text-[#070B14] dark:text-[#070B14]'
                     : 'text-[#475569] dark:text-[#94A3B8] hover:text-[#0B1F3A] dark:hover:text-[#F8FAFC]'
@@ -111,25 +108,6 @@ export function Navbar({ onOpenSidebar, hideSidebarToggle = false }: NavbarProps
               </Link>
             );
           })}
-
-          <Link
-            to="/pricing"
-            onClick={() => playNav()}
-            aria-current={isRouteActive(location.pathname, '/pricing') ? 'page' : undefined}
-            className={`relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors whitespace-nowrap shrink-0 ${
-              isRouteActive(location.pathname, '/pricing')
-                ? 'bg-[#F97316] text-white'
-                : 'text-[#EA580C] dark:text-[#FB923C] hover:bg-[#F97316]/10'
-            }`}
-          >
-            <span
-              aria-hidden="true"
-              className={`w-1.5 h-1.5 rounded-full ${
-                isRouteActive(location.pathname, '/pricing') ? 'bg-white' : 'bg-[#F97316]'
-              }`}
-            />
-            <span>{t('nav.pricing', 'Pricing')}</span>
-          </Link>
         </nav>
 
         {/* Right Utility Cluster (Compact, gap-2) */}

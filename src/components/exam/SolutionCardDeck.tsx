@@ -200,16 +200,16 @@ export function SolutionCardDeck({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Header + Status Filter Tabs */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-        <div className="flex items-baseline gap-2.5">
-          <h2 className="font-display text-base sm:text-lg font-bold text-[#0B1B3B] dark:text-white">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div className="flex items-baseline gap-2">
+          <h2 className="font-display text-base font-bold text-[#0B1B3B] dark:text-white">
             {title}
           </h2>
           {filteredItems.length > 0 && (
             <span className="font-mono text-xs font-semibold tabular-nums text-slate-500 dark:text-slate-400">
-              Card {safeIndex + 1} / {filteredItems.length}
+              {safeIndex + 1} / {filteredItems.length}
             </span>
           )}
         </div>
@@ -234,7 +234,7 @@ export function SolutionCardDeck({
                   playClick();
                   setFilterMode(tab.id);
                 }}
-                className={`min-h-9 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors tabular-nums ${
+                className={`min-h-8 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors tabular-nums ${
                   active
                     ? 'bg-[#0B1B3B] text-white border-[#0B1B3B] dark:bg-[#2563EB] dark:border-[#2563EB]'
                     : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
@@ -249,7 +249,7 @@ export function SolutionCardDeck({
 
       {/* Top Slideable Question Number Navigator Strip */}
       {filteredItems.length > 0 && (
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-[#111A2E]/90 p-2.5 sm:p-3 space-y-2">
+        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-[#111A2E]/90 p-2 space-y-1.5">
           <div className="flex items-center justify-between gap-2 text-[11px] text-slate-500 dark:text-slate-400">
             <span className="font-semibold text-slate-700 dark:text-slate-300">
               Slide &amp; tap any question number to jump directly
@@ -382,7 +382,7 @@ export function SolutionCardDeck({
                 }`}
               >
                 {/* Card Top Metadata & Result Verdict */}
-                <div className="px-4 py-3.5 sm:px-5 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2.5 bg-slate-50/70 dark:bg-[#141F36] rounded-t-2xl">
+                <div className="px-3.5 py-2.5 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 bg-slate-50/70 dark:bg-[#141F36] rounded-t-2xl">
                   <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm min-w-0">
                     <span className="font-mono font-extrabold text-[#0B1B3B] dark:text-white tabular-nums">
                       Q{currentItem.question.questionNumber}
@@ -458,10 +458,10 @@ export function SolutionCardDeck({
                   </div>
                 </div>
 
-                {/* Card Body: Question (Top) -> Your vs Correct Answer (Middle) -> Solution (Bottom) */}
-                <div className="p-4 sm:p-5 space-y-4">
+                {/* Card Body: Compact Question -> Answer Verdict -> Solution */}
+                <div className="p-3 sm:p-4 space-y-3">
                   {/* TOP SECTION: QUESTION + ZOOM BUTTON */}
-                  <div className="space-y-2.5">
+                  <div className="space-y-2">
                     {(() => {
                       const resolvedQImg = resolveQuestionImageSrc(currentItem.question, imageTheme);
                       return (
@@ -484,14 +484,14 @@ export function SolutionCardDeck({
                                 });
                               }}
                               aria-label={`Zoom Question ${currentItem.question.questionNumber}`}
-                              className="inline-flex items-center gap-1.5 min-h-9 px-3 py-1.5 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700 bg-slate-50 hover:bg-blue-50 hover:border-[#2563EB] hover:text-[#2563EB] dark:bg-slate-900 dark:hover:bg-blue-950/60 dark:hover:border-sky-400 dark:hover:text-sky-300 text-slate-700 dark:text-slate-200 transition-colors"
+                              className="inline-flex items-center gap-1 min-h-7 px-2.5 py-1 rounded-lg text-[11px] font-semibold border border-slate-200 dark:border-slate-700 bg-slate-50 hover:bg-blue-50 hover:border-[#2563EB] hover:text-[#2563EB] dark:bg-slate-900 dark:hover:bg-blue-950/60 dark:hover:border-sky-400 dark:hover:text-sky-300 text-slate-700 dark:text-slate-200 transition-colors"
                             >
-                              <ZoomIn className="w-4 h-4" />
+                              <ZoomIn className="w-3.5 h-3.5" />
                               Zoom
                             </button>
                           </div>
 
-                          <div className="relative group rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0F182D] p-2 sm:p-2.5 overflow-x-auto">
+                          <div className="relative group rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0F182D] p-2 overflow-x-auto">
                             <img
                               src={resolvedQImg.src}
                               alt={resolvedQImg.alt}
@@ -505,7 +505,7 @@ export function SolutionCardDeck({
                                   kind: 'question',
                                 });
                               }}
-                              className="w-full max-w-[760px] h-auto object-contain mx-auto cursor-zoom-in select-none rounded-lg"
+                              className="w-full max-w-[680px] max-h-[210px] h-auto object-contain mx-auto cursor-zoom-in select-none rounded-lg"
                             />
                           </div>
                         </>
@@ -516,7 +516,7 @@ export function SolutionCardDeck({
                       (!currentItem.question.questionImageUrl?.startsWith('/assets/mocks/') ||
                         (currentItem.question.optionTexts ?? []).some(Boolean) ||
                         (currentItem.question.optionImageUrls ?? []).some(Boolean)) && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5">
                           {OPTION_LETTERS.map((letter, idx) => {
                             const isOfficial = (
                               currentItem.question.correctOptionIndices ?? []
@@ -572,10 +572,10 @@ export function SolutionCardDeck({
                       )}
                   </div>
 
-                  {/* MIDDLE SECTION: YOUR ANSWER VS CORRECT ANSWER */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800">
+                  {/* MIDDLE SECTION: COMPACT ANSWER COMPARISON */}
+                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                     <div
-                      className={`p-3 rounded-xl border flex items-center justify-between gap-2 ${
+                      className={`px-3 py-2 rounded-xl border flex items-center justify-between gap-2 ${
                         currentItem.status === 'correct'
                           ? 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/70'
                           : currentItem.status === 'wrong'
@@ -583,11 +583,11 @@ export function SolutionCardDeck({
                             : 'bg-slate-50 dark:bg-slate-900/70 border-slate-200 dark:border-slate-800'
                       }`}
                     >
-                      <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                      <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
                         Your Answer
                       </span>
                       <strong
-                        className={`font-mono text-sm font-bold ${
+                        className={`font-mono text-xs sm:text-sm font-bold ${
                           currentItem.status === 'correct'
                             ? 'text-emerald-800 dark:text-emerald-300'
                             : currentItem.status === 'wrong'
@@ -599,18 +599,18 @@ export function SolutionCardDeck({
                       </strong>
                     </div>
 
-                    <div className="p-3 rounded-xl border border-emerald-200 dark:border-emerald-800/70 bg-emerald-50/60 dark:bg-emerald-950/25 flex items-center justify-between gap-2">
-                      <span className="text-xs font-semibold text-emerald-800 dark:text-emerald-300">
-                        Correct Answer
+                    <div className="px-3 py-2 rounded-xl border border-emerald-200 dark:border-emerald-800/70 bg-emerald-50/60 dark:bg-emerald-950/25 flex items-center justify-between gap-2">
+                      <span className="text-[11px] font-semibold text-emerald-800 dark:text-emerald-300">
+                        Correct
                       </span>
-                      <strong className="font-mono text-sm font-bold text-emerald-800 dark:text-emerald-300">
+                      <strong className="font-mono text-xs sm:text-sm font-bold text-emerald-800 dark:text-emerald-300">
                         {formatOfficialAnswer(currentItem.question)}
                       </strong>
                     </div>
                   </div>
 
-                  {/* BOTTOM SECTION: DETAILED SOLUTION & LIVE TEACHER */}
-                  <div className="p-3.5 sm:p-4 rounded-xl bg-slate-50 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 space-y-2.5">
+                  {/* BOTTOM SECTION: COMPACT DETAILED SOLUTION & LIVE TEACHER */}
+                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 space-y-2">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <p className="text-xs font-bold uppercase tracking-wider text-[#0B1B3B] dark:text-sky-400">
                           Detailed Solution
@@ -684,7 +684,7 @@ export function SolutionCardDeck({
                       </div>
 
                       {currentItem.question.solutionImageUrl && (
-                        <div className="rounded-xl bg-white p-2.5 border border-slate-200/90 dark:border-slate-700 overflow-x-auto">
+                        <div className="rounded-xl bg-white p-2 border border-slate-200/90 dark:border-slate-700 overflow-x-auto">
                           <img
                             src={currentItem.question.solutionImageUrl}
                             alt={`Solution for Question ${currentItem.question.questionNumber}`}
@@ -698,14 +698,14 @@ export function SolutionCardDeck({
                                 kind: 'solution',
                               });
                             }}
-                            className="w-full max-w-[700px] h-auto object-contain mx-auto cursor-zoom-in select-none"
+                            className="w-full max-w-[640px] max-h-[220px] h-auto object-contain mx-auto cursor-zoom-in select-none"
                           />
                         </div>
                       )}
 
                       {currentItem.question.solutionText &&
                         !currentItem.question.solutionImageUrl?.startsWith('/assets/mocks/') && (
-                          <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-line">
+                          <p className="text-xs sm:text-[13px] text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-line">
                             {currentItem.question.solutionText}
                           </p>
                         )}
@@ -745,26 +745,26 @@ export function SolutionCardDeck({
                 </div>
 
                 {/* Card Bottom Deck Navigation Controls */}
-                <div className="px-4 py-3 sm:px-5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3 bg-slate-50/50 dark:bg-[#0F172A]/60 rounded-b-2xl">
+                <div className="px-3.5 py-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3 bg-slate-50/50 dark:bg-[#0F172A]/60 rounded-b-2xl">
                   <button
                     type="button"
                     disabled={safeIndex === 0}
                     onClick={handlePrev}
-                    className="min-h-11 px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-200 hover:border-[#2563EB] disabled:opacity-40 inline-flex items-center gap-1.5 transition-colors"
+                    className="min-h-9 px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:border-[#2563EB] disabled:opacity-40 inline-flex items-center gap-1 transition-colors"
                   >
                     <ChevronLeft className="w-4 h-4" />
-                    Previous
+                    Prev
                   </button>
 
-                  <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 text-center">
-                    Swipe card left / right or use arrows
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 text-center">
+                    Swipe or use ← →
                   </p>
 
                   <button
                     type="button"
                     disabled={safeIndex >= filteredItems.length - 1}
                     onClick={handleNext}
-                    className="min-h-11 px-4 py-2 rounded-xl bg-[#0B1B3B] hover:bg-[#1E293B] dark:bg-[#2563EB] dark:hover:bg-[#1D4ED8] text-white text-xs sm:text-sm font-semibold disabled:opacity-40 inline-flex items-center gap-1.5 transition-colors"
+                    className="min-h-9 px-3.5 py-1.5 rounded-xl bg-[#0B1B3B] hover:bg-[#1E293B] dark:bg-[#2563EB] dark:hover:bg-[#1D4ED8] text-white text-xs font-semibold disabled:opacity-40 inline-flex items-center gap-1 transition-colors"
                   >
                     Next
                     <ChevronRight className="w-4 h-4" />

@@ -255,3 +255,60 @@ export function playSwipeTick(bucket: 'skip' | 'round2' | 'solve'): void {
     playTone(390, 270, 0.07, 0.03, 'triangle', 0);
   }
 }
+
+/** Pitch-varied tactical laser shot SFX */
+export function playLaserShot(): void {
+  const jitter = 0.92 + Math.random() * 0.16;
+  playTone(940 * jitter, 280 * jitter, 0.085, 0.034, 'sawtooth', 0);
+  playTone(1380 * jitter, 520 * jitter, 0.055, 0.02, 'triangle', 0.01);
+}
+
+/** Crisp hit marker confirmation sound */
+export function playEnemyHit(): void {
+  const jitter = 0.94 + Math.random() * 0.12;
+  playTone(620 * jitter, 980 * jitter, 0.045, 0.028, 'triangle', 0);
+}
+
+/** Punchy impact burst when eliminating an arena target */
+export function playEnemyEliminated(): void {
+  playTone(340, 95, 0.16, 0.055, 'sawtooth', 0);
+  playTone(740, 1180, 0.11, 0.032, 'sine', 0.03);
+  playNoiseSweep(1400, 720, 220, 0.14, 0.08, 1.2, 0);
+}
+
+/** Tactical clip reload confirmation chime */
+export function playReloadChime(): void {
+  playTone(440, 554.37, 0.075, 0.034, 'triangle', 0);
+  playTone(659.25, 880, 0.11, 0.038, 'sine', 0.065);
+}
+
+/** Uplifting 4-note revive fanfare when answering a Revive question correctly */
+export function playReviveFanfare(): void {
+  playTone(440, 440, 0.08, 0.036, 'sine', 0);
+  playTone(554.37, 554.37, 0.085, 0.038, 'sine', 0.07);
+  playTone(659.25, 659.25, 0.095, 0.04, 'triangle', 0.14);
+  playTone(880, 987.77, 0.18, 0.042, 'sine', 0.21);
+}
+
+/** Glossy pitch-scaled bubble pop cascade SFX */
+export function playBubblePop(clusterSize = 3): void {
+  const count = Math.max(1, Math.min(5, clusterSize));
+  for (let i = 0; i < count; i++) {
+    const base = 480 * Math.pow(1.12, i);
+    playTone(base, base * 1.45, 0.065, 0.032, 'sine', i * 0.035);
+  }
+}
+
+/** Triumphant level-clear chord progression */
+export function playLevelClear(): void {
+  playTone(523.25, 523.25, 0.1, 0.04, 'triangle', 0);
+  playTone(659.25, 659.25, 0.1, 0.042, 'sine', 0.08);
+  playTone(783.99, 783.99, 0.12, 0.044, 'sine', 0.16);
+  playTone(1046.5, 1174.66, 0.22, 0.046, 'triangle', 0.24);
+}
+
+/** Low-impact thud when player takes damage */
+export function playPlayerDamage(): void {
+  playTone(190, 72, 0.18, 0.065, 'sawtooth', 0);
+  playNoiseSweep(700, 340, 140, 0.12, 0.085, 1.0, 0);
+}

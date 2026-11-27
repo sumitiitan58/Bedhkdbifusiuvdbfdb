@@ -10,22 +10,22 @@ import {
 } from './navigation.ts';
 import { STARTER_CLASS_GROUPS, STUDENT_COHORTS } from '../services/platformRegistry.ts';
 
-test('PUBLIC_NAV_ROUTES exposes 5 clean Prepskm 2.0 spaces and hides /admin from public nav', () => {
+test('PUBLIC_NAV_ROUTES exposes 5 streamlined student workflow spaces and hides /mentors and /admin from public nav', () => {
   const navPaths = PUBLIC_NAV_ROUTES.map((r) => r.path);
   assert.deepEqual(navPaths, [
     '/',
-    '/learn',
+    '/materials',
+    '/dpp',
     '/cbt-mocks',
-    '/community',
-    '/mentors',
+    '/arena',
   ]);
+  assert.equal(navPaths.includes('/mentors'), false);
   assert.equal(navPaths.includes('/lectures'), false);
   assert.equal(navPaths.includes('/admin'), false);
   assert.deepEqual(
     MOBILE_BOTTOM_TABS.map((t) => t.path),
-    ['/', '/learn', '/cbt-mocks', '/community', '/mentors']
+    ['/', '/materials', '/dpp', '/cbt-mocks', '/arena']
   );
-  assert.ok(ALL_APP_ROUTES.some((r) => r.path === '/pricing'));
   assert.ok(ALL_APP_ROUTES.some((r) => r.path === '/profile'));
   assert.ok(ALL_APP_ROUTES.some((r) => r.path === '/about'));
   assert.ok(ALL_APP_ROUTES.some((r) => r.path === '/admin' && r.showInPublicNav === false));

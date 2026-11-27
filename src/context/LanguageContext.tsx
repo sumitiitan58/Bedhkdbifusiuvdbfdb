@@ -38,20 +38,20 @@ const TRANSLATIONS: Record<string, { en: string; hi: string }> = {
   'top.zen': { en: 'Zen', hi: 'ज़ेन' },
 
   // Homepage Hero
-  'hero.eyebrow': { en: 'PREPSKM 2.0 · JEE + NEET + CLASS 9–12', hi: 'PREPSKM 2.0 · JEE + NEET + कक्षा 9–12' },
+  'hero.eyebrow': { en: 'PREPSKM · JEE + NEET + CLASS 9–12', hi: 'PREPSKM · JEE + NEET + कक्षा 9–12' },
   'hero.title': {
-    en: 'Master JEE & NEET with Concept-Mapped PYQs, Real NTA Mocks & 1:1 IIT/AIIMS Mentors.',
-    hi: 'कॉन्सेप्ट-मैप्ड PYQs, असली NTA मॉक्स और 1:1 IIT/AIIMS मेंटर्स के साथ JEE और NEET में टॉप करें।',
+    en: 'Master JEE & NEET with Concept-Mapped PYQs, Real NTA Mocks & Active Chapter DPPs.',
+    hi: 'कॉन्सेप्ट-मैप्ड PYQs, असली NTA मॉक्स और एक्टिव चैप्टर DPPs के साथ JEE और NEET में टॉप करें।',
   },
   'hero.subtitle': {
-    en: 'Zero-login Guest Mode lets you start practicing immediately with NCERT-to-PYQ mapping, 2027 weightage prediction, and authentic +4/-1 CBT testing.',
-    hi: 'बिना लॉगिन के गेस्ट मोड में तुरंत अभ्यास शुरू करें — NCERT-से-PYQ मैपिंग, 2027 वेटेज प्रिडिक्टर और असली +4/-1 CBT टेस्ट के साथ।',
+    en: 'Zero-login Guest Mode lets you start practicing immediately with curated Study Materials & Notes, NCERT-to-PYQ mapping, and authentic +4/-1 CBT testing.',
+    hi: 'बिना लॉगिन के गेस्ट मोड में तुरंत अभ्यास शुरू करें — स्टडी मटेरियल व नोट्स, NCERT-से-PYQ मैपिंग और असली +4/-1 CBT टेस्ट के साथ।',
   },
   'hero.ctaMock': { en: 'Start Free CBT Mock (Guest Mode)', hi: 'फ्री CBT मॉक शुरू करें (गेस्ट मोड)' },
-  'hero.ctaMentor': { en: 'Book 1:1 IIT/AIIMS Mentor', hi: '1:1 IIT/AIIMS मेंटर बुक करें' },
+  'hero.ctaMentor': { en: 'Browse Study Materials & Notes', hi: 'स्टडी मटेरियल व नोट्स देखें' },
   'hero.metricCbt': { en: 'NTA CBT Engine (+4/-1)', hi: 'NTA CBT इंजन (+4/-1)' },
-  'hero.metricNcert': { en: 'NCERT-to-PYQ & 2027 Predictor', hi: 'NCERT-से-PYQ व 2027 प्रिडिक्टर' },
-  'hero.metricMentor': { en: '1:1 Human Mentors (₹129/15m)', hi: '1:1 ह्यूमन मेंटर्स (₹129/15m)' },
+  'hero.metricNcert': { en: 'NCERT-to-PYQ & Chapter Notes', hi: 'NCERT-से-PYQ व चैप्टर नोट्स' },
+  'hero.metricMentor': { en: 'Chapter DPPs & Interactive Quizzes', hi: 'चैप्टर DPPs व इंटरैक्टिव क्विज़' },
 
   // Homepage Study Deck Tabs
   'deck.title': { en: 'Interactive Study Workspace', hi: 'इंटरैक्टिव स्टडी वर्कस्पेस' },
