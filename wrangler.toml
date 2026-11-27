@@ -14,8 +14,9 @@
 #   CLOUDFLARE_ACCOUNT_ID
 
 name = "prepskm"
-compatibility_date = "2025-02-01"
+main = "src/index.ts"
 pages_build_output_dir = "dist"
+compatibility_date = "2025-02-01"
 
 [vars]
 NODE_VERSION = "22"
