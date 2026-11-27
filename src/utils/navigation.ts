@@ -4,43 +4,55 @@ import { STUDENT_COHORTS } from '../services/platformRegistry';
 export const PUBLIC_NAV_ROUTES: NavRouteItem[] = [
   {
     path: '/',
-    label: 'Dashboard',
-    shortDescription: 'Study overview, daily streak, exam countdown & quick actions',
+    label: 'Home',
+    shortDescription: 'Adaptive Bento OS, Formula Check, Percentile Predictor & Chapter Mastery',
+    showInPublicNav: true,
+  },
+  {
+    path: '/arena',
+    label: 'Arena Games',
+    shortDescription: 'AI Custom Game Generator, Reaction Chain Duel, Formula Blitz & Elo League',
     showInPublicNav: true,
   },
   {
     path: '/cbt-mocks',
-    label: 'All Tests (CBT)',
-    shortDescription: 'NTA-style JEE & NEET computer-based mock tests',
+    label: 'CBT Mocks',
+    shortDescription: 'Auto NTA Light Mode CBT Simulator, Custom Generator & Tilt Diagnostics',
     showInPublicNav: true,
   },
   {
     path: '/materials',
-    label: 'Study Materials',
-    shortDescription: 'Chapter notes, formula sheets, PYQs & inline Chapter DPPs',
+    label: 'AI & Notes',
+    shortDescription: 'Chapter notes, formula sheets, PYQs, inline DPPs & AI study resources',
     showInPublicNav: true,
   },
   {
-    path: '/analytics',
-    label: 'Test Analysis',
-    shortDescription: 'Prep Score (0–100), percentile, pacing & Google Sheets sync',
-    showInPublicNav: true,
-  },
-  {
-    path: '/mistakes',
-    label: 'Mistake Notebook',
-    shortDescription: 'AI error pattern diagnosis, personalized re-attempt sets & vault',
-    showInPublicNav: true,
-  },
-  {
-    path: '/preps-ai',
-    label: 'Preps AI',
-    shortDescription: 'Compact voice & chat AI mentor synced with your live context',
+    path: '/mentors',
+    label: 'Mentors',
+    shortDescription: 'Verified IIT/AIIMS 1:1 passes, live audio/video room, forum & peer finder',
     showInPublicNav: true,
   },
 ];
 
 export const SECONDARY_SIDEBAR_ROUTES: NavRouteItem[] = [
+  {
+    path: '/preps-ai',
+    label: 'Preps AI Chat',
+    shortDescription: 'Full-screen Gemini AI study mentor synced with live exam context',
+    showInPublicNav: false,
+  },
+  {
+    path: '/analytics',
+    label: 'Test Analysis',
+    shortDescription: 'Prep Score (0–100), percentile, pacing & Google Sheets sync',
+    showInPublicNav: false,
+  },
+  {
+    path: '/mistakes',
+    label: 'Mistake Notebook',
+    shortDescription: 'AI error pattern diagnosis, SM-2 re-attempt sets & vault',
+    showInPublicNav: false,
+  },
   {
     path: '/profile',
     label: 'Profile & Track',
@@ -57,10 +69,10 @@ export const SECONDARY_SIDEBAR_ROUTES: NavRouteItem[] = [
 
 export const MOBILE_BOTTOM_TABS: { path: RoutePath; label: string }[] = [
   { path: '/', label: 'Home' },
-  { path: '/cbt-mocks', label: 'Tests' },
+  { path: '/arena', label: 'Arena' },
+  { path: '/cbt-mocks', label: 'CBT' },
   { path: '/materials', label: 'Notes' },
-  { path: '/analytics', label: 'Analysis' },
-  { path: '/mistakes', label: 'Mistakes' },
+  { path: '/mentors', label: 'Mentors' },
 ];
 
 export const ALL_APP_ROUTES: NavRouteItem[] = [

@@ -11,11 +11,11 @@ export function parseStoredTheme(raw: string | null | undefined): ThemeMode | nu
 
 export function resolveInitialTheme(
   storedRaw: string | null | undefined,
-  systemPrefersDark: boolean
+  _systemPrefersDark: boolean
 ): ThemeMode {
   const stored = parseStoredTheme(storedRaw);
   if (stored) return stored;
-  return systemPrefersDark ? 'dark' : 'light';
+  return 'dark';
 }
 
 export function getNextTheme(current: ThemeMode): ThemeMode {

@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import {
@@ -6,11 +7,15 @@ import {
   BookOpen,
   ClipboardCheck,
   FileSpreadsheet,
+  Gamepad2,
   Info,
   LayoutDashboard,
+  PanelLeftClose,
+  PanelLeftOpen,
   ShieldCheck,
   Sparkles,
   UserCircle2,
+  Users,
   X,
 } from 'lucide-react';
 import { BrandLogo } from './BrandLogo';
@@ -21,15 +26,17 @@ import {
 } from '../utils/navigation';
 import { useAuth } from '../context/AuthContext';
 import { usePlatformData } from '../context/PlatformDataContext';
+import { usePrepskm2 } from '../context/Prepskm2Context';
 import { extractMistakeEntries } from '../utils/testAnalysisEngine';
 import { playClick, playNav } from '../utils/soundEffects';
 import type { RoutePath } from '../types';
-import { useMemo } from 'react';
 
 const ROUTE_ICONS: Record<string, typeof LayoutDashboard> = {
   '/': LayoutDashboard,
+  '/arena': Gamepad2,
   '/cbt-mocks': ClipboardCheck,
   '/materials': BookOpen,
+  '/mentors': Users,
   '/analytics': BarChart3,
   '/mistakes': BookMarked,
   '/preps-ai': Sparkles,
@@ -48,6 +55,7 @@ export function AppSidebar({ mobileOpen, onCloseMobile }: AppSidebarProps) {
   const location = useLocation();
   const { isAdmin, cohortId, openOnboardingModal } = useAuth();
   const { allCohorts, attempts, questions, resolvedMistakeIds } = usePlatformData();
+  const { sidebarCollapsed, toggleSidebarCollapsed } = usePrepskm2();
 
   const activeCohortLabel = useMemo(
     () => allCohorts.find((c) => c.id === cohortId)?.label ?? 'Class 12 JEE',
@@ -62,173 +70,218 @@ export function AppSidebar({ mobileOpen, onCloseMobile }: AppSidebarProps) {
     ).length;
   }, [attempts, questions, resolvedMistakeIds]);
 
-  const renderNavContent = (isMobileDrawer: boolean) => (
-    <div className="flex flex-col h-full bg-white dark:bg-[#0C1324] border-r border-slate-200/90 dark:border-slate-800/90">
-      {/* Brand Header */}
-      <div className="h-16 px-5 flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 shrink-0">
-        <Link
-          to="/"
-          onClick={() => {
-            playNav();
-            if (isMobileDrawer) onCloseMobile();
-          }}
-          aria-label="PREPSKM.IN Dashboard"
-          className="inline-flex items-center focus-visible:rounded-xl"
+  const renderNavContent = (isMobileDrawer: boolean) => {
+    const collapsed = !isMobileDrawer && sidebarCollapsed;
+
+    return (
+      <div className="flex flex-col h-full bg-white dark:bg-[#09090B] border-r border-slate-200/90 dark:border-white/[0.08]">
+        {/* Brand Header */}
+        <div
+          className={`h-16 flex items-center border-b border-slate-100 dark:border-white/[0.07] shrink-0 ${
+            collapsed ? 'px-2 justify-center' : 'px-4 justify-between'
+          }`}
         >
-          <BrandLogo variant="navbar" />
-        </Link>
-
-        {isMobileDrawer && (
-          <button
-            type="button"
-            onClick={() => {
-              playClick();
-              onCloseMobile();
-            }}
-            aria-label="Close navigation sidebar"
-            className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        )}
-      </div>
-
-      {/* Navigation Links */}
-      <div className="flex-1 overflow-y-auto px-3.5 py-5 space-y-6">
-        <nav aria-label="Main workspace navigation" className="space-y-1">
-          <p className="px-3 pb-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-            Workspace
-          </p>
-          {PUBLIC_NAV_ROUTES.map((item) => {
-            const active = isRouteActive(location.pathname, item.path);
-            const Icon = ROUTE_ICONS[item.path] ?? LayoutDashboard;
-            const isMistakes = item.path === '/mistakes';
-            const isAi = item.path === '/preps-ai';
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                onClick={() => {
-                  playNav();
-                  if (isMobileDrawer) onCloseMobile();
-                }}
-                aria-current={active ? 'page' : undefined}
-                className={`group flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${
-                  active
-                    ? 'bg-[#0B1B3B] text-white dark:bg-[#2563EB] dark:text-white shadow-xs'
-                    : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/70 hover:text-[#0B1B3B] dark:hover:text-white'
-                }`}
-              >
-                <span className="flex items-center gap-3 min-w-0">
-                  <Icon
-                    className={`w-[18px] h-[18px] shrink-0 ${
-                      active
-                        ? 'text-white'
-                        : isAi
-                          ? 'text-[#2563EB] dark:text-sky-400'
-                          : 'text-slate-500 dark:text-slate-400 group-hover:text-[#0B1B3B] dark:group-hover:text-white'
-                    }`}
-                  />
-                  <span className="truncate">{item.label}</span>
-                </span>
-
-                {isMistakes && unresolvedMistakeCount > 0 && (
-                  <span
-                    className={`font-mono text-[11px] font-bold tabular-nums px-1.5 py-0.5 rounded-md ${
-                      active
-                        ? 'bg-white/20 text-white'
-                        : 'bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-300'
-                    }`}
-                  >
-                    {unresolvedMistakeCount}
-                  </span>
-                )}
-              </Link>
-            );
-          })}
-        </nav>
-
-        <nav aria-label="Additional tools" className="space-y-1">
-          <p className="px-3 pb-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-            More Tools
-          </p>
-          {SECONDARY_SIDEBAR_ROUTES.map((item) => {
-            const active = isRouteActive(location.pathname, item.path);
-            const Icon = ROUTE_ICONS[item.path] ?? FileSpreadsheet;
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                onClick={() => {
-                  playNav();
-                  if (isMobileDrawer) onCloseMobile();
-                }}
-                aria-current={active ? 'page' : undefined}
-                className={`group flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-                  active
-                    ? 'bg-slate-100 dark:bg-slate-800 text-[#0B1B3B] dark:text-white font-semibold'
-                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-slate-800/60 hover:text-[#0B1B3B] dark:hover:text-white'
-                }`}
-              >
-                <Icon className="w-[18px] h-[18px] shrink-0 text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-200" />
-                <span className="truncate">{item.label}</span>
-              </Link>
-            );
-          })}
-
-          {isAdmin && (
+          {!collapsed && (
             <Link
-              to={'/admin' as RoutePath}
+              to="/"
               onClick={() => {
                 playNav();
                 if (isMobileDrawer) onCloseMobile();
               }}
-              aria-current={isRouteActive(location.pathname, '/admin') ? 'page' : undefined}
-              className={`group flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
-                isRouteActive(location.pathname, '/admin')
-                  ? 'bg-[#F97316] text-white'
-                  : 'text-[#F97316] hover:bg-orange-50 dark:hover:bg-orange-950/40'
-              }`}
+              aria-label="PREPSKM.IN Dashboard"
+              className="inline-flex items-center focus-visible:rounded-xl min-w-0"
             >
-              <ShieldCheck className="w-[18px] h-[18px] shrink-0" />
-              <span className="truncate">Admin Console</span>
+              <BrandLogo variant="navbar" />
             </Link>
           )}
-        </nav>
-      </div>
 
-      {/* Active Cohort Track Footer */}
-      <div className="p-4 border-t border-slate-100 dark:border-slate-800/80 shrink-0">
-        <div className="rounded-xl bg-slate-50 dark:bg-[#111A2E] border border-slate-200/80 dark:border-slate-800 p-3.5 space-y-2">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              Active Track
-            </span>
+          {isMobileDrawer ? (
             <button
               type="button"
               onClick={() => {
                 playClick();
-                if (isMobileDrawer) onCloseMobile();
-                openOnboardingModal();
+                onCloseMobile();
               }}
-              className="text-xs font-semibold text-[#2563EB] dark:text-sky-400 hover:underline"
+              aria-label="Close navigation sidebar"
+              className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.06]"
             >
-              Switch
+              <X className="w-5 h-5" />
             </button>
-          </div>
-          <p className="font-display text-sm font-bold text-[#0B1B3B] dark:text-white truncate">
-            {activeCohortLabel}
-          </p>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                playClick();
+                toggleSidebarCollapsed();
+              }}
+              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              className="p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-colors shrink-0"
+            >
+              {collapsed ? (
+                <PanelLeftOpen className="w-4 h-4" />
+              ) : (
+                <PanelLeftClose className="w-4 h-4" />
+              )}
+            </button>
+          )}
         </div>
+
+        {/* Navigation Links */}
+        <div className={`flex-1 overflow-y-auto py-5 space-y-6 ${collapsed ? 'px-2' : 'px-3.5'}`}>
+          <nav aria-label="Main workspace navigation" className="space-y-1">
+            {!collapsed && (
+              <p className="px-3 pb-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                5-Space OS
+              </p>
+            )}
+            {PUBLIC_NAV_ROUTES.map((item) => {
+              const active = isRouteActive(location.pathname, item.path);
+              const Icon = ROUTE_ICONS[item.path] ?? LayoutDashboard;
+              const isArena = item.path === '/arena';
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  title={collapsed ? item.label : undefined}
+                  onClick={() => {
+                    playNav();
+                    if (isMobileDrawer) onCloseMobile();
+                  }}
+                  aria-current={active ? 'page' : undefined}
+                  className={`group flex items-center ${
+                    collapsed ? 'justify-center px-2 py-2.5' : 'justify-between gap-3 px-3.5 py-2.5'
+                  } rounded-xl text-sm font-semibold transition-all duration-150 ${
+                    active
+                      ? 'bg-[#0B1B3B] text-white dark:bg-indigo-600 dark:text-white shadow-xs'
+                      : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.06] hover:text-[#0B1B3B] dark:hover:text-white'
+                  }`}
+                >
+                  <span className="flex items-center gap-3 min-w-0">
+                    <Icon
+                      className={`w-[18px] h-[18px] shrink-0 ${
+                        active
+                          ? 'text-white'
+                          : isArena
+                            ? 'text-amber-500 dark:text-amber-400'
+                            : 'text-slate-500 dark:text-slate-400 group-hover:text-[#0B1B3B] dark:group-hover:text-white'
+                      }`}
+                    />
+                    {!collapsed && <span className="truncate">{item.label}</span>}
+                  </span>
+                </Link>
+              );
+            })}
+          </nav>
+
+          <nav aria-label="Additional tools" className="space-y-1">
+            {!collapsed && (
+              <p className="px-3 pb-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                Deep Tools
+              </p>
+            )}
+            {SECONDARY_SIDEBAR_ROUTES.map((item) => {
+              const active = isRouteActive(location.pathname, item.path);
+              const Icon = ROUTE_ICONS[item.path] ?? FileSpreadsheet;
+              const isMistakes = item.path === '/mistakes';
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  title={collapsed ? item.label : undefined}
+                  onClick={() => {
+                    playNav();
+                    if (isMobileDrawer) onCloseMobile();
+                  }}
+                  aria-current={active ? 'page' : undefined}
+                  className={`group flex items-center ${
+                    collapsed ? 'justify-center px-2 py-2.5' : 'justify-between gap-3 px-3.5 py-2.5'
+                  } rounded-xl text-sm font-medium transition-colors ${
+                    active
+                      ? 'bg-slate-100 dark:bg-white/[0.08] text-[#0B1B3B] dark:text-white font-semibold'
+                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-white/[0.05] hover:text-[#0B1B3B] dark:hover:text-white'
+                  }`}
+                >
+                  <span className="flex items-center gap-3 min-w-0">
+                    <Icon className="w-[18px] h-[18px] shrink-0 text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-200" />
+                    {!collapsed && <span className="truncate">{item.label}</span>}
+                  </span>
+                  {!collapsed && isMistakes && unresolvedMistakeCount > 0 && (
+                    <span className="font-mono text-[11px] font-bold tabular-nums px-1.5 py-0.5 rounded-md bg-rose-500/15 text-rose-600 dark:text-rose-300">
+                      {unresolvedMistakeCount}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+
+            {isAdmin && (
+              <Link
+                to={'/admin' as RoutePath}
+                title={collapsed ? 'Admin Console' : undefined}
+                onClick={() => {
+                  playNav();
+                  if (isMobileDrawer) onCloseMobile();
+                }}
+                aria-current={isRouteActive(location.pathname, '/admin') ? 'page' : undefined}
+                className={`group flex items-center ${
+                  collapsed ? 'justify-center px-2 py-2.5' : 'gap-3 px-3.5 py-2.5'
+                } rounded-xl text-sm font-semibold transition-colors ${
+                  isRouteActive(location.pathname, '/admin')
+                    ? 'bg-[#F97316] text-white'
+                    : 'text-[#F97316] hover:bg-orange-50 dark:hover:bg-orange-950/40'
+                }`}
+              >
+                <ShieldCheck className="w-[18px] h-[18px] shrink-0" />
+                {!collapsed && <span className="truncate">Admin Console</span>}
+              </Link>
+            )}
+          </nav>
+        </div>
+
+        {/* Active Cohort Track Footer */}
+        {!collapsed && (
+          <div className="p-4 border-t border-slate-100 dark:border-white/[0.07] shrink-0">
+            <div className="rounded-xl bg-slate-50 dark:bg-[#111114] border border-slate-200/80 dark:border-white/[0.08] p-3.5 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  Active Track
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    playClick();
+                    if (isMobileDrawer) onCloseMobile();
+                    openOnboardingModal();
+                  }}
+                  className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
+                >
+                  Switch
+                </button>
+              </div>
+              <p className="font-display text-sm font-bold text-[#0B1B3B] dark:text-white truncate">
+                {activeCohortLabel}
+              </p>
+            </div>
+          </div>
+        )}
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <>
-      {/* Desktop Persistent Left Sidebar */}
-      <aside className="hidden lg:block w-64 shrink-0">
-        <div className="fixed top-0 left-0 bottom-0 w-64 z-30">
+      {/* Desktop Persistent Collapsible Left Sidebar */}
+      <aside
+        className={`hidden lg:block shrink-0 transition-[width] duration-200 ${
+          sidebarCollapsed ? 'w-[72px]' : 'w-64'
+        }`}
+      >
+        <div
+          className={`fixed top-0 left-0 bottom-0 z-30 transition-[width] duration-200 ${
+            sidebarCollapsed ? 'w-[72px]' : 'w-64'
+          }`}
+        >
           {renderNavContent(false)}
         </div>
       </aside>
@@ -248,7 +301,7 @@ export function AppSidebar({ mobileOpen, onCloseMobile }: AppSidebarProps) {
               exit={{ opacity: 0 }}
               transition={{ duration: 0.18 }}
               onClick={onCloseMobile}
-              className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs"
+              className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs"
             />
             <motion.div
               initial={{ x: '-100%' }}

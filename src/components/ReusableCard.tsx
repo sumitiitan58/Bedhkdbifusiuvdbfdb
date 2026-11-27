@@ -22,9 +22,9 @@ export function ReusableCard({
 }: ReusableCardProps) {
   return (
     <div
-      className={`bg-white dark:bg-[#111A2E] border border-slate-200/90 dark:border-slate-800 rounded-2xl transition-all duration-200 ${
+      className={`bg-white dark:bg-[#111114] border border-slate-200/90 dark:border-white/[0.08] rounded-2xl transition-all duration-200 ${
         interactive
-          ? 'hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-md dark:hover:shadow-black/30 hover:-translate-y-0.5'
+          ? 'hover:border-slate-300 dark:hover:border-white/[0.16] hover:shadow-md dark:hover:shadow-black/40 hover:-translate-y-0.5'
           : 'shadow-xs dark:shadow-none'
       } ${PADDING_CLASSES[padding]} ${className}`}
     >

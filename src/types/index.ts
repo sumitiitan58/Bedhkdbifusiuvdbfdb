@@ -2,6 +2,7 @@ export type ThemeMode = 'light' | 'dark';
 
 export type RoutePath =
   | '/'
+  | '/arena'
   | '/materials'
   | '/lectures'
   | '/cbt-mocks'
@@ -9,6 +10,7 @@ export type RoutePath =
   | '/analytics'
   | '/mistakes'
   | '/preps-ai'
+  | '/mentors'
   | '/profile'
   | '/about'
   | '/admin';

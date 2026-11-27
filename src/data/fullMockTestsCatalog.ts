@@ -68,7 +68,7 @@ function buildQuestionsFromSpecs(params: {
 // ============================================================================
 export const FULL_MOCK_TEST_2_RECORD: MockTestRecord = {
   id: FULL_MOCK_TEST_2_ID,
-  title: 'Full Mock Test 2 — High-Yield Full-Pattern',
+  title: 'High-Yield Mini Mock #2 — 15Q / 45m',
   slug: 'full-mock-test-2-jee-main-full-pattern',
   seoDescription:
     'Attempt Full Mock Test 2 (JEE Main High-Yield Full-Pattern) for Class 12 JEE & JEE Dropper on PREPSKM.IN — 15 high-yield cropped conceptual questions (Physics, Chemistry & Mathematics), 60 marks, 45 minutes, +4/-1 marking with exact step-by-step cropped solutions.',

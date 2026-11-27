@@ -18,6 +18,7 @@ import { ReusableCard } from '../components/ReusableCard';
 import { ReusableButton } from '../components/ReusableButton';
 import { SeoHead } from '../components/SeoHead';
 import { CbtExamRunner } from '../components/exam/CbtExamRunner';
+import { CustomMockAndTemperamentHub } from '../components/cbt-engine/CustomMockAndTemperamentHub';
 import { AttemptReviewModal } from '../components/analytics/AttemptReviewModal';
 import { useAuth } from '../context/AuthContext';
 import { usePlatformData } from '../context/PlatformDataContext';
@@ -28,14 +29,16 @@ import {
 import { CANONICAL_ORIGIN, getHierarchicalMockTestPath } from '../utils/seoHelpers';
 import { getTestCohortIds, testMatchesCohort } from '../utils/catalogMerge';
 import { playClick } from '../utils/soundEffects';
-import type { MockTestRecord, StudentCohortId, TestAttemptRecord } from '../types';
+import type { MockTestRecord, StudentCohortId, TestAttemptRecord, TestQuestionRecord } from '../types';
 
 export default function CbtMocksPage() {
   const { cohortId } = useAuth();
   const { allCohorts, mockTests, questions, attempts } = usePlatformData();
 
   const [filterCohort, setFilterCohort] = useState<StudentCohortId | 'all'>(cohortId || 'all');
+  const [patternFilter, setPatternFilter] = useState<'all' | 'full' | 'mini'>('all');
   const [activeTest, setActiveTest] = useState<MockTestRecord | null>(null);
+  const [customQuestions, setCustomQuestions] = useState<TestQuestionRecord[] | null>(null);
   const [syllabusTest, setSyllabusTest] = useState<MockTestRecord | null>(null);
   const [reviewAttempt, setReviewAttempt] = useState<TestAttemptRecord | null>(null);
 
@@ -49,9 +52,11 @@ export default function CbtMocksPage() {
         if (t.destination !== 'cbt-mock') return false;
         if (t.status !== 'published') return false;
         if (filterCohort !== 'all' && !testMatchesCohort(t, filterCohort)) return false;
+        if (patternFilter === 'full' && t.totalQuestions < 75) return false;
+        if (patternFilter === 'mini' && t.totalQuestions >= 75) return false;
         return true;
       }),
-    [filterCohort, mockTests]
+    [filterCohort, mockTests, patternFilter]
   );
 
   const cbtAttempts = useMemo(
@@ -59,10 +64,11 @@ export default function CbtMocksPage() {
     [attempts]
   );
 
-  const activeQuestions = useMemo(
-    () => (activeTest ? questions.filter((q) => q.testId === activeTest.id) : []),
-    [activeTest, questions]
-  );
+  const activeQuestions = useMemo(() => {
+    if (!activeTest) return [];
+    if (customQuestions && customQuestions.length > 0) return customQuestions;
+    return questions.filter((q) => q.testId === activeTest.id);
+  }, [activeTest, customQuestions, questions]);
 
   const syllabusModalData = useMemo(() => {
     if (!syllabusTest) return null;
@@ -86,7 +92,10 @@ export default function CbtMocksPage() {
           <CbtExamRunner
             test={activeTest}
             questions={activeQuestions}
-            onExit={() => setActiveTest(null)}
+            onExit={() => {
+              setActiveTest(null);
+              setCustomQuestions(null);
+            }}
           />
         </ResponsiveContainer>
       </PageLayout>
@@ -129,7 +138,33 @@ export default function CbtMocksPage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <div className="inline-flex rounded-xl border border-slate-200 dark:border-white/[0.10] bg-white dark:bg-[#111114] p-1">
+              {(
+                [
+                  { id: 'all', label: 'All' },
+                  { id: 'full', label: 'Full-Length 75Q+' },
+                  { id: 'mini', label: 'Mini / Sectional' },
+                ] as const
+              ).map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => {
+                    playClick();
+                    setPatternFilter(tab.id);
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap ${
+                    patternFilter === tab.id
+                      ? 'bg-indigo-600 text-white'
+                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
             <label htmlFor="cbt-cohort-filter" className="sr-only">
               Filter CBT mocks by class
             </label>
@@ -137,7 +172,7 @@ export default function CbtMocksPage() {
               id="cbt-cohort-filter"
               value={filterCohort}
               onChange={(e) => setFilterCohort(e.target.value as StudentCohortId | 'all')}
-              className="px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#111A2E] text-sm font-semibold"
+              className="px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.10] bg-white dark:bg-[#111114] text-sm font-semibold"
             >
               <option value="all">All Published Mocks</option>
               <option value={cohortId}>My Selected Track</option>
@@ -149,6 +184,14 @@ export default function CbtMocksPage() {
             </select>
           </div>
         </div>
+
+        {/* Prepskm 2.0 Custom Mock Generator, Tilt & SM-2 Diagnostics, and 6-Step Multi-Crop Builder */}
+        <CustomMockAndTemperamentHub
+          onLaunchCustomTest={(generatedTest, generatedQs) => {
+            setCustomQuestions(generatedQs);
+            setActiveTest(generatedTest);
+          }}
+        />
 
         {/* Published CBT Mocks Grid */}
         {publishedCbts.length === 0 ? (

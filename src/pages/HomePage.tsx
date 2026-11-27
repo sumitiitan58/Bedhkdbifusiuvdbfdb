@@ -34,13 +34,14 @@ import {
 } from 'recharts';
 import { PageLayout } from '../layouts/PageLayout';
 import { ResponsiveContainer } from '../components/ResponsiveContainer';
-import { BrandLogo } from '../components/BrandLogo';
 import { ReusableButton } from '../components/ReusableButton';
 import { ReusableCard } from '../components/ReusableCard';
 import { ClassSubClassPicker } from '../components/ClassSubClassPicker';
 import { GeminiMentorPanel } from '../components/ai/GeminiMentorPanel';
 import { StreakTargetWidget } from '../components/dashboard/StreakTargetWidget';
 import { StudyActivityHeatmap } from '../components/dashboard/StudyActivityHeatmap';
+import { Prepskm2HomeBento } from '../components/dashboard/Prepskm2HomeBento';
+import { ChapterMasteryAndBacklogHub } from '../components/planner/ChapterMasteryAndBacklogHub';
 import { AiPrepScoreCard } from '../components/analytics/AiPrepScoreCard';
 import { SeoHead } from '../components/SeoHead';
 import { useAuth } from '../context/AuthContext';
@@ -360,166 +361,124 @@ export default function HomePage() {
         keywords="Prepskm, prepskm.in, prepskm mock test, unfiltereddsumit, Prep Score 0-100, JEE Main 2027, NEET UG, Class 12 JEE, concise chapter notes, inline Chapter DPPs, NTA CBT mock tests"
       />
 
-      {/* Clean Light Hero Section */}
-      <section className="border-b border-slate-200/80 dark:border-slate-800/80 bg-gradient-to-b from-white via-[#F8FAFC] to-[#F1F5F9]/60 dark:from-[#0C1324] dark:via-[#090E1A] dark:to-[#090E1A]">
-        <ResponsiveContainer className="py-6 sm:py-10">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-center">
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.28 }}
-              className="lg:col-span-7 space-y-4"
-            >
-              <p className="text-[11px] font-bold uppercase tracking-widest text-[#F97316]">
-                PREPSKM.IN · JEE · NEET · Class 9–12 Boards
-              </p>
+      {/* Prepskm 2.0 Adaptive Bento OS Section */}
+      <section className="border-b border-slate-200/80 dark:border-white/[0.08] bg-gradient-to-b from-white via-[#F8FAFC] to-[#F1F5F9]/60 dark:from-[#09090B] dark:via-[#09090B] dark:to-[#0C0C10]">
+        <ResponsiveContainer className="py-6 sm:py-8 space-y-6">
+          <Prepskm2HomeBento />
 
-              <h1 className="font-display text-2xl sm:text-4xl font-extrabold tracking-tight text-[#0B1B3B] dark:text-white leading-[1.15] text-balance">
-                Chapter-wise concise notes, inline DPPs &amp; NTA CBT mocks.
-              </h1>
+          {/* Compact Track & Quick Stats Strip */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch pt-2">
+            <div className="lg:col-span-8 grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              <button
+                type="button"
+                onClick={() => scrollToSection('weekly-study-schedule')}
+                title={weeklyStats.completedTasks === 0 ? guestSyncHint : 'Jump to Weekly Study Schedule'}
+                className="group text-left p-3 rounded-2xl bg-white/90 dark:bg-[#111114] border border-slate-200/80 dark:border-white/[0.08] hover:border-indigo-500 dark:hover:border-indigo-400 hover:-translate-y-0.5 transition-all cursor-pointer"
+              >
+                <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 flex items-center justify-between gap-1">
+                  <span>Weekly</span>
+                  <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 text-indigo-500 transition-opacity" />
+                </p>
+                <p className="font-mono text-base sm:text-lg font-bold tabular-nums text-slate-950 dark:text-white mt-0.5">
+                  {weeklyStats.completedTasks}/{weeklyStats.totalTasks}
+                </p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  Tasks Done
+                </p>
+              </button>
 
-              <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 max-w-xl leading-relaxed">
-                Pick your class track, study chapter PDFs with inline Chapter DPPs, attempt
-                NTA-pattern CBT mock tests, fix error patterns, and track your Prep Score (0–100).
-              </p>
+              <button
+                type="button"
+                onClick={() => scrollToSection('study-toolkit', 'focus')}
+                title={progress.focusSessionsMinutes === 0 ? guestSyncHint : 'Jump to Focus Timer'}
+                className="group text-left p-3 rounded-2xl bg-white/90 dark:bg-[#111114] border border-slate-200/80 dark:border-white/[0.08] hover:border-indigo-500 dark:hover:border-indigo-400 hover:-translate-y-0.5 transition-all cursor-pointer"
+              >
+                <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 flex items-center justify-between gap-1">
+                  <span>Hours</span>
+                  <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 text-indigo-500 transition-opacity" />
+                </p>
+                <p className="font-mono text-base sm:text-lg font-bold tabular-nums text-indigo-600 dark:text-indigo-400 mt-0.5">
+                  {focusHours}h
+                </p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  Focus Logged
+                </p>
+              </button>
 
-              <div className="flex flex-wrap items-center gap-3 pt-1">
-                <ReusableButton variant="primary" size="md" to="/cbt-mocks">
-                  Start CBT Mock
-                  <ArrowRight className="w-4 h-4" />
-                </ReusableButton>
-                <ReusableButton variant="secondary" size="md" to="/materials">
-                  Notes &amp; Inline DPPs
-                </ReusableButton>
-                <ReusableButton variant="secondary" size="md" to="/mistakes">
-                  Mistake Notebook
-                </ReusableButton>
-                <ReusableButton variant="ghost" size="sm" to="/preps-ai">
-                  <Sparkles className="w-4 h-4 text-[#2563EB]" />
-                  Preps AI
-                </ReusableButton>
-              </div>
+              <button
+                type="button"
+                onClick={() => scrollToSection('study-toolkit', 'sprint')}
+                title={progress.plannerCompletedDays.length === 0 ? guestSyncHint : 'Jump to 60-Day Syllabus Sprint'}
+                className="group text-left p-3 rounded-2xl bg-white/90 dark:bg-[#111114] border border-slate-200/80 dark:border-white/[0.08] hover:border-amber-500 hover:-translate-y-0.5 transition-all cursor-pointer"
+              >
+                <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 flex items-center justify-between gap-1">
+                  <span>60-Day</span>
+                  <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 text-amber-500 transition-opacity" />
+                </p>
+                <p className="font-mono text-base sm:text-lg font-bold tabular-nums text-amber-600 dark:text-amber-400 mt-0.5">
+                  {progress.plannerCompletedDays.length}/60
+                </p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  Sprint Days
+                </p>
+              </button>
 
-              {/* 4 Interactive Hero Stat Cards with Micro-Subtitles & Hover Lift */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-3.5 border-t border-slate-200/80 dark:border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => scrollToSection('weekly-study-schedule')}
-                  title={weeklyStats.completedTasks === 0 ? guestSyncHint : 'Jump to Weekly Study Schedule'}
-                  className="group text-left p-3 rounded-2xl bg-white/90 dark:bg-[#111A2E]/90 border border-slate-200/80 dark:border-slate-800/80 hover:border-[#2563EB] dark:hover:border-sky-400 hover:-translate-y-0.5 hover:shadow-sm transition-all cursor-pointer"
-                >
-                  <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 flex items-center justify-between gap-1">
-                    <span>Weekly</span>
-                    <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 text-[#2563EB] transition-opacity" />
-                  </p>
-                  <p className="font-mono text-base sm:text-lg font-bold tabular-nums text-[#0B1B3B] dark:text-white mt-0.5">
-                    {weeklyStats.completedTasks}/{weeklyStats.totalTasks}
-                  </p>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                    Tasks Done
-                  </p>
-                </button>
+              <Link
+                to="/cbt-mocks"
+                onClick={() => playNav()}
+                title={attempts.length === 0 ? guestSyncHint : 'Open CBT Mock Tests'}
+                className="group text-left p-3 rounded-2xl bg-white/90 dark:bg-[#111114] border border-slate-200/80 dark:border-white/[0.08] hover:border-emerald-500 hover:-translate-y-0.5 transition-all cursor-pointer block"
+              >
+                <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 flex items-center justify-between gap-1">
+                  <span>Tests</span>
+                  <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 text-emerald-500 transition-opacity" />
+                </p>
+                <p className="font-mono text-base sm:text-lg font-bold tabular-nums text-emerald-600 dark:text-emerald-400 mt-0.5">
+                  {attempts.length}
+                </p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  Mocks Taken
+                </p>
+              </Link>
+            </div>
 
-                <button
-                  type="button"
-                  onClick={() => scrollToSection('study-toolkit', 'focus')}
-                  title={progress.focusSessionsMinutes === 0 ? guestSyncHint : 'Jump to Focus Timer'}
-                  className="group text-left p-3 rounded-2xl bg-white/90 dark:bg-[#111A2E]/90 border border-slate-200/80 dark:border-slate-800/80 hover:border-[#2563EB] dark:hover:border-sky-400 hover:-translate-y-0.5 hover:shadow-sm transition-all cursor-pointer"
-                >
-                  <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 flex items-center justify-between gap-1">
-                    <span>Hours</span>
-                    <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 text-[#2563EB] transition-opacity" />
+            {activeCohort && (
+              <div className="lg:col-span-4 rounded-2xl border border-slate-200/80 dark:border-white/[0.08] bg-white dark:bg-[#111114] px-4 py-3.5 flex items-center justify-between gap-3">
+                <div className="min-w-0 space-y-1">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    Active Track · {isGuest ? 'Guest Mode' : 'Google Synced'}
                   </p>
-                  <p className="font-mono text-base sm:text-lg font-bold tabular-nums text-[#2563EB] dark:text-sky-400 mt-0.5">
-                    {focusHours}h
-                  </p>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                    Focus Logged
-                  </p>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => scrollToSection('study-toolkit', 'sprint')}
-                  title={progress.plannerCompletedDays.length === 0 ? guestSyncHint : 'Jump to 60-Day Syllabus Sprint'}
-                  className="group text-left p-3 rounded-2xl bg-white/90 dark:bg-[#111A2E]/90 border border-slate-200/80 dark:border-slate-800/80 hover:border-[#F97316] hover:-translate-y-0.5 hover:shadow-sm transition-all cursor-pointer"
-                >
-                  <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 flex items-center justify-between gap-1">
-                    <span>60-Day</span>
-                    <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 text-[#F97316] transition-opacity" />
-                  </p>
-                  <p className="font-mono text-base sm:text-lg font-bold tabular-nums text-[#F97316] mt-0.5">
-                    {progress.plannerCompletedDays.length}/60
-                  </p>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                    Sprint Days
-                  </p>
-                </button>
-
-                <Link
-                  to="/cbt-mocks"
-                  onClick={() => playNav()}
-                  title={attempts.length === 0 ? guestSyncHint : 'Open CBT Mock Tests'}
-                  className="group text-left p-3 rounded-2xl bg-white/90 dark:bg-[#111A2E]/90 border border-slate-200/80 dark:border-slate-800/80 hover:border-[#10B981] hover:-translate-y-0.5 hover:shadow-sm transition-all cursor-pointer block"
-                >
-                  <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 flex items-center justify-between gap-1">
-                    <span>Tests</span>
-                    <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 text-[#10B981] transition-opacity" />
-                  </p>
-                  <p className="font-mono text-base sm:text-lg font-bold tabular-nums text-[#10B981] mt-0.5">
-                    {attempts.length}
-                  </p>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                    Mocks Taken
-                  </p>
-                </Link>
-              </div>
-            </motion.div>
-
-            {/* Compact Right Card: Emblem + Vertically Aligned Active Class Track */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.97 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.3, delay: 0.06 }}
-              className="lg:col-span-5 flex flex-col items-center lg:items-end"
-            >
-              <div className="w-full max-w-sm space-y-3">
-                <BrandLogo variant="hero" className="w-full" />
-                {activeCohort && (
-                  <div className="w-full rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-[#111A2E] px-4 py-3.5 shadow-xs flex items-center justify-between gap-3">
-                    <div className="min-w-0 space-y-1">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                        Active Track · {isGuest ? 'Guest Mode' : 'Google Synced'}
-                      </p>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-display text-sm sm:text-base font-bold text-[#0B1B3B] dark:text-white truncate">
-                          {activeCohort.label}
-                        </p>
-                        <span className="text-slate-300 dark:text-slate-700">·</span>
-                        <span className="text-xs font-semibold text-slate-600 dark:text-slate-300 shrink-0">
-                          {streamPillText}
-                        </span>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        playClick();
-                        openOnboardingModal();
-                      }}
-                      className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-blue-50 dark:bg-blue-950/60 text-[#2563EB] dark:text-sky-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors shrink-0 self-center"
-                    >
-                      {firebaseUser ? 'Switch' : 'Sign In'}
-                    </button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-display text-sm sm:text-base font-bold text-slate-950 dark:text-white truncate">
+                      {activeCohort.label}
+                    </p>
+                    <span className="text-slate-300 dark:text-slate-700">·</span>
+                    <span className="text-xs font-semibold text-slate-600 dark:text-slate-300 shrink-0">
+                      {streamPillText}
+                    </span>
                   </div>
-                )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    playClick();
+                    openOnboardingModal();
+                  }}
+                  className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-500/25 transition-colors shrink-0 self-center"
+                >
+                  {firebaseUser ? 'Switch' : 'Sign In'}
+                </button>
               </div>
-            </motion.div>
+            )}
           </div>
         </ResponsiveContainer>
       </section>
 
       <ResponsiveContainer className="py-8 sm:py-10 space-y-8 sm:space-y-10">
+        {/* 5-Stage Chapter Mastery Planner, Focus Timer & Backlog Clearance Hub */}
+        <motion.section {...REVEAL_PROPS} aria-label="Chapter mastery planner and backlog hub">
+          <ChapterMasteryAndBacklogHub />
+        </motion.section>
         {/* Dynamic Prep Score (0–100) Gauge + 4-Factor Breakdown + Google Workspace Sync */}
         <motion.section {...REVEAL_PROPS} aria-label="Prep Score readiness gauge">
           <AiPrepScoreCard

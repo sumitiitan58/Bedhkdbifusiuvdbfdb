@@ -170,7 +170,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=IBM+Plex+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap"
       rel="stylesheet"
     />
     <style id="prepskm-block-netlify-badge">
@@ -193,11 +193,12 @@
       (function () {
         try {
           var saved = localStorage.getItem('prepskm_theme_v1');
-          var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-          if (saved === 'dark' || (!saved && prefersDark)) {
+          if (saved !== 'light') {
             document.documentElement.classList.add('dark');
           }
-        } catch (e) {}
+        } catch (e) {
+          document.documentElement.classList.add('dark');
+        }
 
         var NETLIFY_SELECTOR =
           'iframe[src*="netlify"], [id*="netlify"], [class*="netlify"], [data-netlify-deploy-id], [data-netlify-deploy-preview], .netlify-drawer, #netlify-drawer, #netlify-identity-widget';
@@ -246,7 +247,7 @@
       })();
     </script>
   </head>
-  <body class="bg-[#F8FAFC] text-slate-900 dark:bg-[#090E1A] dark:text-slate-100 antialiased selection:bg-[#F97316]/20 selection:text-[#0B1B3B] dark:selection:text-amber-200 transition-colors duration-200">
+  <body class="bg-[#F8FAFC] text-slate-900 dark:bg-[#09090B] dark:text-slate-100 antialiased selection:bg-indigo-500/25 selection:text-slate-950 dark:selection:text-indigo-200 transition-colors duration-200">
     <div id="root">
       <!-- Static SEO & Instant First-Paint Homepage Shell (seamlessly replaced when React boots) -->
       <div style="font-family:'DM Sans',system-ui,sans-serif;max-width:1120px;margin:0 auto;padding:24px 16px;color:#0B1B3B;">

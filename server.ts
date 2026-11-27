@@ -167,6 +167,24 @@ function resolveRouteSeo(reqPath: string): RouteSeoSnapshot | null {
     };
   }
 
+  if (cleanPath === '/arena') {
+    return {
+      title: 'Prepskm Arena — AI Study Games, Formula Blitz & Elo League | Prepskm',
+      description:
+        'Play JEE & NEET study games: AI Custom Game Generator, Reaction Chain Duel, Formula Blitz, NCERT Line-Trap, Mistake Boss Fight & Paper Scanner Trainer.',
+      canonicalPath: '/arena',
+    };
+  }
+
+  if (cleanPath === '/mentors') {
+    return {
+      title: 'Verified IIT & AIIMS 1:1 Mentors, Doubt Forum & Peer Finder | Prepskm',
+      description:
+        'Book 1:1 mentorship passes with verified IIT & AIIMS toppers, join live audio/video doubt rooms, discuss in the subject forum & match with study peers.',
+      canonicalPath: '/mentors',
+    };
+  }
+
   if (cleanPath === '/about') {
     const aboutFaqJsonLd = {
       '@context': 'https://schema.org',
@@ -1147,6 +1165,101 @@ async function createApp() {
         ok: false,
         error: 'The AI Tutor could not complete this request right now. Please try again shortly.',
       });
+    }
+  });
+
+  // 7. Prepskm 2.0 Arena — AI Custom Study Game Generator (Gemini gemini-4-hydrogen + strict JSON schema)
+  app.post('/api/ai/generate-game', async (req, res) => {
+    try {
+      const ai = getGeminiClient();
+      const body = (req.body ?? {}) as {
+        exam?: string;
+        subject?: string;
+        chapter?: string;
+        format?: string;
+        difficulty?: string;
+        questionCount?: number;
+      };
+
+      const exam = String(body.exam ?? 'JEE Main').trim().slice(0, 40);
+      const subject = String(body.subject ?? 'Physics').trim().slice(0, 40);
+      const chapter = String(body.chapter ?? 'Electrostatics').trim().slice(0, 120);
+      const format = String(body.format ?? 'Formula Blitz').trim().slice(0, 60);
+      const difficulty = String(body.difficulty ?? 'Exam-Grade').trim().slice(0, 40);
+      const count = Math.min(8, Math.max(3, Number(body.questionCount) || 5));
+
+      const prompt = [
+        `Create a playable ${count}-question interactive study game for Indian ${exam} aspirants.`,
+        `Subject: ${subject} | Chapter/Topic: ${chapter} | Game Format: ${format} | Difficulty: ${difficulty}.`,
+        'Requirements:',
+        `- Every question must be authentically aligned with NCERT / ${exam} syllabus for "${chapter}".`,
+        '- Provide exactly 4 distinct options per question and accurate 0-based correctIndex (0..3).',
+        '- Set timeLimitSeconds between 20 and 60 depending on question complexity.',
+        '- Include a concise 1-sentence hint (without giving away the answer directly) and a crisp explanation with the exact formula or NCERT rule.',
+        '- Output strictly valid JSON matching the schema. Avoid raw markdown formatting.',
+      ].join('\n');
+
+      const response = await ai.models.generateContent({
+        model: GEMINI_MODEL,
+        contents: prompt,
+        config: {
+          systemInstruction:
+            'You are the Prepskm 2.0 Arena Game Designer for JEE Main, JEE Advanced, NEET UG, and Class 9-12 Boards. ' +
+            'Generate high-accuracy, trick-aware, zero-hallucination multiple-choice study game rounds strictly matching the JSON schema.',
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              title: { type: Type.STRING },
+              exam: { type: Type.STRING },
+              subject: { type: Type.STRING },
+              chapter: { type: Type.STRING },
+              format: { type: Type.STRING },
+              difficulty: { type: Type.STRING },
+              xpReward: { type: Type.INTEGER },
+              questions: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    id: { type: Type.STRING },
+                    prompt: { type: Type.STRING },
+                    options: {
+                      type: Type.ARRAY,
+                      items: { type: Type.STRING },
+                    },
+                    correctIndex: { type: Type.INTEGER },
+                    timeLimitSeconds: { type: Type.INTEGER },
+                    hint: { type: Type.STRING },
+                    explanation: { type: Type.STRING },
+                  },
+                  required: [
+                    'id',
+                    'prompt',
+                    'options',
+                    'correctIndex',
+                    'timeLimitSeconds',
+                    'hint',
+                    'explanation',
+                  ],
+                },
+              },
+            },
+            required: ['title', 'exam', 'subject', 'chapter', 'format', 'difficulty', 'xpReward', 'questions'],
+          },
+        },
+      });
+
+      const rawText = (response.text ?? '').trim();
+      if (!rawText) {
+        res.status(502).json({ ok: false, error: 'Gemini returned an empty game payload.' });
+        return;
+      }
+      const parsed = JSON.parse(rawText);
+      res.status(200).json({ ok: true, game: parsed });
+    } catch (err) {
+      const { status, message } = formatGeminiError(err);
+      res.status(status).json({ ok: false, error: message });
     }
   });
 

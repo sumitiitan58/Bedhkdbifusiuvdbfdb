@@ -159,7 +159,6 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
 
   const [retention, setRetention] = useState<StudentRetentionState>(() => {
     const saved = readLocal<Partial<StudentRetentionState> | null>(retentionKey, null);
-    const today = toLocalDateKey();
     return {
       bookmarkedQuestionIds: Array.isArray(saved?.bookmarkedQuestionIds)
         ? saved.bookmarkedQuestionIds
@@ -167,10 +166,9 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
       resolvedMistakeIds: Array.isArray(saved?.resolvedMistakeIds)
         ? saved.resolvedMistakeIds
         : [],
-      activeStudyDates:
-        Array.isArray(saved?.activeStudyDates) && saved.activeStudyDates.length > 0
-          ? saved.activeStudyDates
-          : [today],
+      activeStudyDates: Array.isArray(saved?.activeStudyDates)
+        ? saved.activeStudyDates
+        : [],
       targetExamDate: saved?.targetExamDate || defaultTarget.dateIso,
       targetExamLabel: saved?.targetExamLabel || defaultTarget.label,
     };
@@ -178,7 +176,6 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const saved = readLocal<Partial<StudentRetentionState> | null>(retentionKey, null);
-    const today = toLocalDateKey();
     setRetention({
       bookmarkedQuestionIds: Array.isArray(saved?.bookmarkedQuestionIds)
         ? saved.bookmarkedQuestionIds
@@ -186,10 +183,9 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
       resolvedMistakeIds: Array.isArray(saved?.resolvedMistakeIds)
         ? saved.resolvedMistakeIds
         : [],
-      activeStudyDates:
-        Array.isArray(saved?.activeStudyDates) && saved.activeStudyDates.length > 0
-          ? saved.activeStudyDates
-          : [today],
+      activeStudyDates: Array.isArray(saved?.activeStudyDates)
+        ? saved.activeStudyDates
+        : [],
       targetExamDate: saved?.targetExamDate || defaultTarget.dateIso,
       targetExamLabel: saved?.targetExamLabel || defaultTarget.label,
     });

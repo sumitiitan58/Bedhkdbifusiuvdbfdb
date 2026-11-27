@@ -9,11 +9,11 @@ test('parseStoredTheme accepts only light or dark', () => {
   assert.equal(parseStoredTheme(null), null);
 });
 
-test('resolveInitialTheme prioritizes stored value over system preference', () => {
+test('resolveInitialTheme prioritizes stored value and defaults to OLED dark mode', () => {
   assert.equal(resolveInitialTheme('dark', false), 'dark');
   assert.equal(resolveInitialTheme('light', true), 'light');
   assert.equal(resolveInitialTheme(null, true), 'dark');
-  assert.equal(resolveInitialTheme(undefined, false), 'light');
+  assert.equal(resolveInitialTheme(undefined, false), 'dark');
 });
 
 test('getNextTheme toggles cleanly between light and dark', () => {

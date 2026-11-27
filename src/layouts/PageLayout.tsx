@@ -34,7 +34,7 @@ export function PageLayout({
   const showBottomBar = !hideFooter && !hideMobileNav;
 
   return (
-    <div className="min-h-screen flex bg-[#F8FAFC] dark:bg-[#090E1A] text-slate-900 dark:text-slate-100 transition-colors duration-200 overflow-x-clip">
+    <div className="min-h-screen flex bg-[#F8FAFC] dark:bg-[#09090B] text-slate-900 dark:text-slate-100 transition-colors duration-200 overflow-x-clip">
       {!hideSidebar && (
         <AppSidebar
           mobileOpen={mobileSidebarOpen}

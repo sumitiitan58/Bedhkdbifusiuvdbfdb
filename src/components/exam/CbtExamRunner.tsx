@@ -116,8 +116,23 @@ function makeEmptyAnswer(q: TestQuestionRecord): StudentAnswerValue {
 export function CbtExamRunner({ test, questions, onExit }: CbtExamRunnerProps) {
   const { firebaseUser } = useAuth();
   const { iqConfig, recordAttempt } = usePlatformData();
-  const imageTheme = useContext(ThemeContext)?.theme === 'dark' ? 'dark' : 'light';
+  const themeCtx = useContext(ThemeContext);
+  // Authentic NTA Exam-Day Light Mode automatically activates during live CBT mocks
+  const imageTheme = 'light';
   const [imageViewMode, setImageViewMode] = useState(true);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const wasDark = root.classList.contains('dark');
+    root.classList.remove('dark');
+    root.dataset.ntaExamMode = 'light';
+    return () => {
+      delete root.dataset.ntaExamMode;
+      if (wasDark || themeCtx?.theme === 'dark') {
+        root.classList.add('dark');
+      }
+    };
+  }, [themeCtx?.theme]);
 
   const sortedQuestions = useMemo(
     () => [...questions].sort((a, b) => a.questionNumber - b.questionNumber),
@@ -721,6 +736,13 @@ export function CbtExamRunner({ test, questions, onExit }: CbtExamRunnerProps) {
             <span className="text-slate-300 dark:text-slate-700">|</span>
             <span className="text-xs font-semibold uppercase tracking-wide text-[#F97316]">
               {test.examType ?? test.examCategory}
+            </span>
+            <span className="text-slate-300 dark:text-slate-700">|</span>
+            <span
+              data-testid="nta-light-mode-indicator"
+              className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md"
+            >
+              NTA Exam-Day Light Mode
             </span>
             {roomExitWarnings > 0 && (
               <>
