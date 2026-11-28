@@ -25,6 +25,9 @@ import { useExam } from '../context/ExamContext';
 import { usePrepskm2 } from '../context/Prepskm2Context';
 import { usePlatformData } from '../context/PlatformDataContext';
 import { playClick, playNav, playSuccess } from '../utils/soundEffects';
+import { PENDING_TIMER_CMD_KEY } from '../utils/helloBuddyEngine';
+
+export { PENDING_TIMER_CMD_KEY };
 
 export type WorkspaceTab = 'practice' | 'focus' | 'mastery' | 'predictor';
 
@@ -37,8 +40,6 @@ const MASTERY_STAGES: Array<{ key: MasteryStageKey; label: string }> = [
   { key: 'rev1', label: 'Rev 1' },
   { key: 'rev2', label: 'Rev 2' },
 ];
-
-export const PENDING_TIMER_CMD_KEY = 'prepskm_pending_timer_cmd_v1';
 
 interface FocusTimerCommand {
   action: 'start' | 'pause' | 'reset';

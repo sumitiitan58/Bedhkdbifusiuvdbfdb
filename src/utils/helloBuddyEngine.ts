@@ -4,6 +4,7 @@ export const BUDDY_FIRST_WAKE_GREETING =
   'Hey! Main hoon Buddy, tumhara study friend. Tum mujhse bilkul ek dost ki tarah baat kar sakte ho—website ke kisi bhi feature ke baare mein poocho, koi doubt clear karo, ya mujhe bolo apna naam change karne, track switch karne, ya koi bhi chapter kholne ke liye. Main sab handle kar lunga!';
 
 export const BUDDY_ONBOARDED_STORAGE_KEY = 'prepskm_buddy_onboarded_v1';
+export const PENDING_TIMER_CMD_KEY = 'prepskm_pending_timer_cmd_v1';
 
 export type BuddyAction =
   | {

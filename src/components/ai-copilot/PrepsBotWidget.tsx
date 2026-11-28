@@ -11,10 +11,10 @@ import { requestPrepsAiChat, requestTutorTtsAudio } from '../../services/geminiC
 import {
   BUDDY_FIRST_WAKE_GREETING,
   BUDDY_ONBOARDED_STORAGE_KEY,
+  PENDING_TIMER_CMD_KEY,
   extractHelloBuddyWake,
   parseBuddyIntent,
 } from '../../utils/helloBuddyEngine';
-import { PENDING_TIMER_CMD_KEY } from '../../pages/WorkspacePage';
 import { playAiSparkle, playClick, playSuccess } from '../../utils/soundEffects';
 import { detectTutorResponseLanguage } from '../../utils/tutorLanguagePolicy';
 import { selectBestIndianVoice } from '../../utils/speakText';
