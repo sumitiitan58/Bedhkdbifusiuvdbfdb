@@ -2,7 +2,7 @@ import {
   parseJsonBody,
   resolveCorsHeaders,
   runLiveTeacherLessonWithFallback,
-} from '../_lib/aiGateway';
+} from '../_lib/aiGateway.js';
 
 export async function OPTIONS(request: Request): Promise<Response> {
   return new Response(null, {

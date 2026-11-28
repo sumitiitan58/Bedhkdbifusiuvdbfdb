@@ -3,7 +3,7 @@ import {
   resolveCorsHeaders,
   runTutorStudioWithFallback,
   sanitizeErrorMessage,
-} from '../_lib/aiGateway';
+} from '../_lib/aiGateway.js';
 
 const ALLOWED_ACTIONS = new Set(['analyze-sheet', 'learning-path', 'practice-questions']);
 

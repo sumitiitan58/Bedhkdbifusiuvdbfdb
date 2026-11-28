@@ -1,5 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
-import { parseJsonBody, resolveCorsHeaders, sanitizeErrorMessage } from './_lib/aiGateway';
+import { parseJsonBody, resolveCorsHeaders, sanitizeErrorMessage } from './_lib/aiGateway.js';
 
 const ALLOWED_GEMINI_VOICES = ['Puck', 'Kore', 'Charon', 'Fenrir', 'Zephyr'] as const;
 type GeminiVoiceName = (typeof ALLOWED_GEMINI_VOICES)[number];

@@ -2,7 +2,7 @@ import {
   AI_PROVIDER_REGISTRY,
   listConfiguredProviders,
   resolveCorsHeaders,
-} from './_lib/aiGateway';
+} from './_lib/aiGateway.js';
 
 export async function OPTIONS(request: Request): Promise<Response> {
   return new Response(null, {

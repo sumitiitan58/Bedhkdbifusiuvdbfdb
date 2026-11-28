@@ -9,7 +9,7 @@ import {
   runStructuredJsonWithFallback,
   sanitizeClientContext,
   sanitizeErrorMessage,
-} from '../_lib/aiGateway';
+} from '../_lib/aiGateway.js';
 
 function extractRouteSlug(request: Request): string {
   const url = new URL(request.url);

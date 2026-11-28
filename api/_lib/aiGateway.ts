@@ -312,7 +312,7 @@ export function resolveCorsHeaders(
   const origin = typeof requestOrigin === 'string' ? requestOrigin.trim() : '';
   const headers: Record<string, string> = {
     'Access-Control-Allow-Methods': allowedMethods,
-    'Access-Control-Allow-Headers': 'Content-Type, Accept, X-Requested-With',
+    'Access-Control-Allow-Headers': 'Content-Type, Accept, Authorization, X-Requested-With',
     'Access-Control-Max-Age': '86400',
     Vary: 'Origin',
     'Content-Type': 'application/json; charset=utf-8',
