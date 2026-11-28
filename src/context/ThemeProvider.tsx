@@ -61,23 +61,19 @@ function getInitialBackdropTheme(): BackdropThemeId {
 }
 
 export function ThemeProvider({ children }: ThemeProviderProps) {
-  const [theme, setThemeState] = useState<ThemeMode>(getInitialBrowserTheme);
+  const [theme] = useState<ThemeMode>('dark');
   const [backdropTheme, setBackdropThemeState] = useState<BackdropThemeId>(getInitialBackdropTheme);
 
   useEffect(() => {
     const root = document.documentElement;
-    if (theme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
-    root.style.colorScheme = theme;
+    root.classList.add('dark');
+    root.style.colorScheme = 'dark';
     try {
-      window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+      window.localStorage.setItem(THEME_STORAGE_KEY, 'dark');
     } catch {
       // Ignore storage quota errors
     }
-  }, [theme]);
+  }, []);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -89,12 +85,12 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     }
   }, [backdropTheme]);
 
-  const setTheme = useCallback((mode: ThemeMode) => {
-    setThemeState(mode);
+  const setTheme = useCallback((_mode: ThemeMode) => {
+    // Dark-only architecture
   }, []);
 
   const toggleTheme = useCallback(() => {
-    setThemeState((prev) => getNextTheme(prev));
+    // Dark-only architecture
   }, []);
 
   const setBackdropTheme = useCallback((next: BackdropThemeId) => {

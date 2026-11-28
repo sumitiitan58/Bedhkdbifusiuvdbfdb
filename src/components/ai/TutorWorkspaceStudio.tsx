@@ -56,7 +56,8 @@ import {
   renderOptionImageDataUrl,
   renderQuestionImageDataUrl,
 } from '../../utils/questionImageRenderer';
-import { cleanTextForSpeech, selectPreferredIndianVoice } from '../../utils/speechUtils';
+import { cleanTextForSpeech } from '../../utils/speechUtils';
+import { speakText, stopSpeaking } from '../../utils/speakText';
 import { playAiSparkle, playClick, playSuccess } from '../../utils/soundEffects';
 
 export type TutorStudioMode = 'chat' | 'sheets' | 'learning-path' | 'practice';
@@ -168,37 +169,26 @@ export function TutorWorkspaceStudio({
 
   useEffect(() => {
     return () => {
-      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-      }
+      stopSpeaking();
     };
   }, []);
 
   const toggleSpeakText = (key: string, rawText: string) => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
     playClick();
     if (speakingKey === key) {
-      window.speechSynthesis.cancel();
+      stopSpeaking();
       setSpeakingKey(null);
       return;
     }
     const cleaned = cleanTextForSpeech(rawText);
     if (!cleaned) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(cleaned);
-    utterance.lang = 'en-IN';
-    utterance.rate = 0.95;
-    utterance.pitch = 1.0;
-    const voices = window.speechSynthesis.getVoices();
-    const idx = selectPreferredIndianVoice(voices);
-    if (idx >= 0 && voices[idx]) {
-      utterance.voice = voices[idx];
-      utterance.lang = voices[idx].lang || 'en-IN';
-    }
-    utterance.onstart = () => setSpeakingKey(key);
-    utterance.onend = () => setSpeakingKey((curr) => (curr === key ? null : curr));
-    utterance.onerror = () => setSpeakingKey((curr) => (curr === key ? null : curr));
-    window.speechSynthesis.speak(utterance);
+    setSpeakingKey(key);
+    void speakText(cleaned, {
+      language: 'hinglish',
+      onStart: () => setSpeakingKey(key),
+      onEnd: () => setSpeakingKey((curr) => (curr === key ? null : curr)),
+      onError: () => setSpeakingKey((curr) => (curr === key ? null : curr)),
+    });
   };
 
   const weakChapterSuggestions = useMemo(

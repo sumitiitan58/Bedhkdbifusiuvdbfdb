@@ -29,12 +29,18 @@ export const PUBLIC_NAV_ROUTES: NavRouteItem[] = [
   {
     path: '/arena',
     label: 'Apex Arena',
-    shortDescription: 'Tactical Shooter, Bubble Shooter, 1v1 AI Duels & Level-Based Study Games',
+    shortDescription: 'Formula Clash, Concept Link, Kaun Banega Topper & Syllabus Dominion',
     showInPublicNav: true,
   },
 ];
 
 export const SECONDARY_SIDEBAR_ROUTES: NavRouteItem[] = [
+  {
+    path: '/workspace',
+    label: 'Study Workspace',
+    shortDescription: 'Quick Practice, Pomodoro Focus Timer, 5-Stage Mastery Tracker & Percentile Predictor',
+    showInPublicNav: false,
+  },
   {
     path: '/learn',
     label: 'NCERT-to-PYQ',

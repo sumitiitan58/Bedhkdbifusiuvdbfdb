@@ -2,26 +2,29 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --font-display: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
-  --font-sans: "Plus Jakarta Sans", "DM Sans", system-ui, -apple-system, sans-serif;
+  --font-display: "Kalam", "Caveat", cursive, system-ui, sans-serif;
+  --font-sans: "Patrick Hand", "Kalam", "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
 
-  --color-preps-canvas: #070B14;
-  --color-preps-card: #0F172A;
-  --color-preps-elevated: #162033;
+  --color-preps-canvas: #060A14;
+  --color-preps-card: #0B1120;
+  --color-preps-elevated: #0E1526;
   --color-preps-light-canvas: #F4F8FF;
   --color-preps-light-elevated: #EEF4FF;
-  --color-brand-navy: #0B1F3A;
+  --color-brand-navy: #0B1120;
   --color-brand-navy-hover: #142B59;
-  --color-brand-royal: #0284C7;
-  --color-brand-cobalt: #0284C7;
-  --color-brand-cyan: #06B6D4;
-  --color-brand-cyan-hover: #22D3EE;
-  --color-brand-saffron: #F97316;
-  --color-brand-saffron-hover: #FB923C;
-  --color-brand-mint: #22C55E;
+  --color-brand-royal: #2563EB;
+  --color-brand-cobalt: #2563EB;
+  --color-brand-orange: #FF7A00;
+  --color-brand-orange-hover: #F97316;
+  --color-brand-cyan: #00D4FF;
+  --color-brand-cyan-hover: #38BDF8;
+  --color-brand-lime: #FF7A00;
+  --color-brand-saffron: #FF7A00;
+  --color-brand-saffron-hover: #F97316;
+  --color-brand-mint: #10B981;
   --color-brand-danger: #EF4444;
-  --color-brand-sky: #06B6D4;
+  --color-brand-sky: #00D4FF;
 }
 
 @layer base {
@@ -30,14 +33,31 @@
     scroll-behavior: smooth;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    background-color: #060A14;
   }
 
   h1, h2, h3, h4, .font-display {
     font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.01em;
   }
 
   code, pre, .font-mono {
     font-family: var(--font-mono);
+  }
+
+  body {
+    background-color: #060A14;
+    background-image:
+      radial-gradient(circle at 14% 12%, rgba(37, 99, 235, 0.14), transparent 38%),
+      radial-gradient(circle at 86% 16%, rgba(0, 212, 255, 0.10), transparent 40%),
+      radial-gradient(circle at 52% 84%, rgba(255, 122, 0, 0.08), transparent 44%),
+      linear-gradient(rgba(56, 189, 248, 0.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(56, 189, 248, 0.045) 1px, transparent 1px);
+    background-size: 100% 100%, 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+    background-attachment: fixed;
+    color: #F8FAFC;
+    min-height: 100vh;
   }
 
   button:not(:disabled),
@@ -49,33 +69,171 @@
   }
 
   :focus-visible {
-    outline: 2px solid #06B6D4;
+    outline: 2px solid #00D4FF;
     outline-offset: 2px;
   }
 }
 
-/* Prepskm 2.0 Surface & Featured Glow Utilities */
-.preps-hero-gradient {
-  background: linear-gradient(135deg, #F4F8FF 0%, #EEF4FF 55%, #E0F2FE 100%);
+/* Deep Obsidian Technical Grid + Airy Radial Glows */
+.preps-obsidian-grid {
+  background-color: #060A14;
+  background-image:
+    linear-gradient(rgba(56, 189, 248, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(56, 189, 248, 0.045) 1px, transparent 1px);
+  background-size: 40px 40px;
 }
 
+.preps-hero-gradient,
 .dark .preps-hero-gradient {
-  background: linear-gradient(135deg, #070B14 0%, #0B192C 55%, #0F2537 100%);
+  background-color: #060A14;
+  background-image:
+    radial-gradient(circle at 12% 20%, rgba(255, 122, 0, 0.11), transparent 42%),
+    radial-gradient(circle at 82% 26%, rgba(0, 212, 255, 0.15), transparent 46%),
+    radial-gradient(circle at 50% 90%, rgba(37, 99, 235, 0.12), transparent 48%),
+    linear-gradient(rgba(56, 189, 248, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(56, 189, 248, 0.045) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 100% 100%, 40px 40px, 40px 40px;
 }
 
 .preps-featured-glow {
-  box-shadow: 0 0 0 1px rgba(6, 182, 212, 0.45), 0 12px 32px -8px rgba(6, 182, 212, 0.18);
+  box-shadow: 0 0 0 1px rgba(255, 122, 0, 0.45), 0 14px 36px -10px rgba(255, 122, 0, 0.18);
 }
 
-.preps-bento-card {
-  background-color: #FFFFFF;
-  border: 1px solid #E2E8F0;
+/* Glassmorphic Deep Navy Surface Cards */
+.preps-bento-card,
+.dark .preps-bento-card,
+.preps-light-card,
+.obsidian-card {
+  background: rgba(14, 21, 38, 0.78);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  box-shadow: 0 18px 40px -24px rgba(2, 6, 23, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
-.dark .preps-bento-card {
-  background-color: #0F172A;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+.obsidian-glow-blue {
+  background:
+    radial-gradient(circle at 92% 8%, rgba(37, 99, 235, 0.26), transparent 56%),
+    rgba(14, 21, 38, 0.78);
+}
+
+.obsidian-glow-cyan {
+  background:
+    radial-gradient(circle at 92% 8%, rgba(0, 212, 255, 0.22), transparent 56%),
+    rgba(14, 21, 38, 0.78);
+}
+
+.obsidian-glow-orange {
+  background:
+    radial-gradient(circle at 92% 8%, rgba(255, 122, 0, 0.22), transparent 56%),
+    rgba(14, 21, 38, 0.78);
+}
+
+.obsidian-glow-emerald {
+  background:
+    radial-gradient(circle at 92% 8%, rgba(16, 185, 129, 0.22), transparent 56%),
+    rgba(14, 21, 38, 0.78);
+}
+
+.obsidian-glow-pink {
+  background:
+    radial-gradient(circle at 92% 8%, rgba(236, 72, 153, 0.20), transparent 56%),
+    rgba(14, 21, 38, 0.78);
+}
+
+.obsidian-glow-purple {
+  background:
+    radial-gradient(circle at 92% 8%, rgba(139, 92, 246, 0.22), transparent 56%),
+    rgba(14, 21, 38, 0.78);
+}
+
+.obsidian-glow-amber {
+  background:
+    radial-gradient(circle at 92% 8%, rgba(255, 122, 0, 0.22), transparent 56%),
+    rgba(14, 21, 38, 0.78);
+}
+
+.obsidian-glow-lime {
+  background:
+    radial-gradient(circle at 92% 8%, rgba(255, 122, 0, 0.20), transparent 56%),
+    rgba(14, 21, 38, 0.78);
+}
+
+/* Handwritten Marker Underscore Accents */
+.hand-underscore {
+  position: relative;
+  display: inline-block;
+  padding-bottom: 4px;
+}
+
+.hand-underscore::after {
+  content: "";
+  position: absolute;
+  left: -2px;
+  right: -2px;
+  bottom: 0;
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #FF7A00 0%, #00D4FF 100%);
+  transform: rotate(-0.8deg);
+  pointer-events: none;
+}
+
+.hand-underscore-blue {
+  position: relative;
+  display: inline-block;
+  padding-bottom: 3px;
+}
+
+.hand-underscore-blue::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #00D4FF 0%, #2563EB 85%, rgba(0, 212, 255, 0.4) 100%);
+  transform: rotate(-0.6deg);
+  pointer-events: none;
+}
+
+.hand-underscore-emerald {
+  position: relative;
+  display: inline-block;
+  padding-bottom: 3px;
+}
+
+.hand-underscore-emerald::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #34D399 0%, #00D4FF 85%, rgba(52, 211, 153, 0.4) 100%);
+  transform: rotate(0.6deg);
+  pointer-events: none;
+}
+
+@keyframes preps-marquee {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.preps-marquee-track {
+  display: flex;
+  width: max-content;
+  animation: preps-marquee 30s linear infinite;
+}
+
+.preps-marquee-track:hover {
+  animation-play-state: paused;
 }
 
 /* KaTeX Crisp Rendering Overrides */
@@ -182,6 +340,169 @@
 .prepsbot-victory {
   animation: prepsbot-victory 1.65s cubic-bezier(0.22, 1, 0.36, 1) infinite;
   transform-style: preserve-3d;
+  will-change: transform, filter;
+}
+
+/* PrepsBot Triumphant Celebratory Jump & Glow Effect (Mock Test Completion) */
+@keyframes prepsbot-triumphant {
+  0% {
+    transform: translateY(0px) scale(1) rotateZ(0deg);
+    filter: drop-shadow(0 0 12px rgba(56, 189, 248, 0.65)) drop-shadow(0 8px 18px rgba(6, 182, 212, 0.4));
+  }
+  18% {
+    transform: translateY(-24px) scale(1.18) rotateZ(-7deg);
+    filter: drop-shadow(0 0 26px rgba(251, 191, 36, 0.95)) drop-shadow(0 0 42px rgba(56, 189, 248, 0.8));
+  }
+  34% {
+    transform: translateY(-3px) scale(0.96, 1.05) rotateZ(4deg);
+    filter: drop-shadow(0 0 18px rgba(52, 211, 153, 0.9)) drop-shadow(0 0 30px rgba(56, 189, 248, 0.65));
+  }
+  52% {
+    transform: translateY(-28px) scale(1.2) rotateZ(8deg);
+    filter: drop-shadow(0 0 30px rgba(52, 211, 153, 0.95)) drop-shadow(0 0 48px rgba(251, 191, 36, 0.85));
+  }
+  72% {
+    transform: translateY(-8px) scale(1.08) rotateZ(-4deg);
+    filter: drop-shadow(0 0 24px rgba(56, 189, 248, 0.9)) drop-shadow(0 0 36px rgba(251, 191, 36, 0.65));
+  }
+  88% {
+    transform: translateY(-2px) scale(1.02) rotateZ(2deg);
+    filter: drop-shadow(0 0 16px rgba(56, 189, 248, 0.75));
+  }
+  100% {
+    transform: translateY(0px) scale(1) rotateZ(0deg);
+    filter: drop-shadow(0 0 12px rgba(56, 189, 248, 0.65)) drop-shadow(0 8px 18px rgba(6, 182, 212, 0.4));
+  }
+}
+
+.prepsbot-triumphant {
+  animation: prepsbot-triumphant 1.45s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  transform-origin: center bottom;
+  will-change: transform, filter;
+}
+
+/* Hello Buddy Hands-Free Voice Wake Aura & Live Lip-Sync Mouth */
+@keyframes buddy-wake-ring {
+  0% {
+    transform: scale(0.88);
+    opacity: 0.85;
+  }
+  70% {
+    transform: scale(1.42);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.45);
+    opacity: 0;
+  }
+}
+
+.buddy-wake-aura {
+  animation: buddy-wake-ring 1.5s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+@keyframes buddy-lip-sync {
+  0%, 100% {
+    transform: scaleY(0.32) scaleX(0.95);
+    opacity: 0.85;
+  }
+  25% {
+    transform: scaleY(1.15) scaleX(1.08);
+    opacity: 1;
+  }
+  50% {
+    transform: scaleY(0.55) scaleX(0.98);
+    opacity: 0.92;
+  }
+  75% {
+    transform: scaleY(1.35) scaleX(1.12);
+    opacity: 1;
+  }
+}
+
+.buddy-lip-sync-mouth {
+  animation: buddy-lip-sync 0.28s ease-in-out infinite;
+  transform-origin: center center;
+}
+
+/* Role-Specific Background-Free Robot Character Motions */
+@keyframes bot-motion-prepsbot {
+  0%, 100% {
+    transform: translateY(0px) rotateZ(-2.5deg) rotateY(-6deg) scale(1);
+    filter: drop-shadow(0 8px 14px rgba(6, 182, 212, 0.32));
+  }
+  30% {
+    transform: translateY(-6px) rotateZ(3.5deg) rotateY(8deg) scale(1.03);
+    filter: drop-shadow(0 13px 18px rgba(6, 182, 212, 0.44));
+  }
+  65% {
+    transform: translateY(-3px) rotateZ(-1.5deg) rotateY(4deg) scale(1.015);
+    filter: drop-shadow(0 10px 16px rgba(249, 115, 22, 0.3));
+  }
+}
+
+.bot-motion-prepsbot {
+  animation: bot-motion-prepsbot 3.2s ease-in-out infinite;
+  transform-origin: center bottom;
+  will-change: transform, filter;
+}
+
+@keyframes bot-motion-mentor {
+  0%, 100% {
+    transform: translateY(0px) rotateZ(0deg) scale(1);
+    filter: drop-shadow(0 6px 12px rgba(34, 197, 94, 0.25));
+  }
+  35% {
+    transform: translateY(-4px) rotateZ(-2.2deg) scale(1.025);
+    filter: drop-shadow(0 10px 16px rgba(34, 197, 94, 0.36));
+  }
+  70% {
+    transform: translateY(-2px) rotateZ(2.4deg) scale(1.015);
+    filter: drop-shadow(0 8px 14px rgba(6, 182, 212, 0.3));
+  }
+}
+
+.bot-motion-mentor {
+  animation: bot-motion-mentor 3.6s ease-in-out infinite;
+  transform-origin: center bottom;
+  will-change: transform, filter;
+}
+
+@keyframes bot-motion-tutor {
+  0%, 100% {
+    transform: translateY(0px) rotateZ(-2deg) scale(1);
+    filter: drop-shadow(0 7px 14px rgba(168, 85, 247, 0.38));
+  }
+  50% {
+    transform: translateY(-7px) rotateZ(3deg) scale(1.04);
+    filter: drop-shadow(0 14px 22px rgba(192, 132, 252, 0.52));
+  }
+}
+
+.bot-motion-tutor {
+  animation: bot-motion-tutor 2.9s ease-in-out infinite;
+  transform-origin: center center;
+  will-change: transform, filter;
+}
+
+@keyframes bot-motion-analytics {
+  0%, 100% {
+    transform: translateY(0px) rotateZ(0deg) scale(1);
+    filter: drop-shadow(0 6px 12px rgba(249, 115, 22, 0.28));
+  }
+  28% {
+    transform: translateY(-4px) rotateZ(2.8deg) scale(1.025);
+    filter: drop-shadow(0 10px 16px rgba(251, 146, 60, 0.42));
+  }
+  62% {
+    transform: translateY(-2px) rotateZ(-2.5deg) scale(1.015);
+    filter: drop-shadow(0 8px 14px rgba(245, 158, 11, 0.34));
+  }
+}
+
+.bot-motion-analytics {
+  animation: bot-motion-analytics 3.4s ease-in-out infinite;
+  transform-origin: center bottom;
   will-change: transform, filter;
 }
 
@@ -423,8 +744,10 @@
   animation: preps-orb-pulse 2.8s ease-in-out infinite;
 }
 
-.font-handwriting {
-  font-family: "Caveat", "Plus Jakarta Sans", cursive, sans-serif;
+.font-handwriting,
+.font-handwritten {
+  font-family: 'Kalam', 'Caveat', cursive;
+  line-height: 1.6;
 }
 
 .live-whiteboard-grid {
@@ -434,7 +757,7 @@
 }
 
 /* ============================================================================
-   DYNAMIC COLORFUL AURORA BACKDROP THEMES & TRANSLUCENT GLASSMORPHISM
+   LIGHTWEIGHT DARK GRADIENT AMBIENT BACKDROP (DARK-ONLY ARCHITECTURE)
    ============================================================================ */
 @keyframes aurora-drift-slow {
   0%, 100% {
@@ -457,26 +780,19 @@
   }
 }
 
-.ambient-backdrop-layer {
+.ambient-backdrop-layer,
+.dark .ambient-backdrop-layer {
   position: fixed;
   inset: 0;
   z-index: -10;
   pointer-events: none;
   overflow: hidden;
   background:
-    radial-gradient(circle at 12% 14%, rgba(56, 189, 248, 0.24), transparent 44%),
-    radial-gradient(circle at 86% 18%, rgba(168, 85, 247, 0.2), transparent 42%),
-    radial-gradient(circle at 54% 88%, rgba(249, 115, 22, 0.16), transparent 46%),
-    linear-gradient(135deg, #e0f2fe 0%, #ede9fe 52%, #ffedd5 100%);
+    radial-gradient(circle at 12% 10%, rgba(37, 99, 235, 0.11), transparent 40%),
+    radial-gradient(circle at 86% 14%, rgba(16, 185, 129, 0.08), transparent 42%),
+    radial-gradient(circle at 52% 92%, rgba(139, 92, 246, 0.07), transparent 46%),
+    #06070A;
   transition: background 420ms ease;
-}
-
-.dark .ambient-backdrop-layer {
-  background:
-    radial-gradient(circle at 10% 12%, rgba(0, 180, 255, 0.22), transparent 42%),
-    radial-gradient(circle at 88% 16%, rgba(124, 58, 237, 0.24), transparent 44%),
-    radial-gradient(circle at 52% 92%, rgba(242, 123, 19, 0.18), transparent 46%),
-    linear-gradient(145deg, #060c1c 0%, #0d1430 50%, #090e24 100%);
 }
 
 html[data-backdrop="emerald"] .ambient-backdrop-layer {

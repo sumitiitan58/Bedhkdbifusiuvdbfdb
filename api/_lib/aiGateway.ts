@@ -42,7 +42,9 @@ export interface AiProviderDescriptor {
   protocol: 'openai-compatible' | 'gemini-rest' | 'cloudflare-workers-ai';
   endpoint: string;
   model: string;
+  structuredModel?: string;
   fallbackModels?: readonly string[];
+  supportsJsonObjectFormat?: boolean;
   extraHeaders?: Record<string, string>;
 }
 
@@ -56,7 +58,9 @@ export const AI_PROVIDER_REGISTRY: readonly AiProviderDescriptor[] = [
     protocol: 'openai-compatible',
     endpoint: 'https://api.groq.com/openai/v1/chat/completions',
     model: 'llama-3.1-8b-instant',
-    fallbackModels: ['meta-llama/llama-4-scout-17b-16e-instruct', 'openai/gpt-oss-120b'],
+    structuredModel: 'llama-3.3-70b-versatile',
+    fallbackModels: ['meta-llama/llama-4-scout-17b-16e-instruct', 'llama-3.1-8b-instant'],
+    supportsJsonObjectFormat: true,
   },
   {
     id: 'gemini',
@@ -65,22 +69,7 @@ export const AI_PROVIDER_REGISTRY: readonly AiProviderDescriptor[] = [
     endpoint:
       'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent',
     model: 'gemini-4-hydrogen',
-    fallbackModels: ['gemini-3.8-flash', 'gemini-3.1-flash-lite'],
-  },
-  {
-    id: 'mistral',
-    envVar: 'MISTRAL_API_KEY',
-    extraEnvVars: ['MISTRAL_API_KEYS'],
-    protocol: 'openai-compatible',
-    endpoint: 'https://api.mistral.ai/v1/chat/completions',
-    model: 'mistral-small-latest',
-  },
-  {
-    id: 'deepseek',
-    envVar: 'DEEPSEEK_API_KEY',
-    protocol: 'openai-compatible',
-    endpoint: 'https://api.deepseek.com/chat/completions',
-    model: 'deepseek-chat',
+    fallbackModels: ['gemini-3.1-flash-lite'],
   },
   {
     id: 'openrouter',
@@ -88,7 +77,8 @@ export const AI_PROVIDER_REGISTRY: readonly AiProviderDescriptor[] = [
     protocol: 'openai-compatible',
     endpoint: 'https://openrouter.ai/api/v1/chat/completions',
     model: 'openrouter/free',
-    fallbackModels: ['google/gemma-3-27b-it:free', 'meta-llama/llama-3.3-70b-instruct:free'],
+    structuredModel: 'google/gemma-3-27b-it:free',
+    fallbackModels: ['openrouter/free', 'qwen/qwen3-32b:free', 'meta-llama/llama-3.3-70b-instruct'],
     extraHeaders: {
       'HTTP-Referer': 'https://prepskm.in',
       'X-Title': 'PREPSKM.IN Preps AI',
@@ -103,7 +93,84 @@ export const AI_PROVIDER_REGISTRY: readonly AiProviderDescriptor[] = [
     model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
     fallbackModels: ['@cf/meta/llama-3.1-8b-instruct-fast'],
   },
+  {
+    id: 'mistral',
+    envVar: 'MISTRAL_API_KEY',
+    extraEnvVars: ['MISTRAL_API_KEYS'],
+    protocol: 'openai-compatible',
+    endpoint: 'https://api.mistral.ai/v1/chat/completions',
+    model: 'mistral-small-latest',
+    supportsJsonObjectFormat: true,
+  },
+  {
+    id: 'deepseek',
+    envVar: 'DEEPSEEK_API_KEY',
+    protocol: 'openai-compatible',
+    endpoint: 'https://api.deepseek.com/chat/completions',
+    model: 'deepseek-chat',
+    supportsJsonObjectFormat: true,
+  },
 ] as const;
+
+interface ProviderCooldownEntry {
+  untilMs: number;
+  reason: string;
+  status?: number;
+}
+
+const providerCooldownMap = new Map<string, ProviderCooldownEntry>();
+
+export function resetProviderCooldowns(): void {
+  providerCooldownMap.clear();
+}
+
+function getCooldownKey(providerLabel: string, apiKey: string): string {
+  const keyTag = apiKey.slice(-6);
+  return `${providerLabel}:${keyTag}`;
+}
+
+function getActiveProviderCooldown(providerLabel: string, apiKey: string): ProviderCooldownEntry | null {
+  const key = getCooldownKey(providerLabel, apiKey);
+  const entry = providerCooldownMap.get(key);
+  if (!entry) return null;
+  if (Date.now() >= entry.untilMs) {
+    providerCooldownMap.delete(key);
+    return null;
+  }
+  return entry;
+}
+
+function recordProviderCooldownIfBillingOrQuota(
+  providerLabel: string,
+  apiKey: string,
+  status: number | undefined,
+  reason: string
+): void {
+  const lower = reason.toLowerCase();
+  let ttlMs = 0;
+
+  if (
+    status === 402 ||
+    /insufficient\s+balance|subscription\s+to\s+access|payment\s+required/i.test(lower)
+  ) {
+    ttlMs = 15 * 60 * 1000;
+  } else if (
+    status === 429 &&
+    /spending\s+cap|quota|billing|monthly|resource_exhausted/i.test(lower)
+  ) {
+    ttlMs = 5 * 60 * 1000;
+  } else if (status === 401 || status === 403) {
+    ttlMs = 10 * 60 * 1000;
+  }
+
+  if (ttlMs > 0) {
+    providerCooldownMap.set(getCooldownKey(providerLabel, apiKey), {
+      untilMs: Date.now() + ttlMs,
+      reason,
+      status,
+    });
+  }
+}
 
 export const AI_PROVIDER_ENV_VARS: readonly string[] = [
   'GROQ_API_KEY',
@@ -389,10 +456,16 @@ function buildSystemPrompt(context: Record<string, unknown>): string {
   const voiceMode = Boolean(context.voiceMode);
   const isMistakeFix = Boolean(context.mistakeQuestion || context.mistakeSummary);
 
+  const preferredLanguage =
+    context.preferredLanguage === 'english' ? 'english' : 'hinglish';
+
   const lines = [
-    'You are Preps AI (AI Buddy), the official student-first JEE, NEET UG & Class 9-12 study companion on PREPSKM.IN.',
+    'You are Preps AI (AI Buddy), the official student-first JEE, NEET UG & Class 9-12 study companion on PREPSKM.IN — speaking with the warm, relatable persona of a real 17 to 18-year-old Indian male student mentor.',
     PREPSKM_CORE_SYSTEM_PROMPT,
     buildStrictTopicLockLine(context),
+    preferredLanguage === 'english'
+      ? 'STRICT LANGUAGE POLICY: The student explicitly asked this question in English. Respond in clear, natural Indian English for this turn. If the student later switches back to Hinglish or Hindi, immediately resume Hinglish.'
+      : 'STRICT LANGUAGE POLICY: You MUST respond strictly in natural conversational Hinglish by default (like a friendly 17-18 year old Indian topper friend). Switch to pure English ONLY when the student explicitly asks a question purely in English.',
     'Response formatting & accuracy rules (STRICTLY FOLLOW across every response):',
     '- Break tough physics, chemistry, maths, and biology doubts into clear intuition, verified NCERT/NTA formulas, and exact step-by-step solving for the user question.',
     '- Encourage active question solving (DPPs, PYQs, formula recall) instead of passive one-shot video loops when students ask for study advice.',
@@ -404,7 +477,9 @@ function buildSystemPrompt(context: Record<string, unknown>): string {
 
   if (isMistakeFix) {
     lines.push(
-      '- MISTAKE FIX MODE: Explain clearly in Hinglish why the mistake happened on this exact question, solve it cleanly step-by-step to the official answer, and end with a crisp 1-line Exam Rule.'
+      preferredLanguage === 'english'
+        ? '- MISTAKE FIX MODE: Explain clearly in English why the mistake happened on this exact question, solve it cleanly step-by-step to the official answer, and end with a crisp 1-line Exam Rule.'
+        : '- MISTAKE FIX MODE: Explain clearly in Hinglish why the mistake happened on this exact question, solve it cleanly step-by-step to the official answer, and end with a crisp 1-line Exam Rule.'
     );
   }
 
@@ -510,9 +585,23 @@ async function callOpenAiCompatible(params: {
   extraHeaders?: Record<string, string>;
   maxTokens?: number;
   jsonMode?: boolean;
+  supportsJsonObjectFormat?: boolean;
   timeoutMs?: number;
 }): Promise<string> {
-  const response = await fetchWithTimeout(
+  const buildBody = (withResponseFormat: boolean) =>
+    JSON.stringify({
+      model: params.model,
+      temperature: params.jsonMode ? 0.2 : 0.45,
+      max_tokens: params.maxTokens ?? 1400,
+      ...(withResponseFormat ? { response_format: { type: 'json_object' } } : {}),
+      messages: [
+        { role: 'system', content: params.systemPrompt },
+        ...params.messages.map((m) => ({ role: m.role, content: m.content })),
+      ],
+    });
+
+  const useJsonFormat = Boolean(params.jsonMode && params.supportsJsonObjectFormat);
+  let response = await fetchWithTimeout(
     params.fetchImpl,
     params.url,
     {
@@ -522,18 +611,28 @@ async function callOpenAiCompatible(params: {
         Authorization: `Bearer ${params.apiKey}`,
         ...(params.extraHeaders ?? {}),
       },
-      body: JSON.stringify({
-        model: params.model,
-        temperature: params.jsonMode ? 0.25 : 0.45,
-        max_tokens: params.maxTokens ?? 1400,
-        messages: [
-          { role: 'system', content: params.systemPrompt },
-          ...params.messages.map((m) => ({ role: m.role, content: m.content })),
-        ],
-      }),
+      body: buildBody(useJsonFormat),
     },
     params.timeoutMs ?? REQUEST_TIMEOUT_MS
   );
+
+  // Some providers/models reject response_format: json_object with HTTP 400; retry once cleanly without it
+  if (!response.ok && response.status === 400 && useJsonFormat) {
+    response = await fetchWithTimeout(
+      params.fetchImpl,
+      params.url,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${params.apiKey}`,
+          ...(params.extraHeaders ?? {}),
+        },
+        body: buildBody(false),
+      },
+      params.timeoutMs ?? REQUEST_TIMEOUT_MS
+    );
+  }
 
   if (!response.ok) {
     const detail = await readUpstreamErrorDetail(response);
@@ -571,6 +670,7 @@ async function callOpenAiCompatible(params: {
 async function callGeminiRest(params: {
   fetchImpl: typeof fetch;
   url: string;
+  model: string;
   apiKey: string;
   systemPrompt: string;
   messages: AiChatMessage[];
@@ -582,6 +682,16 @@ async function callGeminiRest(params: {
     parts: [{ text: m.content }],
   }));
 
+  // Per Gemini 4 SDK guidance: do not pass deprecated sampling parameters (temperature) to gemini-4-* models
+  const isGemini4 = /^gemini-4-/i.test(params.model);
+  const generationConfig: Record<string, unknown> = {};
+  if (!isGemini4) {
+    generationConfig.temperature = params.jsonMode ? 0.2 : 0.4;
+  }
+  if (params.jsonMode) {
+    generationConfig.responseMimeType = 'application/json';
+  }
+
   const response = await fetchWithTimeout(
     params.fetchImpl,
     params.url,
@@ -590,16 +700,14 @@ async function callGeminiRest(params: {
       headers: {
         'Content-Type': 'application/json',
         'x-goog-api-key': params.apiKey,
+        'User-Agent': 'aistudio-build',
       },
       body: JSON.stringify({
         system_instruction: {
           parts: [{ text: params.systemPrompt }],
         },
         contents,
-        generationConfig: {
-          temperature: params.jsonMode ? 0.25 : 0.4,
-          ...(params.jsonMode ? { responseMimeType: 'application/json' } : {}),
-        },
+        ...(Object.keys(generationConfig).length > 0 ? { generationConfig } : {}),
       }),
     },
     params.timeoutMs ?? REQUEST_TIMEOUT_MS
@@ -696,6 +804,77 @@ async function callCloudflareWorkersAi(params: {
   return reply;
 }
 
+function getCandidateModelsForDescriptor(
+  descriptor: AiProviderDescriptor,
+  jsonMode?: boolean
+): string[] {
+  const raw = [
+    ...(jsonMode && descriptor.structuredModel ? [descriptor.structuredModel] : []),
+    descriptor.model,
+    ...(descriptor.fallbackModels ?? []),
+  ];
+  return Array.from(new Set(raw.filter(Boolean)));
+}
+
+async function invokeSingleModel(params: {
+  descriptor: AiProviderDescriptor;
+  model: string;
+  apiKey: string;
+  accountId?: string;
+  fetchImpl: typeof fetch;
+  systemPrompt: string;
+  messages: AiChatMessage[];
+  maxTokens?: number;
+  jsonMode?: boolean;
+  timeoutMs?: number;
+}): Promise<string> {
+  if (params.descriptor.protocol === 'gemini-rest') {
+    const geminiUrl = params.descriptor.endpoint.replace('{model}', params.model);
+    return await callGeminiRest({
+      fetchImpl: params.fetchImpl,
+      url: geminiUrl,
+      model: params.model,
+      apiKey: params.apiKey,
+      systemPrompt: params.systemPrompt,
+      messages: params.messages,
+      jsonMode: params.jsonMode,
+      timeoutMs: params.timeoutMs,
+    });
+  }
+
+  if (params.descriptor.protocol === 'cloudflare-workers-ai') {
+    if (!params.accountId) {
+      throw new ProviderCallError('Missing CLOUDFLARE_ACCOUNT_ID', 503);
+    }
+    return await callCloudflareWorkersAi({
+      fetchImpl: params.fetchImpl,
+      accountId: params.accountId,
+      apiToken: params.apiKey,
+      endpointTemplate: params.descriptor.endpoint,
+      model: params.model,
+      systemPrompt: params.systemPrompt,
+      messages: params.messages,
+      maxTokens: params.maxTokens,
+      jsonMode: params.jsonMode,
+      timeoutMs: params.timeoutMs,
+    });
+  }
+
+  return await callOpenAiCompatible({
+    fetchImpl: params.fetchImpl,
+    url: params.descriptor.endpoint,
+    apiKey: params.apiKey,
+    model: params.model,
+    systemPrompt: params.systemPrompt,
+    messages: params.messages,
+    extraHeaders: params.descriptor.extraHeaders,
+    maxTokens: params.maxTokens,
+    jsonMode: params.jsonMode,
+    supportsJsonObjectFormat: params.descriptor.supportsJsonObjectFormat,
+    timeoutMs: params.timeoutMs,
+  });
+}
+
 async function invokeProviderWithKey(params: {
   descriptor: AiProviderDescriptor;
   apiKey: string;
@@ -707,63 +886,22 @@ async function invokeProviderWithKey(params: {
   jsonMode?: boolean;
   timeoutMs?: number;
 }): Promise<string> {
-  const candidateModels = [
-    params.descriptor.model,
-    ...(params.descriptor.fallbackModels ?? []),
-  ];
+  const candidateModels = getCandidateModelsForDescriptor(params.descriptor, params.jsonMode);
 
   let lastError: unknown;
   for (let idx = 0; idx < candidateModels.length; idx++) {
     const activeModel = candidateModels[idx];
     try {
-      if (params.descriptor.protocol === 'gemini-rest') {
-        const geminiUrl = params.descriptor.endpoint.replace('{model}', activeModel);
-        return await callGeminiRest({
-          fetchImpl: params.fetchImpl,
-          url: geminiUrl,
-          apiKey: params.apiKey,
-          systemPrompt: params.systemPrompt,
-          messages: params.messages,
-          jsonMode: params.jsonMode,
-          timeoutMs: params.timeoutMs,
-        });
-      }
-
-      if (params.descriptor.protocol === 'cloudflare-workers-ai') {
-        if (!params.accountId) {
-          throw new ProviderCallError('Missing CLOUDFLARE_ACCOUNT_ID', 503);
-        }
-        return await callCloudflareWorkersAi({
-          fetchImpl: params.fetchImpl,
-          accountId: params.accountId,
-          apiToken: params.apiKey,
-          endpointTemplate: params.descriptor.endpoint,
-          model: activeModel,
-          systemPrompt: params.systemPrompt,
-          messages: params.messages,
-          maxTokens: params.maxTokens,
-          jsonMode: params.jsonMode,
-          timeoutMs: params.timeoutMs,
-        });
-      }
-
-      return await callOpenAiCompatible({
-        fetchImpl: params.fetchImpl,
-        url: params.descriptor.endpoint,
-        apiKey: params.apiKey,
+      return await invokeSingleModel({
+        ...params,
         model: activeModel,
-        systemPrompt: params.systemPrompt,
-        messages: params.messages,
-        extraHeaders: params.descriptor.extraHeaders,
-        maxTokens: params.maxTokens,
-        jsonMode: params.jsonMode,
-        timeoutMs: params.timeoutMs,
       });
     } catch (err) {
       lastError = err;
       const status = err instanceof ProviderCallError ? err.status : undefined;
       const shouldRetryNextModel =
-        idx < candidateModels.length - 1 && (status === 404 || status === 502);
+        idx < candidateModels.length - 1 &&
+        (status === 404 || status === 502 || status === 503 || status === 400);
       if (shouldRetryNextModel) {
         continue;
       }
@@ -839,6 +977,16 @@ export async function runPrepsAiWithFallback(params: {
 
     for (let keyIdx = 0; keyIdx < keys.length; keyIdx++) {
       const label = keys.length > 1 ? `${descriptor.id}#${keyIdx + 1}` : descriptor.id;
+      const cooldown = getActiveProviderCooldown(label, keys[keyIdx]);
+      if (cooldown) {
+        providerErrors.push({
+          provider: label,
+          status: cooldown.status,
+          reason: `Skipped during cooldown (${cooldown.reason})`,
+        });
+        continue;
+      }
+
       attemptedProviders.push(label);
 
       try {
@@ -865,18 +1013,21 @@ export async function runPrepsAiWithFallback(params: {
       } catch (err) {
         const status = err instanceof ProviderCallError ? err.status : undefined;
         const reason = sanitizeErrorMessage(err) || 'Unknown upstream provider error';
+        recordProviderCooldownIfBillingOrQuota(label, keys[keyIdx], status, reason);
         providerErrors.push({ provider: label, status, reason });
-        console.error(`[prepskm-ai][chat] ${label} failed -> ${reason}`);
+        console.warn(`[prepskm-ai][chat] ${label} failover -> ${reason}`);
         continue;
       }
     }
   }
 
+  const finalError = formatFailoverFailureSummary(attemptedProviders, providerErrors);
+  console.error(`[prepskm-ai][chat] all providers failed -> ${finalError}`);
   return {
     ok: false,
     attemptedProviders,
     providerErrors,
-    error: formatFailoverFailureSummary(attemptedProviders, providerErrors),
+    error: finalError,
   };
 }
 
@@ -961,32 +1112,88 @@ function repairJsonStringForLatex(input: string): string {
     i += 1;
   }
 
-  // Strip trailing commas before } or ]
-  return out.replace(/,\s*([}\]])/g, '$1');
+  // Strip trailing commas before } or ] and insert missing commas between adjacent JSON elements
+  return out
+    .replace(/,\s*([}\]])/g, '$1')
+    .replace(/"(\s*\n\s*)"/g, '",$1"')
+    .replace(/([}\]])(\s*\n\s*)([{["])/g, '$1,$2$3');
+}
+
+function findBalancedJsonObjectSlice(text: string): string | null {
+  const start = text.indexOf('{');
+  if (start === -1) return null;
+
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (ch === '\\') {
+        escaped = true;
+      } else if (ch === '"') {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (ch === '"') {
+      inString = true;
+    } else if (ch === '{') {
+      depth += 1;
+    } else if (ch === '}') {
+      depth -= 1;
+      if (depth === 0) {
+        return text.slice(start, i + 1);
+      }
+    }
+  }
+
+  const lastBrace = text.lastIndexOf('}');
+  if (lastBrace > start) {
+    return text.slice(start, lastBrace + 1);
+  }
+  return null;
 }
 
 export function extractJsonObject(rawText: string): Record<string, unknown> {
-  const trimmed = String(rawText || '').trim();
-  if (!trimmed) throw new Error('Empty AI JSON response');
-  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  const candidate = fenced ? fenced[1].trim() : trimmed;
-  const firstBrace = candidate.indexOf('{');
-  const lastBrace = candidate.lastIndexOf('}');
-  if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) {
+  // Remove reasoning blocks (e.g. <think>...</think>) emitted by reasoning models
+  const cleaned = String(rawText || '')
+    .replace(/<think>[\s\S]*?<\/think>/gi, '')
+    .trim();
+  if (!cleaned) throw new Error('Empty AI JSON response');
+
+  const fenced = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const candidate = fenced ? fenced[1].trim() : cleaned;
+  const slice = findBalancedJsonObjectSlice(candidate);
+  if (!slice) {
     throw new Error('Could not parse structured JSON from AI response');
   }
-  const slice = candidate.slice(firstBrace, lastBrace + 1);
+
   try {
-    return JSON.parse(slice) as Record<string, unknown>;
+    const parsed = JSON.parse(slice);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
   } catch {
-    const repaired = repairJsonStringForLatex(slice);
-    return JSON.parse(repaired) as Record<string, unknown>;
+    // fall through to structural + LaTeX repair
   }
+
+  const repaired = repairJsonStringForLatex(slice);
+  const parsed = JSON.parse(repaired);
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('Could not parse structured JSON from AI response');
+  }
+  return parsed as Record<string, unknown>;
 }
 
 /**
  * Executes a structured JSON prompt across the entire automatic multi-provider failover chain
- * (all 8 configured secrets, including MISTRAL_API_KEYS rotation and Cloudflare Workers AI).
+ * (all 8 configured secrets, including model-level retries, MISTRAL_API_KEYS rotation,
+ * Cloudflare Workers AI, and billing/quota circuit-breaker cooldowns).
  */
 export async function runStructuredJsonWithFallback(params: {
   systemPrompt: string;
@@ -1030,55 +1237,89 @@ export async function runStructuredJsonWithFallback(params: {
       continue;
     }
 
+    const candidateModels = getCandidateModelsForDescriptor(descriptor, true);
+
     for (let keyIdx = 0; keyIdx < keys.length; keyIdx++) {
       const label = keys.length > 1 ? `${descriptor.id}#${keyIdx + 1}` : descriptor.id;
-      attemptedProviders.push(label);
-
-      try {
-        const rawReply = await invokeProviderWithKey({
-          descriptor,
-          apiKey: keys[keyIdx],
-          accountId,
-          fetchImpl,
-          systemPrompt: params.systemPrompt,
-          messages: [{ role: 'user', content: params.userPrompt }],
-          maxTokens: params.maxTokens ?? 2400,
-          jsonMode: true,
-          timeoutMs: STRUCTURED_TIMEOUT_MS,
-        });
-
-        const parsed = extractJsonObject(rawReply);
-        if (params.validator && !params.validator(parsed)) {
-          providerErrors.push({
-            provider: label,
-            reason: 'Structured JSON failed schema validation',
-          });
-          console.error(`[prepskm-ai][json] ${label} failed schema validation`);
-          continue;
-        }
-
-        return {
-          ok: true,
-          data: parsed,
+      const cooldown = getActiveProviderCooldown(label, keys[keyIdx]);
+      if (cooldown) {
+        providerErrors.push({
           provider: label,
-          attemptedProviders,
-          providerErrors: providerErrors.length > 0 ? providerErrors : undefined,
-        };
-      } catch (err) {
-        const status = err instanceof ProviderCallError ? err.status : undefined;
-        const reason = sanitizeErrorMessage(err) || 'Structured JSON provider error';
-        providerErrors.push({ provider: label, status, reason });
-        console.error(`[prepskm-ai][json] ${label} failed -> ${reason}`);
+          status: cooldown.status,
+          reason: `Skipped during cooldown (${cooldown.reason})`,
+        });
         continue;
       }
+
+      attemptedProviders.push(label);
+      let lastFailureReason = 'Structured JSON provider error';
+      let lastFailureStatus: number | undefined;
+
+      for (let mIdx = 0; mIdx < candidateModels.length; mIdx++) {
+        const activeModel = candidateModels[mIdx];
+        try {
+          const rawReply = await invokeSingleModel({
+            descriptor,
+            model: activeModel,
+            apiKey: keys[keyIdx],
+            accountId,
+            fetchImpl,
+            systemPrompt: params.systemPrompt,
+            messages: [{ role: 'user', content: params.userPrompt }],
+            maxTokens: params.maxTokens ?? 2400,
+            jsonMode: true,
+            timeoutMs: STRUCTURED_TIMEOUT_MS,
+          });
+
+          const parsed = extractJsonObject(rawReply);
+          if (params.validator && !params.validator(parsed)) {
+            lastFailureReason = `Model ${activeModel} failed schema validation`;
+            lastFailureStatus = undefined;
+            continue;
+          }
+
+          return {
+            ok: true,
+            data: parsed,
+            provider: label,
+            attemptedProviders,
+            providerErrors: providerErrors.length > 0 ? providerErrors : undefined,
+          };
+        } catch (err) {
+          const status = err instanceof ProviderCallError ? err.status : undefined;
+          const reason = sanitizeErrorMessage(err) || 'Structured JSON provider error';
+          lastFailureReason = reason;
+          lastFailureStatus = status;
+
+          // Billing, auth, or spend-cap errors affect the entire provider key — cool down and move on immediately
+          if (status === 401 || status === 402 || status === 403 || status === 429) {
+            recordProviderCooldownIfBillingOrQuota(label, keys[keyIdx], status, reason);
+            break;
+          }
+
+          // For 404, 400, 502, 503, or JSON parse failures, try next fallback model on this provider
+          if (mIdx < candidateModels.length - 1) {
+            continue;
+          }
+        }
+      }
+
+      providerErrors.push({
+        provider: label,
+        status: lastFailureStatus,
+        reason: lastFailureReason,
+      });
+      console.warn(`[prepskm-ai][json] ${label} failover -> ${lastFailureReason}`);
     }
   }
 
+  const finalError = formatFailoverFailureSummary(attemptedProviders, providerErrors);
+  console.error(`[prepskm-ai][json] all providers failed -> ${finalError}`);
   return {
     ok: false,
     attemptedProviders,
     providerErrors,
-    error: formatFailoverFailureSummary(attemptedProviders, providerErrors),
+    error: finalError,
   };
 }
 

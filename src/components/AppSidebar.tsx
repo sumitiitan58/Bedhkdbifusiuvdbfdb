@@ -13,12 +13,10 @@ import {
   FileSpreadsheet,
   Gamepad2,
   Home,
-  MessageSquare,
+  Layers,
   ShieldCheck,
   Sparkles,
-  TrendingUp,
   UserCircle2,
-  Users,
   X,
 } from 'lucide-react';
 import { BrandLogo } from './BrandLogo';
@@ -44,6 +42,15 @@ interface DeepToolLink {
 }
 
 const DEEP_TOOL_LINKS: DeepToolLink[] = [
+  {
+    id: 'workspace',
+    to: '/workspace',
+    matchPath: '/workspace',
+    labelKey: 'sidebar.workspace',
+    fallbackLabel: 'Study Workspace',
+    icon: Layers,
+    accent: 'text-[#38BDF8]',
+  },
   {
     id: 'materials',
     to: '/materials',
@@ -157,10 +164,10 @@ export function AppSidebar({ mobileOpen, onCloseMobile }: AppSidebarProps) {
     const collapsed = !isMobileDrawer && sidebarCollapsed;
 
     return (
-      <div className="flex flex-col h-full bg-[#FFFFFF]/92 dark:bg-[#070B14]/95 backdrop-blur-xl border-r border-[#E2E8F0] dark:border-white/[0.08]">
+      <div className="flex flex-col h-full bg-[#060A14]/95 backdrop-blur-xl border-r border-slate-400/15">
         {/* Header / Chevron Rail Toggle */}
         <div
-          className={`h-16 flex items-center border-b border-[#E2E8F0] dark:border-white/[0.08] shrink-0 ${
+          className={`h-16 flex items-center border-b border-slate-400/15 shrink-0 ${
             collapsed ? 'px-2 justify-center' : 'px-4 justify-between'
           }`}
         >
@@ -203,12 +210,12 @@ export function AppSidebar({ mobileOpen, onCloseMobile }: AppSidebarProps) {
                 }}
                 aria-label={collapsed ? 'Expand deep tools sidebar' : 'Collapse deep tools sidebar'}
                 title={collapsed ? 'Expand Deep Tools (236px)' : 'Collapse to Icon Rail (68px)'}
-                className="inline-flex items-center justify-center h-9 w-9 rounded-xl border border-[#E2E8F0] dark:border-white/[0.08] bg-[#F4F8FF] dark:bg-[#0F172A] text-[#0B1F3A] dark:text-[#F8FAFC] hover:border-[#06B6D4]/50 transition-colors shrink-0"
+                className="inline-flex items-center justify-center h-9 w-9 rounded-xl border border-slate-400/20 bg-[#0B1120] text-white hover:border-[#00D4FF]/55 transition-colors shrink-0"
               >
                 {collapsed ? (
-                  <ChevronRight className="w-4 h-4 text-[#0284C7] dark:text-[#06B6D4]" />
+                  <ChevronRight className="w-4 h-4 text-[#00D4FF]" />
                 ) : (
-                  <ChevronLeft className="w-4 h-4 text-[#0284C7] dark:text-[#06B6D4]" />
+                  <ChevronLeft className="w-4 h-4 text-[#00D4FF]" />
                 )}
               </button>
             </>
@@ -291,18 +298,18 @@ export function AppSidebar({ mobileOpen, onCloseMobile }: AppSidebarProps) {
                   aria-current={isTabMatch ? 'page' : undefined}
                   className={`group relative flex items-center ${
                     collapsed ? 'justify-center h-11 w-11 mx-auto' : 'justify-between gap-2.5 px-3 py-2.5'
-                  } rounded-xl text-[13px] font-semibold transition-all duration-150 ${
+                  } rounded-xl text-[13px] font-bold transition-all duration-150 ${
                     isTabMatch
-                      ? 'bg-[#EEF4FF] dark:bg-[#162033] text-[#0284C7] dark:text-[#22D3EE] border border-[#06B6D4]/35'
-                      : 'text-[#475569] dark:text-[#94A3B8] hover:bg-[#EEF4FF] dark:hover:bg-[#162033] hover:text-[#0B1F3A] dark:hover:text-[#F8FAFC] border border-transparent'
+                      ? 'bg-[#0E1A30] text-[#00D4FF] border border-[#00D4FF]/40'
+                      : 'text-slate-400 hover:bg-[#0E1526] hover:text-white border border-transparent'
                   }`}
                 >
                   <span className="flex items-center gap-2.5 min-w-0">
                     <Icon
                       className={`w-[18px] h-[18px] shrink-0 ${
                         isTabMatch
-                          ? 'text-[#0284C7] dark:text-[#06B6D4]'
-                          : item.accent ?? 'text-[#475569] dark:text-[#94A3B8] group-hover:text-[#0284C7] dark:group-hover:text-[#22D3EE]'
+                          ? 'text-[#00D4FF]'
+                          : item.accent ?? 'text-slate-400 group-hover:text-[#FF7A00]'
                       }`}
                     />
                     {!collapsed && <span className="truncate">{label}</span>}

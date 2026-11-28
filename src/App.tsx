@@ -16,6 +16,7 @@ import { PrepsBotWidget } from './components/ai-copilot/PrepsBotWidget';
 import { LiveTeacherModal } from './components/live-teacher/LiveTeacherModal';
 
 const HomePage = lazy(() => import('./pages/HomePage'));
+const WorkspacePage = lazy(() => import('./pages/WorkspacePage'));
 const LearnHub = lazy(() => import('./pages/LearnHub'));
 const Community = lazy(() => import('./pages/Community'));
 const Pricing = lazy(() => import('./pages/Pricing'));
@@ -52,6 +53,7 @@ export default function App() {
                       >
                         <Routes>
                           <Route path="/" element={<HomePage />} />
+                          <Route path="/workspace" element={<WorkspacePage />} />
                           <Route path="/learn" element={<LearnHub />} />
                           <Route path="/community" element={<Community />} />
                           <Route path="/pricing" element={<Pricing />} />

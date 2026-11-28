@@ -639,10 +639,10 @@ export default function MaterialsPage() {
                 <p className="text-xs font-bold uppercase tracking-wider text-[#F97316]">
                   {activeSubjectName} · {selectedCohortLabel}
                 </p>
-                <h1 className="font-display text-2xl sm:text-3xl font-extrabold text-[#0B1B3B] dark:text-white">
-                  {stripChapterNumberPrefix(activeChapter.name)}
+                <h1 className="font-handwritten text-3xl sm:text-4xl font-bold text-white tracking-wide">
+                  <span className="hand-underscore">{stripChapterNumberPrefix(activeChapter.name)}</span>
                 </h1>
-                <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400">
+                <p className="font-handwritten text-base sm:text-lg text-slate-300">
                   All short notes, formula sheets, mind maps, and chapter PYQs for this chapter in one structured workspace.
                 </p>
               </div>
@@ -940,21 +940,21 @@ export default function MaterialsPage() {
                             </button>
                           </div>
 
-                          <h2 className="font-display text-base sm:text-lg font-bold text-[#0B1B3B] dark:text-white leading-snug">
+                          <h2 className="font-handwritten text-xl sm:text-2xl font-bold text-white leading-snug">
                             <Link
                               to={getHierarchicalMaterialPath(mat, {
                                 subjectName: subjectMap.get(mat.subjectId)?.name,
                                 cohortId:
                                   selectedCohort !== 'all' ? selectedCohort : mat.cohorts[0],
                               })}
-                              className="hover:text-[#2563EB] dark:hover:text-sky-400 transition-colors"
+                              className="hover:text-sky-400 transition-colors"
                             >
                               {mat.title}
                             </Link>
                           </h2>
 
                           {mat.description && (
-                            <p className="text-sm text-slate-600 dark:text-slate-300 line-clamp-2 leading-relaxed">
+                            <p className="font-handwritten text-base text-slate-300 line-clamp-3">
                               {mat.description}
                             </p>
                           )}
@@ -1040,13 +1040,13 @@ export default function MaterialsPage() {
           <>
             <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
               <div className="space-y-1">
-                <p className="text-xs font-bold uppercase tracking-wider text-[#F97316]">
+                <p className="text-xs font-mono font-bold uppercase tracking-[0.16em] text-[#C6FF00]">
                   Chapter Library &amp; Inline DPPs · {selectedCohortLabel}
                 </p>
-                <h1 className="font-display text-3xl sm:text-4xl font-extrabold text-[#0B1B3B] dark:text-white tracking-tight">
-                  Study Materials
+                <h1 className="font-display text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+                  <span className="hand-underscore-blue">Study Materials</span>
                 </h1>
-                <p className="text-base text-slate-600 dark:text-slate-400 max-w-2xl">
+                <p className="text-base text-slate-400 max-w-2xl">
                   Revise chapter-wise Short Notes, Formula Sheets, Mind Maps, and PYQs — or switch to Inline Chapter DPPs for timed practice right here.
                 </p>
               </div>
@@ -1380,57 +1380,96 @@ export default function MaterialsPage() {
                       })
                     : `/materials/${generateCleanSlug(resolvedCohortSlug)}/${resolvedSubSlug}/${generateCleanSlug(cleanTitle)}`;
 
+                  const viewedCount = chapterMaterials.filter((m) =>
+                    progress.recentMaterials.includes(m.id) || bookmarkSet.has(m.id)
+                  ).length;
+                  const progressPct =
+                    totalCount > 0
+                      ? Math.min(100, Math.round((viewedCount / totalCount) * 100))
+                      : 0;
+                  const formulaResourceCount =
+                    (counts?.byTab['formula-sheets'] ?? 0) + (counts?.byTab['short-notes'] ?? 0);
+
+                  const subjectNameLower = (subjectMap.get(ch.subjectId)?.name ?? '').toLowerCase();
+                  const cardGlowClass = subjectNameLower.includes('chem')
+                    ? 'obsidian-glow-emerald'
+                    : subjectNameLower.includes('math')
+                      ? 'obsidian-glow-purple'
+                      : subjectNameLower.includes('bio')
+                        ? 'obsidian-glow-amber'
+                        : 'obsidian-glow-blue';
+
                   return (
                     <article
                       key={ch.id}
-                      className="group text-left bg-white dark:bg-[#111A2E] border border-slate-200/90 dark:border-slate-800 hover:border-[#2563EB] dark:hover:border-sky-400 rounded-2xl p-6 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 flex flex-col justify-between gap-4"
+                      data-testid="chapter-play-card"
+                      onClick={() => handleSelectChapter(ch.id)}
+                      className={`group relative cursor-pointer text-left rounded-3xl obsidian-card ${cardGlowClass} hover:border-[#C6FF00]/50 p-6 transition-all duration-200 hover:-translate-y-1.5 hover:shadow-[0_18px_36px_-14px_rgba(198,255,0,0.16)] flex flex-col justify-between gap-5`}
                     >
-                      <div className="space-y-3">
+                      <div className="space-y-3.5">
                         <div className="flex items-center justify-between gap-3">
-                          <span className="font-mono text-xs font-bold text-[#2563EB] dark:text-sky-400 tabular-nums">
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-[#C6FF00]/12 border border-[#C6FF00]/30 font-mono text-xs font-bold text-[#C6FF00] tabular-nums">
                             CH {String(idx + 1).padStart(2, '0')}
                           </span>
-                          <span className="text-xs font-medium text-slate-500 dark:text-slate-400 tabular-nums">
-                            {ch.weightageMarks} Marks · {ch.difficulty}
+                          <span className="font-mono text-xs font-medium text-slate-400 tabular-nums">
+                            {ch.weightageMarks} Marks
                           </span>
                         </div>
 
-                        <h2 className="font-display text-lg font-bold text-[#0B1B3B] dark:text-white group-hover:text-[#2563EB] dark:group-hover:text-sky-400 transition-colors leading-snug">
+                        <h2 className="font-handwritten text-2xl font-bold text-[#F8FAFC] group-hover:text-[#C6FF00] transition-colors leading-snug">
                           <Link
                             to={chapterHref}
                             onClick={(e) => {
                               if (!e.metaKey && !e.ctrlKey && !e.shiftKey) {
                                 e.preventDefault();
+                                e.stopPropagation();
                                 handleSelectChapter(ch.id);
                               }
                             }}
-                            className="hover:underline"
+                            className="hover:underline decoration-[#C6FF00]/60 underline-offset-4"
                           >
                             {cleanTitle}
                           </Link>
                         </h2>
 
-                        <p className="text-xs text-slate-500 dark:text-slate-400 tabular-nums">
-                          {summaryParts.length > 0
-                            ? summaryParts.join(' · ')
-                            : 'Open chapter workspace'}
-                        </p>
+                        {/* Slim Progress Bar */}
+                        <div className="space-y-1.5 pt-1">
+                          <div className="flex items-center justify-between text-[11px] font-mono text-slate-400 tabular-nums">
+                            <span>
+                              {formulaResourceCount > 0
+                                ? `${formulaResourceCount} Notes & Formulas`
+                                : `${totalCount} ${totalCount === 1 ? 'Resource' : 'Resources'}`}
+                            </span>
+                            <span className="text-[#C6FF00] font-semibold">{progressPct}%</span>
+                          </div>
+                          <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
+                            <div
+                              className="h-full rounded-full bg-gradient-to-r from-sky-400 to-[#C6FF00] transition-all duration-300"
+                              style={{ width: `${Math.max(8, progressPct)}%` }}
+                            />
+                          </div>
+                        </div>
                       </div>
 
-                      <div className="pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between gap-2 text-xs font-semibold">
-                        <button
-                          type="button"
-                          onClick={() => handleSelectChapter(ch.id)}
-                          className="text-slate-600 dark:text-slate-300 hover:text-[#2563EB] tabular-nums"
-                        >
-                          {totalCount} {totalCount === 1 ? 'Resource' : 'Resources'} inside
-                        </button>
+                      <div className="pt-3 border-t border-slate-400/[0.12] flex items-center justify-between gap-2">
+                        <span className="text-xs font-medium text-slate-400 tabular-nums">
+                          {summaryParts.length > 0
+                            ? summaryParts.slice(0, 2).join(' · ')
+                            : `${totalCount} Resources`}
+                        </span>
                         <Link
                           to={chapterHref}
-                          className="inline-flex items-center gap-1 text-[#2563EB] dark:text-sky-400 group-hover:translate-x-0.5 transition-transform"
+                          onClick={(e) => {
+                            if (!e.metaKey && !e.ctrlKey && !e.shiftKey) {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleSelectChapter(ch.id);
+                            }
+                          }}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-400/12 border border-sky-400/25 text-xs font-bold text-sky-300 group-hover:bg-sky-400 group-hover:text-[#070B14] transition-colors shrink-0"
                         >
                           Open Chapter
-                          <ChevronRight className="w-4 h-4" />
+                          <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
                         </Link>
                       </div>
                     </article>

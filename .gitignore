@@ -9,3 +9,11 @@ coverage/
 *.log
 .env*
 !.env.example
+.aistudio/
+public/assets/aistudio/ScreenRecording_*.mp4
+public/assets/aistudio/Prepskm_Physics_1000_Questions_*_Handwritten_*.pdf
+public/assets/aistudio/*Blueprint*.pdf
+public/assets/aistudio/IMG_1606_1831c517.png
+public/assets/aistudio/IMG_1619_7c82df4f.png
+public/assets/aistudio/IMG_1620_f5a565ab.png
+public/assets/aistudio/IMG_1621_02f2455c.png

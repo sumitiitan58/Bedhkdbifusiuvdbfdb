@@ -210,7 +210,10 @@ export function Prepskm2Provider({ children }: { children: ReactNode }) {
 
   const openLiveTeacher = useCallback((request: LiveTeacherLessonRequest) => {
     setCopilotOpen(false);
-    setLiveTeacherRequest(request);
+    setLiveTeacherRequest({
+      ...request,
+      requestNonce: Date.now() + Math.random(),
+    });
   }, []);
 
   const closeLiveTeacher = useCallback(() => {

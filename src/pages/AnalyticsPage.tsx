@@ -250,7 +250,7 @@ export default function AnalyticsPage() {
         {/* Page Header + Attempt Picker */}
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
           <div className="flex items-start gap-3.5">
-            <AiRoleAvatar role="analytics" size="lg" className="hidden sm:block mt-0.5" />
+            <AiRoleAvatar role="analytics" size="lg" showShadow={true} className="hidden sm:flex mt-0.5" />
             <div className="space-y-1">
               <p className="text-xs font-bold uppercase tracking-wider text-[#F97316]">
                 AI Analytical Assistant · {activeCohortLabel}

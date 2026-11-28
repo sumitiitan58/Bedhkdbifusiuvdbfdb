@@ -7,17 +7,21 @@ interface LiveTeacherSvgBoardProps {
 }
 
 export function LiveTeacherSvgBoard({ svgType, activeStep }: LiveTeacherSvgBoardProps) {
+  if (!svgType || svgType === 'generic') {
+    return null;
+  }
+
   const isStep2Plus = activeStep >= 2;
   const isStep3Plus = activeStep >= 3;
   const isStep4 = activeStep >= 4;
 
   return (
-    <div className="rounded-xl border border-[#00B4FF]/25 bg-[#070D1B]/90 p-2.5 space-y-1.5">
+    <div className="rounded-2xl border border-sky-400/20 bg-[#0b1120]/85 p-3 space-y-2">
       <div className="flex items-center justify-between gap-2 text-[10px] font-mono uppercase tracking-wider">
-        <span className="text-[#00B4FF] font-bold">
-          Animated Board Diagram · {svgType.toUpperCase()}
+        <span className="text-sky-400 font-bold">
+          Concept Visual · {svgType.toUpperCase()}
         </span>
-        <span className="text-amber-300 font-semibold">Step {activeStep}/4 Highlight</span>
+        <span className="text-amber-300 font-semibold">Step {activeStep}</span>
       </div>
 
       <div className="w-full flex items-center justify-center overflow-hidden rounded-lg bg-[#060B16] border border-white/5 py-1.5 max-h-[152px]">
@@ -246,7 +250,7 @@ export function LiveTeacherSvgBoard({ svgType, activeStep }: LiveTeacherSvgBoard
           </svg>
         )}
 
-        {(svgType === 'mechanics' || svgType === 'biology' || svgType === 'generic') && (
+        {(svgType === 'mechanics' || svgType === 'biology') && (
           <svg viewBox="0 0 320 160" className="w-full max-w-[320px] h-auto" role="img" aria-label="Animated concept blueprint diagram">
             {svgType === 'mechanics' ? (
               <>
@@ -298,53 +302,7 @@ export function LiveTeacherSvgBoard({ svgType, activeStep }: LiveTeacherSvgBoard
                   NCERT Concept Mapping &amp; Exception Check
                 </text>
               </>
-            ) : (
-              <>
-                {[
-                  { x: 16, label: '1. Given', color: '#00B4FF', step: 1 },
-                  { x: 92, label: '2. Law', color: '#F27B13', step: 2 },
-                  { x: 168, label: '3. Derive', color: '#38BDF8', step: 3 },
-                  { x: 244, label: '4. Lock', color: '#10B981', step: 4 },
-                ].map((node, i) => (
-                  <g key={node.label}>
-                    <rect
-                      x={node.x}
-                      y="54"
-                      width="62"
-                      height="46"
-                      rx="10"
-                      fill={activeStep === node.step ? 'rgba(0,180,255,0.2)' : '#0D1830'}
-                      stroke={activeStep >= node.step ? node.color : '#334155'}
-                      strokeWidth={activeStep === node.step ? 2.4 : 1.5}
-                    />
-                    <text
-                      x={node.x + 31}
-                      y="81"
-                      textAnchor="middle"
-                      fill={activeStep >= node.step ? '#FFFFFF' : '#64748B'}
-                      fontSize="10"
-                      fontFamily="monospace"
-                      fontWeight="bold"
-                    >
-                      {node.label}
-                    </text>
-                    {i < 3 && (
-                      <line
-                        x1={node.x + 62}
-                        y1="77"
-                        x2={node.x + 76}
-                        y2="77"
-                        stroke={activeStep > node.step ? '#10B981' : '#334155'}
-                        strokeWidth="2"
-                      />
-                    )}
-                  </g>
-                ))}
-                <text x="160" y="136" textAnchor="middle" fill="#94A3B8" fontSize="10" fontFamily="monospace">
-                  4-Step Structured Faculty Derivation
-                </text>
-              </>
-            )}
+            ) : null}
           </svg>
         )}
       </div>

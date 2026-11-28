@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#070A12" />
+    <meta name="theme-color" content="#060A14" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="shortcut icon" href="/favicon.png" />
@@ -170,27 +170,26 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=Kalam:wght@400;700&family=Patrick+Hand&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap"
       rel="stylesheet"
     />
     <script>
       (function () {
+        document.documentElement.classList.add('dark');
+        document.documentElement.style.colorScheme = 'dark';
         try {
-          var saved = localStorage.getItem('prepskm_theme_v1');
-          if (saved !== 'light') {
-            document.documentElement.classList.add('dark');
-          }
+          localStorage.setItem('prepskm_theme_v1', 'dark');
           var savedBackdrop = localStorage.getItem('prepskm_backdrop_v1');
           if (savedBackdrop) {
             document.documentElement.dataset.backdrop = savedBackdrop;
           }
         } catch (e) {
-          document.documentElement.classList.add('dark');
+          // ignore storage errors
         }
       })();
     </script>
   </head>
-  <body class="bg-[#F4F8FF] text-[#0B1F3A] dark:bg-[#070B14] dark:text-[#F8FAFC] antialiased selection:bg-[#06B6D4]/25 selection:text-[#0B1F3A] dark:selection:text-[#22D3EE] transition-colors duration-200">
+  <body class="bg-[#060A14] text-[#F8FAFC] antialiased selection:bg-[#FF7A00]/25 selection:text-[#00D4FF]">
     <div id="root">
       <!-- Static SEO & Instant First-Paint Homepage Shell (seamlessly replaced when React boots) -->
       <div style="font-family:'DM Sans',system-ui,sans-serif;max-width:1120px;margin:0 auto;padding:24px 16px;color:#0B1B3B;">

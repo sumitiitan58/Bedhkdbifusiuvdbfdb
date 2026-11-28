@@ -2,8 +2,15 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   cleanTextForSpeech,
   detectPrepsWakePhrase,
-  selectPreferredIndianVoice,
 } from '../utils/speechUtils';
+import {
+  getPreferredGeminiVoice,
+  setPreferredGeminiVoice,
+  speakText as speakWithGeminiVoice,
+  stopSpeaking as stopGeminiVoice,
+  subscribeGeminiVoice,
+  type GeminiVoiceName,
+} from '../utils/speakText';
 import { playWakeChime } from '../utils/soundEffects';
 
 interface SpeechRecognitionEventLike {
@@ -54,9 +61,8 @@ export function usePrepsVoice({
   autoSendSilenceMs = AUTO_SEND_SILENCE_MS,
 }: UsePrepsVoiceOptions) {
   const [speechSupported] = useState<boolean>(() => Boolean(getSpeechRecognitionCtor()));
-  const [ttsSupported] = useState<boolean>(
-    () => typeof window !== 'undefined' && 'speechSynthesis' in window
-  );
+  const [ttsSupported] = useState<boolean>(true);
+  const [geminiVoice, setGeminiVoiceState] = useState<GeminiVoiceName>(() => getPreferredGeminiVoice());
 
   const [isListening, setIsListening] = useState(false);
   const [wakeWordEnabled, setWakeWordEnabled] = useState(false);
@@ -84,22 +90,14 @@ export function usePrepsVoice({
     onWakeRef.current = onWakeWordDetected;
   }, [onWakeWordDetected]);
 
-  // Pre-warm browser voice list so en-IN / hi-IN voice is ready immediately
   useEffect(() => {
-    if (!ttsSupported || typeof window === 'undefined') return;
-    const loadVoices = () => {
-      try {
-        window.speechSynthesis.getVoices();
-      } catch {
-        // ignore
-      }
-    };
-    loadVoices();
-    window.speechSynthesis.addEventListener?.('voiceschanged', loadVoices);
-    return () => {
-      window.speechSynthesis.removeEventListener?.('voiceschanged', loadVoices);
-    };
-  }, [ttsSupported]);
+    return subscribeGeminiVoice(setGeminiVoiceState);
+  }, []);
+
+  const setGeminiVoice = useCallback((voice: GeminiVoiceName) => {
+    const saved = setPreferredGeminiVoice(voice);
+    setGeminiVoiceState(saved);
+  }, []);
 
   const clearSilenceTimer = useCallback(() => {
     if (silenceTimerRef.current !== null) {
@@ -109,69 +107,51 @@ export function usePrepsVoice({
   }, []);
 
   const stopSpeaking = useCallback(() => {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-    }
+    stopGeminiVoice();
     isSpeakingRef.current = false;
     setIsSpeaking(false);
   }, []);
 
   const speakText = useCallback(
     (text: string) => {
-      if (!ttsSupported || !text.trim()) return;
+      if (!text.trim()) return;
+      const cleaned = cleanTextForSpeech(text);
+      if (!cleaned) return;
+
+      // Pause background wake listener while speaking so Gemini audio never triggers itself
       try {
-        window.speechSynthesis.cancel();
-        const cleaned = cleanTextForSpeech(text);
-        if (!cleaned) return;
+        wakeRecRef.current?.stop();
+      } catch {
+        // ignore
+      }
 
-        // Pause background wake listener while speaking so TTS never triggers itself
-        try {
-          wakeRecRef.current?.stop();
-        } catch {
-          // ignore
-        }
+      isSpeakingRef.current = true;
+      setIsSpeaking(true);
 
-        const utterance = new SpeechSynthesisUtterance(cleaned);
-        const voices = window.speechSynthesis.getVoices?.() ?? [];
-        const voiceIdx = selectPreferredIndianVoice(voices);
-        const chosenVoice = voiceIdx >= 0 ? voices[voiceIdx] : null;
-
-        if (chosenVoice) {
-          utterance.voice = chosenVoice;
-          utterance.lang = chosenVoice.lang || 'en-IN';
-        } else {
-          utterance.lang = 'en-IN';
-        }
-
-        utterance.pitch = 1.0;
-        utterance.rate = 0.95;
-
-        utterance.onstart = () => {
+      void speakWithGeminiVoice(cleaned, {
+        language: 'hinglish',
+        voiceName: geminiVoice,
+        onStart: () => {
           isSpeakingRef.current = true;
           setIsSpeaking(true);
-        };
-        utterance.onend = () => {
+        },
+        onEnd: () => {
           isSpeakingRef.current = false;
           setIsSpeaking(false);
           if (wakeEnabledRef.current && !recognitionRef.current) {
             window.setTimeout(() => resumeWakeRef.current(), 450);
           }
-        };
-        utterance.onerror = () => {
+        },
+        onError: () => {
           isSpeakingRef.current = false;
           setIsSpeaking(false);
           if (wakeEnabledRef.current && !recognitionRef.current) {
             window.setTimeout(() => resumeWakeRef.current(), 450);
           }
-        };
-
-        window.speechSynthesis.speak(utterance);
-      } catch {
-        isSpeakingRef.current = false;
-        setIsSpeaking(false);
-      }
+        },
+      });
     },
-    [ttsSupported]
+    [geminiVoice]
   );
 
   const stopListening = useCallback(() => {
@@ -422,15 +402,15 @@ export function usePrepsVoice({
       } catch {
         // ignore
       }
-      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-      }
+      stopGeminiVoice();
     };
   }, [clearSilenceTimer]);
 
   return {
     speechSupported,
     ttsSupported,
+    geminiVoice,
+    setGeminiVoice,
     isListening,
     wakeWordEnabled,
     wakeActivatedRecently,

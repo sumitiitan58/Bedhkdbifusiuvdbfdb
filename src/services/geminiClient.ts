@@ -9,6 +9,7 @@ import type {
   TutorPracticeQuestion,
   TutorSheetFeedback,
 } from '../utils/sheetTutorAnalyzer';
+import { getPreferredGeminiVoice, type GeminiVoiceName } from '../utils/speakText';
 
 export interface GeminiMentorPlanDay {
   day: string;
@@ -28,12 +29,21 @@ export interface GeminiExtractedQuestion {
   questionNumber: number;
   subjectName: string;
   chapterName?: string;
+  difficultyTier?: 'Easy' | 'Moderate' | 'Hard' | 'Very Hard';
   questionType: 'single-mcq' | 'multi-mcq' | 'integer';
   questionText: string;
   optionTexts?: string[];
   correctOptionIndices?: number[];
   numericalAnswer?: string;
   solutionText: string;
+}
+
+export interface EducationalDiagramResponse {
+  title: string;
+  subject: string;
+  caption: string;
+  concepts: string[];
+  svgMarkup: string;
 }
 
 export interface GeminiQuestionExplanation {
@@ -363,24 +373,60 @@ export async function requestLiveTeacherLesson(
   };
 }
 
+let tutorTtsCooldownUntil = 0;
+
 export async function requestTutorTtsAudio(payload: {
   text: string;
   language: 'hinglish' | 'english';
-}): Promise<{ audioBase64: string; mimeType: string }> {
-  const data = await postJson<{ audioBase64?: string; mimeType?: string }>(
-    '/api/tts',
-    payload,
-    { timeoutMs: 22_000, maxRetries: 0 }
-  );
-
-  if (!data.audioBase64) {
-    throw new ApiHttpError('Gemini TTS returned empty audio.', 502);
+  voiceName?: GeminiVoiceName;
+}): Promise<{ audioBase64: string; mimeType: string; voice?: string } | null> {
+  if (Date.now() < tutorTtsCooldownUntil) {
+    return null;
   }
 
-  return {
-    audioBase64: data.audioBase64,
-    mimeType: data.mimeType || 'audio/wav',
-  };
+  const resolvedUrl = resolveApiUrl('/api/tts');
+  const controller = new AbortController();
+  const timer = globalThis.setTimeout(() => controller.abort(), 16_000);
+
+  try {
+    const res = await fetch(resolvedUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({
+        ...payload,
+        voiceName: payload.voiceName ?? getPreferredGeminiVoice(),
+      }),
+      signal: controller.signal,
+    });
+
+    const data = (await res.json().catch(() => ({}))) as {
+      ok?: boolean;
+      fallback?: string;
+      audioBase64?: string;
+      mimeType?: string;
+      voice?: string;
+    };
+
+    if (!res.ok || data.ok === false || !data.audioBase64) {
+      if (data.fallback === 'browser-tts' || res.status === 429 || res.status === 503) {
+        tutorTtsCooldownUntil = Date.now() + 60_000;
+      }
+      return null;
+    }
+
+    return {
+      audioBase64: data.audioBase64,
+      mimeType: data.mimeType || 'audio/wav',
+      voice: data.voice,
+    };
+  } catch {
+    return null;
+  } finally {
+    globalThis.clearTimeout(timer);
+  }
 }
 
 export async function requestPrepsAiChat(payload: {
@@ -490,3 +536,15 @@ export async function requestTutorPracticeQuestions(payload: {
   const list = Array.isArray(data.result?.questions) ? data.result.questions : [];
   return { questions: list, provider: data.provider };
 }
+
+export async function requestEducationalDiagram(payload: {
+  prompt: string;
+  subject?: string;
+}): Promise<{ diagram: EducationalDiagramResponse; provider?: string }> {
+  const data = await postJson<{
+    diagram: EducationalDiagramResponse;
+    provider?: string;
+  }>('/api/gemini/diagram', payload, { timeoutMs: 10_000, maxRetries: 0 });
+  return { diagram: data.diagram, provider: data.provider };
+}
+

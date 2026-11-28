@@ -12,13 +12,11 @@ import {
   MessageSquare,
   Search,
   Sparkles,
-  SunMoon,
   TrendingUp,
   Users,
   X,
 } from 'lucide-react';
 import { usePrepskm2 } from '../context/Prepskm2Context';
-import { useTheme } from '../hooks/useTheme';
 import { MASTERY_CHAPTERS_48, VERIFIED_MENTORS } from '../data/prepskm2Data';
 import { playClick, playNav } from '../utils/soundEffects';
 
@@ -40,7 +38,6 @@ export function CommandPalette() {
     toggleZenMode,
     setCopilotOpen,
   } = usePrepskm2();
-  const { toggleTheme, theme } = useTheme();
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -116,11 +113,20 @@ export function CommandPalette() {
         run: () => go('/pricing'),
       },
       {
+        id: 'nav-workspace',
+        group: 'Navigation',
+        title: 'Study Workspace — Practice, Focus, Mastery & Predictor',
+        subtitle: '10s Formula Duels, Pomodoro Focus Timer, 5-Stage Mastery Tracker & Percentile Predictor',
+        keywords: 'workspace focus pomodoro timer mastery tracker percentile predictor formula duel',
+        icon: TrendingUp,
+        run: () => go('/workspace'),
+      },
+      {
         id: 'nav-arena',
         group: 'Navigation',
-        title: 'Apex Arena — 1v1 AI Duels & Sunday Blitz',
-        subtitle: 'Quantum Clash, Synthesis Strike, Logic Labyrinth & Global ELO Leaderboards',
-        keywords: 'arena games reaction formula blitz sunday elo leaderboard',
+        title: 'Apex Arena — 4 Competitive Study Games',
+        subtitle: 'Formula Clash, Concept Link, Kaun Banega Topper & Syllabus Dominion',
+        keywords: 'arena games formula clash concept link kaun banega topper syllabus dominion',
         icon: Gamepad2,
         run: () => go('/arena'),
       },
@@ -164,27 +170,14 @@ export function CommandPalette() {
       {
         id: 'act-copilot',
         group: 'Quick Actions',
-        title: 'Open PrepsBot • 3D AI Mentor',
-        subtitle: 'Drop doubt screenshot, Step-2 hints, Formula Only, or 3 similar PYQs',
-        keywords: 'prepsbot copilot gemini image doubt hint similar questions',
+        title: 'Wake Hello Buddy Voice Assistant',
+        subtitle: 'Hands-free voice control, doubts, navigation & live coaching',
+        keywords: 'prepsbot buddy voice copilot gemini doubt hint',
         icon: Sparkles,
         run: () => {
           playClick();
           setCommandPaletteOpen(false);
-          setCopilotOpen(true);
-        },
-      },
-      {
-        id: 'act-theme',
-        group: 'Quick Actions',
-        title: theme === 'dark' ? 'Switch to Light Study OS Mode' : 'Switch to Dark Focus Mode',
-        subtitle: 'Toggle between Dark (#070B14) and Bright Pastel Light (#F4F8FF)',
-        keywords: 'theme dark light mode switch',
-        icon: SunMoon,
-        run: () => {
-          playClick();
-          toggleTheme();
-          setCommandPaletteOpen(false);
+          window.dispatchEvent(new CustomEvent('buddy:wake', { detail: { source: 'command-palette' } }));
         },
       },
     ];
@@ -210,7 +203,7 @@ export function CommandPalette() {
     }));
 
     return [...quickItems, ...navItems, ...learnItems, ...mentorItems, ...chapterItems];
-  }, [navigate, setCommandPaletteOpen, toggleZenMode, setCopilotOpen, theme, toggleTheme]);
+  }, [navigate, setCommandPaletteOpen, toggleZenMode, setCopilotOpen]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();

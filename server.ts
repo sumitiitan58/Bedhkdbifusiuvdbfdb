@@ -817,15 +817,15 @@ async function createApp() {
         '- For single-mcq and multi-mcq, extract exactly 4 clean optionTexts (without leading "A.", "B." prefixes if possible) and set correctOptionIndices (0-based indices 0..3). If an answer key is not explicitly shown in the PDF, solve the question carefully and provide the verified correctOptionIndices or numericalAnswer.',
         '- For integer questions, set numericalAnswer as a clean number string (e.g. "5" or "24.5") and leave optionTexts empty.',
         '- Always include a concise, accurate solutionText explaining how to arrive at the answer.',
-        '- Detect subjectName (Physics, Chemistry, Mathematics, or Biology) and chapterName for each question.',
+        '- Detect subjectName (Physics, Chemistry, Mathematics, or Biology), chapterName, and difficultyTier ("Easy", "Moderate", "Hard", or "Very Hard") for each question.',
       ].join('\n');
 
       // Text-only extraction runs through the full 5-provider automatic failover chain
       if (!fileBase64) {
         const textResult = await runStructuredJsonWithFallback({
           systemPrompt:
-            'You are an expert Indian JEE/NEET exam digitizer. Extract clean, accurate questions, options, verified answer keys, and concise step-by-step solutions in strict JSON.',
-          userPrompt: `${instruction}\n\nSOURCE TEXT:\n${String(rawTextInput).slice(0, 30000)}\n\nReturn ONLY valid JSON: {"questions":[{"questionNumber":1,"subjectName":"string","chapterName":"string","questionType":"single-mcq","questionText":"string","optionTexts":["A","B","C","D"],"correctOptionIndices":[0],"numericalAnswer":"","solutionText":"string"}]}`,
+            'You are an expert Indian JEE/NEET exam digitizer. Extract clean, accurate questions, options, verified answer keys, difficultyTier, and concise step-by-step solutions in strict JSON.',
+          userPrompt: `${instruction}\n\nSOURCE TEXT:\n${String(rawTextInput).slice(0, 30000)}\n\nReturn ONLY valid JSON: {"questions":[{"questionNumber":1,"subjectName":"string","chapterName":"string","difficultyTier":"Moderate","questionType":"single-mcq","questionText":"string","optionTexts":["A","B","C","D"],"correctOptionIndices":[0],"numericalAnswer":"","solutionText":"string"}]}`,
           env: process.env,
           maxTokens: 3200,
           validator: (parsed) => Array.isArray(parsed.questions),
@@ -866,7 +866,7 @@ async function createApp() {
         contents: { parts },
         config: {
           systemInstruction:
-            'You are an expert Indian JEE/NEET exam digitizer. Extract clean, accurate questions, options, verified answer keys, and concise step-by-step solutions in strict JSON.',
+            'You are an expert Indian JEE/NEET exam digitizer. Extract clean, accurate questions, options, verified answer keys, difficultyTier, and concise step-by-step solutions in strict JSON.',
           responseMimeType: 'application/json',
           responseSchema: {
             type: Type.OBJECT,
@@ -879,6 +879,7 @@ async function createApp() {
                     questionNumber: { type: Type.INTEGER },
                     subjectName: { type: Type.STRING },
                     chapterName: { type: Type.STRING },
+                    difficultyTier: { type: Type.STRING },
                     questionType: {
                       type: Type.STRING,
                       description: 'Must be single-mcq, multi-mcq, or integer',
@@ -907,6 +908,72 @@ async function createApp() {
       const jsonText = (response.text ?? '{"questions":[]}').trim();
       const parsed = JSON.parse(jsonText) as { questions?: unknown[] };
       res.json({ ok: true, questions: Array.isArray(parsed.questions) ? parsed.questions : [], provider: 'gemini' });
+    } catch (err) {
+      const { status, message } = formatGeminiError(err);
+      res.status(status).json({ ok: false, error: message });
+    }
+  });
+
+  // 2b. In-Chat Educational Scientific Diagram Generator (Crisp Inline Vector SVG via Gemini)
+  app.post('/api/gemini/diagram', async (req, res) => {
+    try {
+      const { prompt = '', subject = 'Science' } = req.body ?? {};
+      const cleanPrompt = String(prompt ?? '').trim().slice(0, 500);
+      if (!cleanPrompt) {
+        res.status(400).json({ ok: false, error: 'A diagram topic prompt is required.' });
+        return;
+      }
+
+      if (listConfiguredProviders(process.env).length === 0) {
+        res.status(503).json({
+          ok: false,
+          error: 'No AI provider keys configured; use instant local scientific diagram renderer.',
+        });
+        return;
+      }
+
+      const diagramPrompt = [
+        `Create a clean, textbook-grade educational scientific SVG diagram for Indian JEE/NEET students.`,
+        `Topic: ${cleanPrompt}`,
+        `Subject hint: ${subject}`,
+        'Requirements:',
+        '- Return a valid SVG with viewBox="0 0 640 360" and clean dark/high-contrast slate background (#0f172a) with bright legible labels (#f8fafc, #38bdf8, #34d399, #fbbf24, #f472b6).',
+        '- Use crisp geometric shapes (rect, circle, path, line, polygon, text) with clear arrows, vector labels, chemical bonds, or anatomical labels.',
+        '- NO <script>, NO event handlers, NO <foreignObject>, NO external image URLs.',
+        '- Output ONLY valid JSON: {"title":"string","subject":"Physics|Chemistry|Mathematics|Biology","caption":"string","concepts":["concept 1","concept 2"],"svgMarkup":"<svg viewBox=\\"0 0 640 360\\" xmlns=\\"http://www.w3.org/2000/svg\\">...</svg>"}',
+      ].join('\n');
+
+      const result = await runStructuredJsonWithFallback({
+        systemPrompt:
+          'You are an expert scientific textbook illustrator for JEE/NEET Physics, Chemistry, Mathematics, and Biology. Generate accurate, clean, labeled SVG diagrams in strict JSON.',
+        userPrompt: diagramPrompt,
+        env: process.env,
+        maxTokens: 2400,
+        validator: (parsed) =>
+          typeof parsed.svgMarkup === 'string' && parsed.svgMarkup.includes('<svg'),
+      });
+
+      if (result.ok) {
+        res.json({
+          ok: true,
+          diagram: {
+            title: String(result.data.title ?? cleanPrompt.slice(0, 60)),
+            subject: String(result.data.subject ?? subject),
+            caption: String(result.data.caption ?? 'Labeled concept diagram generated for exam revision.'),
+            concepts: Array.isArray(result.data.concepts)
+              ? result.data.concepts.map((c: unknown) => String(c)).slice(0, 5)
+              : [String(subject)],
+            svgMarkup: String(result.data.svgMarkup),
+          },
+          provider: result.provider,
+        });
+        return;
+      }
+
+      res.status(503).json({
+        ok: false,
+        error: result.error || 'Diagram generator temporarily unavailable.',
+      });
     } catch (err) {
       const { status, message } = formatGeminiError(err);
       res.status(status).json({ ok: false, error: message });
@@ -1275,14 +1342,20 @@ async function createApp() {
     };
   };
 
+  const ALLOWED_GEMINI_VOICES = ['Puck', 'Kore', 'Charon', 'Fenrir', 'Zephyr'] as const;
+  let geminiTtsCooldownUntil = 0;
+
   app.post('/api/tts', async (req, res) => {
     try {
-      const body = (req.body ?? {}) as { text?: unknown; language?: unknown };
+      const body = (req.body ?? {}) as { text?: unknown; language?: unknown; voiceName?: unknown; voice?: unknown };
       const rawText = typeof body.text === 'string' ? body.text.trim() : '';
       const language = body.language === 'english' ? 'english' : 'hinglish';
+      const rawVoice = typeof body.voiceName === 'string' ? body.voiceName : typeof body.voice === 'string' ? body.voice : 'Puck';
+      const voiceName =
+        ALLOWED_GEMINI_VOICES.find((v) => v.toLowerCase() === rawVoice.trim().toLowerCase()) ?? 'Puck';
 
       if (!rawText) {
-        res.status(400).json({ ok: false, error: 'text is required for TTS.' });
+        res.status(400).json({ ok: false, error: 'text is required for Gemini TTS.' });
         return;
       }
 
@@ -1291,7 +1364,7 @@ async function createApp() {
         res.status(200).json({
           ok: false,
           fallback: 'browser-tts',
-          error: 'GEMINI_API_KEY is not configured for Gemini TTS.',
+          error: 'GEMINI_API_KEY is not configured in server environment.',
         });
         return;
       }
@@ -1308,127 +1381,85 @@ async function createApp() {
 
       const stylePrompt =
         language === 'hinglish'
-          ? 'Warm, friendly 18-year-old Indian peer mentor speaking natural Hinglish to a close friend at a relaxed normal conversational pace, encouraging and approachable, never robotic or rushed'
-          : 'Warm, friendly 18-year-old peer mentor explaining clearly to a close friend in natural English at a relaxed normal conversational pace, encouraging and easy to follow, never robotic or rushed';
+          ? 'Realistic 17 to 18-year-old Indian male student friend and mentor speaking natural conversational Hinglish with genuine human warmth, relaxed rhythm, and zero robotic stiffness'
+          : 'Realistic 17 to 18-year-old Indian male student friend and mentor speaking clear, natural conversational Indian English with genuine human warmth and zero robotic stiffness';
 
-      const errors: string[] = [];
+      if (Date.now() < geminiTtsCooldownUntil) {
+        res.status(200).json({
+          ok: false,
+          fallback: 'browser-tts',
+          error: 'Gemini TTS cooling down after quota cap; using instant browser voice.',
+        });
+        return;
+      }
 
-      // Attempt 1: Official @google/genai SDK with gemini-3.8-flash-lite-tts
-      try {
-        const ai = getGeminiClient();
-        const response = await ai.models.generateContent({
-          model: 'gemini-3.8-flash-lite-tts',
-          contents: [
-            {
-              role: 'user',
-              parts: [
-                {
-                  text: cleanSpokenText,
-                  speechMetadata: { style: stylePrompt },
-                } as unknown as { text: string },
-              ],
-            },
-          ],
-          config: {
-            responseModalities: ['AUDIO'],
-            speechConfig: {
-              voiceConfig: {
-                prebuiltVoiceConfig: {
-                  voiceName: 'Puck',
-                },
-              },
+      const ai = new GoogleGenAI({
+        apiKey,
+        apiVersion: 'v1beta',
+        httpOptions: {
+          headers: { 'User-Agent': 'aistudio-build' },
+        },
+      });
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.8-flash-lite-tts',
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              {
+                text: cleanSpokenText,
+                speechMetadata: { style: stylePrompt },
+              } as unknown as { text: string },
+            ],
+          },
+        ],
+        config: {
+          responseModalities: ['AUDIO'],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: { voiceName },
             },
           },
+        },
+      });
+
+      const inlinePart = response.candidates?.[0]?.content?.parts?.find((part) =>
+        Boolean((part as { inlineData?: { data?: string } }).inlineData?.data)
+      ) as { inlineData?: { data?: string; mimeType?: string } } | undefined;
+
+      const rawBase64 = inlinePart?.inlineData?.data;
+      const rawMime = inlinePart?.inlineData?.mimeType || 'audio/wav';
+      if (rawBase64) {
+        const buf = Buffer.from(rawBase64, 'base64');
+        const isAlreadyWav = buf.length >= 12 && buf.subarray(0, 4).toString('ascii') === 'RIFF';
+        const audio = isAlreadyWav
+          ? { audioBase64: rawBase64, mimeType: 'audio/wav' }
+          : wrapPcmAsWavBase64(rawBase64, rawMime);
+
+        res.status(200).json({
+          ok: true,
+          audioBase64: audio.audioBase64,
+          mimeType: audio.mimeType,
+          model: 'gemini-3.8-flash-lite-tts',
+          voice: voiceName,
         });
-
-        const inlinePart = response.candidates?.[0]?.content?.parts?.find((part) =>
-          Boolean((part as { inlineData?: { data?: string } }).inlineData?.data)
-        ) as { inlineData?: { data?: string; mimeType?: string } } | undefined;
-
-        const rawBase64 = inlinePart?.inlineData?.data;
-        const rawMime = inlinePart?.inlineData?.mimeType || 'audio/wav';
-        if (rawBase64) {
-          const wrapped = wrapPcmAsWavBase64(rawBase64, rawMime);
-          res.status(200).json({
-            ok: true,
-            audioBase64: wrapped.audioBase64,
-            mimeType: wrapped.mimeType,
-            model: 'gemini-3.8-flash-lite-tts',
-            voice: 'Puck',
-          });
-          return;
-        }
-        errors.push('SDK gemini-3.8-flash-lite-tts returned empty audio.');
-      } catch (err) {
-        errors.push(sanitizeErrorMessage(err));
-      }
-
-      // Attempt 2 & 3: Direct v1beta REST fallback for gemini-2.5-flash-preview-tts and gemini-3.8-flash-lite-tts
-      const restPrompt = `Say in a ${stylePrompt}: ${cleanSpokenText}`;
-      for (const model of ['gemini-2.5-flash-preview-tts', 'gemini-3.8-flash-lite-tts'] as const) {
-        try {
-          const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
-          const upstream = await fetch(endpoint, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'User-Agent': 'aistudio-build',
-            },
-            body: JSON.stringify({
-              contents: [{ role: 'user', parts: [{ text: restPrompt }] }],
-              generationConfig: {
-                responseModalities: ['AUDIO'],
-                speechConfig: {
-                  voiceConfig: {
-                    prebuiltVoiceConfig: {
-                      voiceName: 'Puck',
-                    },
-                  },
-                },
-              },
-            }),
-          });
-          if (!upstream.ok) {
-            const errText = await upstream.text().catch(() => '');
-            errors.push(`REST ${model} HTTP ${upstream.status}: ${errText.slice(0, 180)}`);
-            continue;
-          }
-          const data = (await upstream.json()) as {
-            candidates?: Array<{
-              content?: {
-                parts?: Array<{ inlineData?: { data?: string; mimeType?: string } }>;
-              };
-            }>;
-          };
-          const inlinePart = data.candidates?.[0]?.content?.parts?.find((p) => Boolean(p.inlineData?.data));
-          const rawBase64 = inlinePart?.inlineData?.data;
-          const rawMime = inlinePart?.inlineData?.mimeType || 'audio/L16;codec=pcm;rate=24000';
-          if (rawBase64) {
-            const wrapped = wrapPcmAsWavBase64(rawBase64, rawMime);
-            res.status(200).json({
-              ok: true,
-              audioBase64: wrapped.audioBase64,
-              mimeType: wrapped.mimeType,
-              model,
-              voice: 'Puck',
-            });
-            return;
-          }
-        } catch (err) {
-          errors.push(sanitizeErrorMessage(err));
-        }
+        return;
       }
 
       res.status(200).json({
         ok: false,
         fallback: 'browser-tts',
-        error: errors[0] || 'Gemini TTS unavailable; using browser speech synthesis.',
+        error: 'Gemini TTS returned empty audio.',
       });
     } catch (err) {
+      const msg = sanitizeErrorMessage(err);
+      if (/429|spending\s+cap|quota|resource_exhausted/i.test(msg)) {
+        geminiTtsCooldownUntil = Date.now() + 5 * 60 * 1000;
+      }
       res.status(200).json({
         ok: false,
         fallback: 'browser-tts',
-        error: sanitizeErrorMessage(err) || 'Gemini TTS unavailable; using browser speech synthesis.',
+        error: msg || 'Gemini TTS temporarily unavailable.',
       });
     }
   });

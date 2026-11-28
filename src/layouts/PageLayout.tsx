@@ -34,8 +34,8 @@ export function PageLayout({
     <div
       className={`relative min-h-screen flex transition-colors duration-200 overflow-x-clip ${
         isExamRoom
-          ? 'bg-[#F4F8FF] dark:bg-[#070B14] text-[#0B1F3A] dark:text-[#F8FAFC]'
-          : 'bg-[#F4F8FF] dark:bg-[#070B14] text-[#0B1F3A] dark:text-[#F8FAFC]'
+          ? 'bg-[#060A14] text-[#F8FAFC]'
+          : 'preps-obsidian-grid text-[#F8FAFC]'
       }`}
     >
       {!hideSidebar && (

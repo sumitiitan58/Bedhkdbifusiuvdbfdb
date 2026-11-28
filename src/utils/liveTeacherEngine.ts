@@ -28,6 +28,8 @@ export interface LiveTeacherLessonRequest {
   solutionText?: string;
   officialAnswer?: string;
   studentAnswer?: string;
+  preferredLanguage?: LiveTeacherLanguage;
+  requestNonce?: number;
   source?: 'preps-ai' | 'mistake-notebook' | 'chapter-dpp' | 'cbt-analysis';
 }
 

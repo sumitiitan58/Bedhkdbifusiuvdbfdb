@@ -25,6 +25,8 @@ import { ReusableCard } from '../components/ReusableCard';
 import { ReusableButton } from '../components/ReusableButton';
 import { SeoHead } from '../components/SeoHead';
 import { QuestionPaperBuilder } from '../components/admin/QuestionPaperBuilder';
+import { PdfQuestionExtractorPanel } from '../components/admin/PdfQuestionExtractorPanel';
+import { SupportInboxPanel } from '../components/admin/SupportInboxPanel';
 import { useAuth } from '../context/AuthContext';
 import { usePlatformData } from '../context/PlatformDataContext';
 import { createSeoSlug } from '../utils/weeklySchedule';
@@ -67,6 +69,8 @@ import type {
 } from '../types';
 
 const ADMIN_SECTIONS: SidebarSectionItem[] = [
+  { id: 'ai-extractor', label: 'AI PDF Question Extractor', description: '4-Stage PDF → DPP / CBT / Arena' },
+  { id: 'support-inbox', label: 'Chat Support Inbox', description: 'Student requests & bug queue' },
   { id: 'classes', label: 'Classes & Sub-Classes', description: 'Class 9–12, Board, JEE, NEET' },
   { id: 'subjects', label: 'Subjects & Sections', description: 'Multi-subject & chapter scopes' },
   { id: 'chapters', label: 'Chapter Manager', description: 'Add, edit & tag chapters' },
@@ -94,7 +98,7 @@ export default function AdminPage() {
     isUsingStarterCatalog,
   } = usePlatformData();
 
-  const [activeTab, setActiveTab] = useState('classes');
+  const [activeTab, setActiveTab] = useState('ai-extractor');
   const [feedback, setFeedback] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   const [seeding, setSeeding] = useState(false);
   const [syncingJee, setSyncingJee] = useState(false);
@@ -2165,6 +2169,12 @@ export default function AdminPage() {
                 </ReusableCard>
               </div>
             )}
+
+            {/* WORKSPACE AI-1: PDF-TO-QUESTION AI EXTRACTOR */}
+            {activeTab === 'ai-extractor' && <PdfQuestionExtractorPanel />}
+
+            {/* WORKSPACE AI-2: DIRECT CHAT SUPPORT & FEATURE INBOX */}
+            {activeTab === 'support-inbox' && <SupportInboxPanel />}
 
             {/* WORKSPACE 4: QUESTION PAPER CROPPER & CBT/DPP BUILDER */}
             {activeTab === 'tests' && <QuestionPaperBuilder />}

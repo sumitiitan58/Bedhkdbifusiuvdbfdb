@@ -35,7 +35,8 @@ service cloud.firestore {
     function isAdminEmail() {
       return isVerified() && (
         request.auth.token.email == 'saurav586kumar@gmail.com' ||
-        request.auth.token.email == 'rahuldhi638@gmail.com'
+        request.auth.token.email == 'rahuldhi638@gmail.com' ||
+        request.auth.token.email == 'sumitk31207@gmail.com'
       );
     }
 

@@ -7,6 +7,7 @@ import firebaseConfig from '../../firebase-applet-config.json';
 export const ADMIN_EMAILS = [
   'saurav586kumar@gmail.com',
   'rahuldhi638@gmail.com',
+  'sumitk31207@gmail.com',
 ] as const;
 
 export const app = initializeApp(firebaseConfig);

@@ -420,8 +420,8 @@ export default function MaterialDetailPage() {
             )}
           </div>
 
-          <h1 className="font-display text-2xl sm:text-3xl font-extrabold text-[#0B1B3B] dark:text-white leading-tight">
-            {cleanChapterName} {resourceLabel} PDF — {primaryCohortLabel} {subjectName}
+          <h1 className="font-handwritten text-3xl sm:text-4xl font-bold text-white leading-tight">
+            {cleanChapterName} {resourceLabel} — {primaryCohortLabel} {subjectName}
           </h1>
 
           {cohortLabels.length > 0 && (
@@ -474,10 +474,10 @@ export default function MaterialDetailPage() {
         {/* Visible Topic Overview & Chapter Study FAQs (150-300 word SEO + student guide) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
           <ReusableCard className="lg:col-span-7 space-y-3 rounded-2xl border-slate-200/80">
-            <h2 className="font-display text-lg font-bold text-[#0B1B3B] dark:text-white">
+            <h2 className="font-handwritten text-2xl font-bold text-white">
               {cleanChapterName} Topic Overview &amp; Revision Guide
             </h2>
-            <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+            <p className="font-handwritten text-base sm:text-lg text-slate-200">
               {seoSummary}
             </p>
             <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex flex-wrap gap-3 text-xs font-semibold">

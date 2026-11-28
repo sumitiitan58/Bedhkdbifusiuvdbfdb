@@ -2,6 +2,7 @@ export type ThemeMode = 'light' | 'dark';
 
 export type RoutePath =
   | '/'
+  | '/workspace'
   | '/learn'
   | '/arena'
   | '/materials'
